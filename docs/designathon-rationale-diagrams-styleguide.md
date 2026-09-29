@@ -1,4 +1,4 @@
-# Waypoint Operations - Designathon submission companion
+# Waypoint Operations - Designathon submission
 
 | | |
 |---|---|
