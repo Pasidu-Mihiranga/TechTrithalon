@@ -1,13 +1,15 @@
-# Waypoint Operations - Designathon submission
+# Waypoint Operations - Design Documentation
+
+This document covers the Waypoint Operations design across its four roles:- the personas, the screen flows with a rationale for each screen, the named degradation scenario, the diagrams, the AI tool disclosure, the core tradeoff and the style guide. The prototype itself lives in Figma.
 
 | | |
 |---|---|
-| **What this is** | The written half of the Tech-Triathlon 2026 Day 5 Designathon submission:- personas, screen flows with a rationale per screen, the named degradation scenario, diagrams, AI tool disclosure, the core tradeoff and the style guide |
 | **Prototype** | [Waypoint Operations (Figma)](https://www.figma.com/design/nfP1ZRvqcF2cJ4cWeZqyvT/Waypoint-Operations-%E2%80%93-Planning--Confirmed-Orders-?node-id=412-8555) |
-| **Basis** | Challenge Booklet pp. 3-10; design tokens read from the Figma `Waypoint Gold` and `Driver Mobile` variable collections |
+| **Roles designed** | Dispatcher (desktop), Loader (dock tablet), Driver (phone), Store Manager (desktop or phone) |
 | **Shared demo day** | Tue 29 Sep 2026, orders closed Mon 28 Sep at 16:00 |
 | **Traceable example** | `ORD-1163` chilled and `ORD-1165` dry at `OUT023`, on `VEH014` Trip 1, Stop 2 |
-| **Rendered version** | https://claude.ai/code/artifact/8bc81dab-5083-4792-bfa7-acba57842d6f |
+| **Named degradation** | Signal lost during delivery, with offline capture and reconciliation |
+| **Basis** | Design tokens read from the Figma `Waypoint Gold` and `Driver Mobile` variable collections |
 
 Sample IDs, names and forecast figures in the prototype are illustrative design data, not real customer records and not the output of a built prediction model.
 
@@ -30,9 +32,9 @@ The design is one connected system:- a single confirmed-order queue produces a c
 
 ## 2. Problems the design answers
 
-The brief names seven failures. Each one has a screen that answers it, and no screen exists that answers none of them.
+Seven failures run through the operation today. Each one has a screen that answers it, and no screen exists that answers none of them.
 
-| | Problem in the brief | What the design does | Where it shows |
+| | Problem | What the design does | Where it shows |
 |---|---|---|---|
 | P1 | Planning is fragmented across calls, messages and spreadsheets | One confirmed queue, an assisted plan, validated constraints and recorded overrides | Dispatcher 1A to 5B |
 | P2 | Nobody can see progress after vehicles leave | Live Operations with trip state and last update, fed by driver stop outcomes | Live Operations, Exceptions |
@@ -69,7 +71,7 @@ The brief names seven failures. Each one has a screen that answers it, and no sc
 
 ## 4. Personas
 
-One persona per role, built from the brief's description of the work rather than from invented biography. The names and shifts are prototype detail; the environment, device and pressure are what the design is built against.
+One persona per role, built from how the work actually runs rather than from invented biography. The names and shifts are prototype detail; the environment, device and pressure are what the design is built against.
 
 ### Dilani Mendis - Dispatcher
 
@@ -99,7 +101,7 @@ Counter at Waypoint Fresh Colombo 07 (`OUT023`), desktop or phone, serving custo
 
 ## 5. Design rationale
 
-Every screen answers two questions:- what state is this decision in, and what is the next safe action for me. The failures named in the brief are failures of record and handoff - a deferral nobody wrote down, a printed list that went stale, a delivery nobody can prove - so the interface is built to make state visible and decisions attributable, not to look busy.
+Every screen answers two questions:- what state is this decision in, and what is the next safe action for me. The failures in the operation today are failures of record and handoff - a deferral nobody wrote down, a printed list that went stale, a delivery nobody can prove - so the interface is built to make state visible and decisions attributable, not to look busy.
 
 ### 5.1 Four principles
 
@@ -129,7 +131,7 @@ The driver gets a bottom tab bar within thumb reach, and the route itself is one
 
 Status is carried by a labelled chip, never by colour alone, and the same chip renders identically in all four roles. Temperature, access and vehicle type share one token set, `type/fridge`, `type/normal` and `type/van`, so a reefer looks the same to the dispatcher, the loader and the driver.
 
-Capacity is always a pair of bars, kilograms and cubic metres, because a load is legal only if both limits pass. A single utilisation figure would hide the Style-versus-Tech difference the brief describes:- garments fill volume, appliances hit weight.
+Capacity is always a pair of bars, kilograms and cubic metres, because a load is legal only if both limits pass. A single utilisation figure would hide the Style-versus-Tech difference:- garments fill volume, appliances hit weight.
 
 Three components exist purely to carry accountability:- the **manifest version badge** on every loader and driver screen, the **decision record card** that shows who deferred an order and why, and the **prior-skip flag** on an outlet that was already passed over.
 
@@ -143,7 +145,7 @@ Routine success is deliberately quiet. There is no push for an order that simply
 
 Bulk selection and exclusion are reversible and show a live selected count, so a fast planning edit never silently removes demand. Drag-to-rebalance previews the changed load and re-runs the constraint checks; an invalid drop is refused with the rule it broke, not just rejected.
 
-The one hard stop in the product is the defer modal:- a reason is required before the order can move. That single piece of friction is the design's answer to the brief's repeated-skip problem, and it is what makes the store's deferral notice possible.
+The one hard stop in the product is the defer modal:- a reason is required before the order can move. That single piece of friction is the design's answer to the repeated-skip problem, and it is what makes the store's deferral notice possible.
 
 Barcode scanning is an accelerator, never a dependency, because every item can also be tapped and a scanner fails more often than a finger does. Offline never disables the task:- the banner states that work is saved on this phone, the queue shows how many actions are pending, and reconciliation reports what synced and what needs review.
 
@@ -308,7 +310,7 @@ Every designed screen and why it exists, role by role. Variants with a filter op
 
 **The rule behind it.** Store a local event ID and a device timestamp for every action, sync idempotently so a retry cannot duplicate a delivery, compare the recorded manifest version against the server's current version, and keep a conflicting event as evidence for a person to judge. Proof is never deleted to make a sync succeed.
 
-**What it protects.** The proof of delivery, the store's trust in what it was told, and the audit trail behind a disputed quantity, which are three of the failures the brief names (P4, P6 and P7).
+**What it protects.** The proof of delivery, the store's trust in what it was told, and the audit trail behind a disputed quantity, which are three of the failures this design set out to fix (P4, P6 and P7).
 
 **Secondary degradations designed as states, not full flows.** A plan change during loading, where the loader must acknowledge a new manifest version before continuing, and an over-capacity day, where the planner shows the shortfall and the prioritisation policy instead of silently trimming demand.
 
@@ -316,11 +318,11 @@ Every designed screen and why it exists, role by role. Variants with a filter op
 
 ## 8. Scope and prioritisation
 
-The brief judges restraint, so the scope was chosen against the seven workflow stages and nothing else.
+Restraint matters, so the scope was chosen against the seven workflow stages and nothing else.
 
 **Designed in full:-** the order-to-receipt path across all four roles, the constraint-checked planning flow, the deferral decision record, the loader shortfall loop, proof of delivery, receipt confirmation, the ten-week capacity view, and the offline degradation with its recovery.
 
-**Deliberately not designed,** because no stage of the brief needs them:- returns and reverse logistics, invoicing and payments, driver rostering and HR, customer-facing tracking, vehicle maintenance scheduling beyond a status, admin screens for creating outlets and vehicles, and any chat or messaging surface. Adding them would have cost screens without answering P1 to P7.
+**Deliberately not designed,** because no stage of the workflow needs them:- returns and reverse logistics, invoicing and payments, driver rostering and HR, customer-facing tracking, vehicle maintenance scheduling beyond a status, admin screens for creating outlets and vehicles, and any chat or messaging surface. Adding them would have cost screens without answering P1 to P7.
 
 **Marked as supporting, not core:-** the four Profile screens, the notification feeds, search and filter states, and the modal confirmations. They exist so every interactive element in the prototype resolves, and they should not be read as product modules.
 
@@ -520,7 +522,7 @@ flowchart LR
 
 **We chose assisted allocation over full automation:- the system does the constraint arithmetic, but a named human owns every deferral.** That costs clicks on a 186-order day and it means the plan is only as fast as the dispatcher reviewing it.
 
-The brief says that when demand exceeds capacity, the dispatcher decides who waits and records why. An optimiser could pick the same orders in a second, but nobody could then tell a store manager in Nugegoda why their chilled order was skipped twice in a row. Accountability, not throughput, is the failing part of the current process.
+When demand exceeds capacity, the dispatcher decides who waits and records why. An optimiser could pick the same orders in a second, but nobody could then tell a store manager in Nugegoda why their chilled order was skipped twice in a row. Accountability, not throughput, is the failing part of the current process.
 
 | Dimension | Full automation | Assisted allocation (chosen) |
 |---|---|---|
@@ -532,23 +534,23 @@ The brief says that when demand exceeds capacity, the dispatcher decides who wai
 
 What we kept from automation:- the generated candidate plan, the constraint gate that blocks an infeasible assignment, the ranked suggested fix on every exception, and the revalidation that runs after any human change. The dispatcher does not do arithmetic; they do judgement.
 
-**Two smaller tradeoffs.** *Loader on a tablet, not a phone:-* a shared dock tablet fits the shared, stationary, gloved reality of the dock and makes the six-step timeline legible at arm's length; the cost is that the Hackathon judges the loader at phone width, so phone states exist in the file as exploration. *A quiet dispatcher release gate:-* confirm-and-send needs an extra deliberate confirmation showing totals, manifest version and recipients, which slows the last step of a long session, exactly where an unfinished plan would otherwise be broadcast as current.
+**Two smaller tradeoffs.** *Loader on a tablet, not a phone:-* a shared dock tablet fits the shared, stationary, gloved reality of the dock and makes the six-step timeline legible at arm's length; the cost is that a phone-width loader view stays an exploration in the file rather than a finished flow. *A quiet dispatcher release gate:-* confirm-and-send needs an extra deliberate confirmation showing totals, manifest version and recipients, which slows the last step of a long session, exactly where an unfinished plan would otherwise be broadcast as current.
 
 ---
 
 ## 11. AI tool disclosure
 
-AI tools were used throughout this Designathon, as design and documentation assistants under human direction. Every screen, number and decision in the submission was reviewed by a team member.
+AI tools were used throughout this project, as design and documentation assistants under human direction. Every screen, number and decision was reviewed by a team member.
 
 | Tool | What it was used for |
 |---|---|
-| **OpenAI Codex** | Booklet analysis, flow and rationale drafting, copy refinement, and cross-checking screens against the brief's constraints |
-| **Claude Code with the Figma MCP** | Reading and editing the Figma file programmatically, which covered building and correcting frames, applying design tokens, auditing every screen against the brief, and generating this document and its diagrams |
+| **OpenAI Codex** | Requirement analysis, flow and rationale drafting, copy refinement, and cross-checking screens against the operating constraints |
+| **Claude Code with the Figma MCP** | Reading and editing the Figma file programmatically, which covered building and correcting frames, applying design tokens, auditing every screen against the operating constraints, and generating this document and its diagrams |
 | **Figma agent** | In-canvas design generation and layout assistance while building screens |
 
-**What the humans did.** The team framed the problem, chose the four roles and the scope, set the visual direction and the charcoal-white-gold palette, chose the loader's tablet-first layout, decided the core tradeoff, and picked which screens were worth designing and which were not. Every AI-produced frame, label and figure was inspected in Figma and corrected where it drifted from the brief.
+**What the humans did.** The team framed the problem, chose the four roles and the scope, set the visual direction and the charcoal-white-gold palette, chose the loader's tablet-first layout, decided the core tradeoff, and picked which screens were worth designing and which were not. Every AI-produced frame, label and figure was inspected in Figma and corrected where it drifted from the operating rules.
 
-**How the output was checked.** AI-assisted work was verified against the Challenge Booklet constraint by constraint, covering operating days, the 16:00 cutoff, the Fresh before-08:00 window, weight and volume limits, refrigerated-vehicle rules, van-only access, two trips a day and weekly fuel quotas. Where the prototype's data is still illustrative, notably the ten-week forecast, it is labelled as such rather than presented as a model output.
+**How the output was checked.** AI-assisted work was verified against the operating constraints one by one, covering operating days, the 16:00 cutoff, the Fresh before-08:00 window, weight and volume limits, refrigerated-vehicle rules, van-only access, two trips a day and weekly fuel quotas. Where the prototype's data is still illustrative, notably the ten-week forecast, it is labelled as such rather than presented as a model output.
 
 ---
 
@@ -652,64 +654,3 @@ Status chip, temperature and access badge, dual capacity bar (kg and volume), ve
 ### 12.9 States
 
 Every interactive component ships with default, hover, focus, active, selected, disabled, loading, empty, error and offline. Three states are mandatory on any screen that records an outcome:- **pending** (nothing recorded yet), **recorded locally** (saved on the device, not synced) and **confirmed** (the server holds it). Collapsing those three is what loses a delivery record, so the design keeps them visually distinct.
-
----
-
-## 13. Submission checklist
-
-### 13.1 Deliverable coverage
-
-| Deliverable | Required | Where it is |
-|---|---|---|
-| One persona per role, four in total | Mandatory | Section 4 |
-| Screen flows per role | Mandatory | Section 6 |
-| A rationale paragraph for every screen | Mandatory | The four tables in section 6 |
-| At least one fully designed degradation screen, named, with a rationale | Mandatory | Section 7, plus Driver Offline Sync and Sync Reconciled in the prototype |
-| High-fidelity prototype | Mandatory | Figma, entry points in section 1.1 |
-| Demo video, 3 to 5 minutes, unlisted on YouTube | Mandatory | Team task, plan in 13.4 |
-| AI tool disclosure | Mandatory | Section 11 |
-| Core tradeoff, one page or one diagram | Optional | Section 10 |
-| Style guide | Optional | Section 12 |
-| One design file with distinct pages, exported and zipped | Mandatory | Team task, 13.3 |
-
-### 13.2 How this answers the judging criteria
-
-| Criterion | Weight | Where it is answered |
-|---|---|---|
-| Problem framing | 25% | Sections 2, 5.1 and 10 |
-| Understanding of user context | 20% | Sections 4 and 5.3 |
-| Degradation quality | 15% | Sections 7 and 9.6 |
-| Scope and prioritisation | 15% | Section 8 |
-| Visual and interaction consistency | 15% | Section 12, one component set and one shared demo day across four roles |
-| Domain accuracy | 10% | Section 3 |
-
-### 13.3 Packaging and deadline
-
-- Organise the Figma file into distinct pages:- cover and index, problem and personas, flows and rationale, the four role pages, degradation, style guide, tradeoff and AI disclosure.
-- Export with the team name as the base filename, `TeamName_Designathon`, and compress it to `TeamName_Designathon.zip`.
-- Submit the zip, a shareable prototype link and the unlisted video link through the Designathon form at <https://forms.gle/H6dqUZP6pXdGC8Go8>.
-- Deadline:- Tue 29 Sep 2026, 23:59 Asia/Colombo.
-
-### 13.4 Demo video plan, 3 to 5 minutes
-
-| Time | Show | Say why |
-|---|---|---|
-| 0:00 to 0:25 | The problem and the four roles | 120 outlets, two depots, a constrained fleet, one shared plan and one feedback loop |
-| 0:25 to 1:05 | Store order and confirmation | Separate dry and chilled orders, the 16:00 cutoff, confirmation without an invented ETA |
-| 1:05 to 1:50 | Dispatcher queue, allocation, exception, deferral | Both capacities, temperature, access, window, trips and fuel, then a human reason and the prior-skip history |
-| 1:50 to 2:30 | Loader manifest, timeline, shortfall | Rear to front loading, the current version, and a shortfall that reaches dispatch before departure |
-| 2:30 to 3:15 | Driver next stop, outcome, proof | Safe stopped use, access and window, photo, signature and recipient |
-| 3:15 to 3:55 | Offline degradation and recovery | Saved local actions, an honest last-seen ETA, and a conflict kept for review |
-| 3:55 to 4:30 | Store receipt and the forecast decision | 24 ordered against 22 delivered, confirmed by the store; then the chilled capacity review |
-| 4:30 to 5:00 | Tradeoff and assumptions | Assisted allocation, illustrative sample data, AI disclosure |
-
-### 13.5 Before you export
-
-- [ ] Every role's prototype entry point opens and the back path works.
-- [ ] One order, `ORD-1163`, is followable from store to dispatcher to loader to driver and back to the store.
-- [ ] The shortfall example stays 24 requested, 22 available, 2 short at every handoff.
-- [ ] The deferral example uses one consistent order ID in the narration.
-- [ ] No screen shows a Sunday plan date, a Fresh window after 08:00, or an ETA before allocation.
-- [ ] Forecast figures are still labelled illustrative.
-- [ ] A judge without edit access can open the prototype and the video links.
-- [ ] The AI disclosure matches what the team actually used.
