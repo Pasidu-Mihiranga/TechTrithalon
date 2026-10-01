@@ -1,0 +1,4 @@
+outlet_id,brand,district,depot,dock_type,parking_constraint,mall_window,window_open_time,window_close_time
+OUT901,Fresh,Alpha,Peliyagoda,street,van_only,,05:00,07:30
+OUT902,Style,Alpha,Peliyagoda,mall_bay,mall_dock,10:00-12:00,09:00,17:00
+OUT903,Tech,Beta,Kandy,rear_dock,normal,,09:00,17:00

@@ -1,0 +1,33 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Java / Gradle
+.gradle/
+**/build/
+out/
+
+# Node / Vite
+node_modules/
+**/dist/
+**/coverage/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+
+# Competition datasets — NEVER commit. The Tech-Triathlon terms forbid uploading
+# the datasets to any external site, and this repository is public.
+# Place the supplied files locally at dataset/data/ (see README).
+dataset/

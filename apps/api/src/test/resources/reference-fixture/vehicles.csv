@@ -1,0 +1,3 @@
+vehicle_id,type,temp,weight_cap_kg,volume_cap_m3,fuel_type,km_per_l,weekly_fuel_quota_l,depot
+VEH901,truck,reefer,5000,25.0,diesel,5.0,400,Peliyagoda
+VEH902,van,ambient,1100,8.0,diesel,9.0,300,Kandy

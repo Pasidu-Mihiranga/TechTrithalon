@@ -1,0 +1,95 @@
+{
+  "components" : {
+    "schemas" : {
+      "ReferenceSummary" : {
+        "properties" : {
+          "calendarDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "demoOperatingDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "districts" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "outlets" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "serviceAllowances" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "SystemHealth" : {
+        "properties" : {
+          "intelligence" : {
+            "type" : "string"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      }
+    }
+  },
+  "info" : {
+    "title" : "TechTrithalon — Waypoint Operations API",
+    "version" : "v1"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/v1/reference/summary" : {
+      "get" : {
+        "operationId" : "summary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReferenceSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "reference-controller" ]
+      }
+    },
+    "/api/v1/system/health" : {
+      "get" : {
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SystemHealth"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "system-controller" ]
+      }
+    }
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ]
+}

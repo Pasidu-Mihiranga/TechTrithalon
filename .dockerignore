@@ -1,0 +1,9 @@
+.git
+.gradle
+**/build
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+dataset/*.zip
+docs/Challenge Booklet.pdf

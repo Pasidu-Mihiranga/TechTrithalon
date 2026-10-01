@@ -1,0 +1,11 @@
+{
+  "name": "techtrithalon",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.23.0",
+  "scripts": {
+    "dev:web": "pnpm --dir apps/web dev",
+    "build:web": "pnpm --dir apps/web build",
+    "test:web": "pnpm --dir apps/web test"
+  }
+}
