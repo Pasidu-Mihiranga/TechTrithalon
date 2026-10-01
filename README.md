@@ -19,7 +19,7 @@ The fleet usually can't serve every order, so the core of the system is **constr
 |---|---|---|
 | Web client | React 19 · TypeScript · Vite · TanStack Query · React Router | One responsive app for all four roles; dispatcher on desktop, driver/loader on phone |
 | API client | `openapi-typescript` + `openapi-fetch`, generated from `apps/api/openapi.json` | Frontend and backend types can't drift apart |
-| Offline (planned) | PWA + IndexedDB (Dexie) outbox | Drivers keep working without coverage |
+| Driver clients (planned) | PWA (IndexedDB/Dexie) **and** React Native Expo Android APK (SQLite), sharing `packages/field-core` | Drivers keep working without coverage; installable app on personal phones |
 | Operational API | Java 21 · Spring Boot 3.5 · Spring Web MVC · JDBC/JPA · Bean Validation | A modular monolith: transactional, validation-heavy domain |
 | API docs | springdoc-openapi (OpenAPI 3.1) | Single source for the generated client |
 | Database | PostgreSQL 16 · Flyway migrations | The single operational source of truth |
@@ -94,6 +94,8 @@ TechTrithalon/
 │   │       ├── lib/                      API client, query setup, offline helpers
 │   │       └── styles/
 │   │
+│   ├── mobile/                           React Native (Expo) driver app → Android APK (Phase 14A)
+│   │
 │   └── intelligence/                     Python computation service
 │       ├── techtrithalon_intelligence/
 │       │   ├── app.py                    FastAPI app
@@ -106,7 +108,10 @@ TechTrithalon/
 │       ├── notebooks/                    exploration only
 │       └── tests/
 │
-├── packages/design-tokens/               Figma tokens → CSS variables / TS constants
+├── packages/
+│   ├── api-client/                       generated OpenAPI client, shared by web and mobile
+│   ├── field-core/                       offline outbox + sync engine, shared by driver PWA and APK
+│   └── design-tokens/                    Figma tokens → CSS variables (web) / TS constants (mobile)
 ├── infrastructure/
 │   ├── docker/                           Dockerfiles (api, web, intelligence) + nginx.conf
 │   └── compose/                          environment-specific compose overrides

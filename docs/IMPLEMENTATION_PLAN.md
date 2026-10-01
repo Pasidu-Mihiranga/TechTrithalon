@@ -10,6 +10,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 1 — Design System & Application Shell
 - [ ] Phase 2 — Authentication & RBAC
 - [ ] Phase 3 — Reference Data Foundation
+- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
 - [ ] Phase 4 — Store Manager Order Flow
 - [ ] Phase 5 — Dispatcher Confirmed Orders
 - [ ] Phase 6 — Trip-Time & Constraint Engine
@@ -21,6 +22,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 12 — Loader Workflow
 - [ ] Phase 13 — Driver Workflow
 - [ ] Phase 14 — Offline & Sync
+- [ ] Phase 14A — Driver Android App (React Native)
 - [ ] Phase 15 — Receipt Confirmation
 - [ ] Phase 16 — Live Operations
 - [ ] Phase 17 — Forecasting Foundation
@@ -31,6 +33,10 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 22 — Full-System Verification
 
 ## 1. How to Use This Plan
+
+> **UI priority (owner decision).** Dispatcher and Store Manager UI is built first (Phase 3A), wired to real backend data from day one. Loader and Driver UI come later (Phases 12–14A). **No hard-coded or mock data in the UI**: every number on screen comes from the API, and a screen whose backend capability doesn't exist yet shows an honest empty or "not available yet" state.
+>
+> **Driver clients (owner decision, AD-13).** The driver runs as a PWA (Phase 13, mandatory) **and** a React Native Android APK (Phase 14A), sharing `packages/field-core`. See [§8.1](./TECHNICAL_REFERENCE.md#81-driver-client-decision--pwa-and-react-native-apk-revised).
 
 - Follow dependencies and exit gates rather than dates. A later phase can start in parallel only when its listed dependencies and contracts are stable.
 - Work in **vertical feature slices**: Flyway/data → Spring domain/API/auth → generated TypeScript client → React UI → tests → Figma verification → review. Python joins a slice only for computation.
@@ -299,6 +305,79 @@ CSV/import work, API contract, and selectors can advance in parallel. Synchroniz
 ### Result
 
 After this phase, the system can use verified operational reference data.
+
+## Phase 3A — Dispatcher & Store Manager UI on Live Data
+
+### Goal
+
+Build every Dispatcher and Store Manager screen from the Figma design, reading **real data from the backend**, before any Loader or Driver UI.
+
+### Why This Phase Comes Now
+
+The dispatcher experience is the most fully designed part of the product (21 Figma screens) and the core of the system. Building its UI early on real data surfaces API-shape problems while they are cheap to fix, and gives every later business phase a ready screen to plug into.
+
+### Dependencies
+
+- Phases 1–3 (design system, auth, reference data).
+
+### Rules for this phase
+
+- **No hard-coded data, no mock API, no placeholder numbers.** Every value is fetched.
+- If a screen's backend capability belongs to a later phase (planning results, live trips, forecasts), render the Figma layout with a real **empty state** that says what is missing and which phase delivers it. Never fill it with sample values.
+- Figma is the source of truth for layout. Where a store-manager screen has no Figma frame, compose it from the existing design system and mark it for design review.
+
+### Main Work
+
+#### Backend
+
+- [ ] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
+- [ ] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
+- [ ] All counts and KPIs computed server-side; the UI never derives business numbers.
+
+#### Frontend — Dispatcher (Figma, class A)
+
+- [ ] App shell: sidebar, top bar, depot switcher, global search.
+- [ ] Dashboard (KPI cards and attention lists from live queries).
+- [ ] Orders and Order Detail.
+- [ ] Planning → Step 1 Confirmed Orders (table, filters, sorts, selection).
+- [ ] Fleet and Fleet Detail (workshop status from the database).
+- [ ] Deferred Orders, Exceptions, Live Operations, Capacity Forecast, Capacity Decision: layouts built; real empty states until Phases 8, 10, 16, 17 and 19 supply data.
+- [ ] Profile and Login.
+
+#### Frontend — Store Manager (no Figma frames yet; class C)
+
+- [ ] Home with real cutoff countdown (server time, Asia/Colombo).
+- [ ] My Orders and Order Detail (status timeline from real order status).
+- [ ] Place Order layout (submission is wired in Phase 4).
+
+#### Database
+
+- [ ] `customer_order` table (as specified in the reference) and the demo-day seed.
+
+#### Python / Intelligence
+
+Not required in this phase.
+
+#### Testing
+
+- [ ] API integration tests for every read endpoint, including role scope (store manager sees only own outlet).
+- [ ] Component tests for loading, empty, error and forbidden states.
+- [ ] A test that fails if the web bundle contains fixture/mock data imports (guard against hard-coded data).
+- [ ] Visual check of each dispatcher screen against its Figma frame.
+
+#### Documentation
+
+- [ ] List each screen with its Figma frame, its endpoint, and which later phase completes it.
+
+### Exit Gate
+
+- [ ] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
+- [ ] Store manager can see their own real orders and the live cutoff.
+- [ ] No mock data or hard-coded business values in the web app.
+
+### Result
+
+After this phase, the dispatcher and store manager can navigate the full product UI on real seeded data, and later phases add behavior to existing screens instead of building them.
 
 ## Phase 4 — Store Manager Order Flow
 
@@ -880,6 +959,7 @@ Field work must survive lost connectivity and replay without duplicate events.
 #### Frontend
 
 - [ ] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
+- [ ] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
 - [ ] Show pending count, retry, reconciling, conflict, and route-updated states.
 
 #### Database
@@ -911,6 +991,52 @@ Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one com
 ### Result
 
 After this phase, the system can complete a route during coverage loss and reconcile it safely.
+
+## Phase 14A — Driver Android App (React Native)
+
+### Goal
+
+Ship the driver experience as an installable Android APK alongside the PWA, reusing the shared field core.
+
+### Why This Phase Comes Now
+
+The PWA (Phase 13) and the sync protocol (Phase 14) must be proven first; the app then reuses them rather than reinventing them.
+
+### Dependencies
+
+- Phases 13–14; `packages/field-core` extracted with a storage port.
+
+### Main Work
+
+#### Mobile
+
+- [ ] Expo app in `apps/mobile`; screens mirror the PWA driver flow (trip list, stop, arrive, deliver, issue, POD, offline state).
+- [ ] `SqliteOutboxStore` (expo-sqlite) implementing the field-core storage port.
+- [ ] Bearer-token login stored in `expo-secure-store` (AD-14); POD photos via `expo-image-picker` + `expo-image-manipulator`.
+- [ ] Design tokens from `packages/design-tokens` (TS constants).
+
+#### Backend
+
+- [ ] Accept `Authorization: Bearer` sessions for the driver role; same session store and revocation as web.
+
+#### Testing
+
+- [ ] Field-core contract tests run against both Dexie and SQLite stores.
+- [ ] Airplane-mode journey on a real Android device: record stops offline, reconnect, each lands exactly once.
+- [ ] Token revocation logs the app out.
+
+#### Documentation
+
+- [ ] How to build the APK (EAS) and install it on a device.
+
+### Exit Gate
+
+- [ ] The same driver journey passes on the PWA and on the APK.
+- [ ] The APK installs on a real Android phone and syncs offline work exactly once.
+
+### Result
+
+After this phase, drivers can use either the browser or an installed Android app with identical behavior.
 
 ## Phase 15 — Receipt Confirmation
 

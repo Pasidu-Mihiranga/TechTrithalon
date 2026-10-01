@@ -562,11 +562,11 @@ Older examples use F1–F20. Their current build phases are: F1→2; F2→3; F3�
 | **Deferrals** | Records skipped orders with reasons and next run | Prevents silent loss of demand; **Dispatcher; store manager** | Spring planning + notifications | Snapshot; validator; history | Reason-required and notice E2E |
 | **Plan publication** | Validates and activates a plan version | Creates a trusted execution handoff; **Dispatcher; loader; driver** | Spring planning + PostgreSQL | Assignments or deferrals for all orders | Publish race, rollback, and version tests |
 | **Loader workflow** | Loads reverse stop order and flags shortfalls | Supports correct unloading and predeparture correction; **Loader** | Spring loading + React | Published plan | LIFO, shortfall, stale-version E2E |
-| **Driver workflow** | Records arrivals, outcomes, and trip completion | Captures actual execution on a phone; **Driver** | Spring delivery + React PWA | Published loaded trip | Phone journey and ownership tests |
+| **Driver workflow** | Records arrivals, outcomes, and trip completion | Captures actual execution on a phone; **Driver** | Spring delivery + React PWA + React Native app (§8.1) | Published loaded trip | Phone journey and ownership tests |
 | **Proof of delivery** | Attaches compressed photo/signature evidence | Resolves delivery disputes; **Driver; store manager** | React capture + object storage + Spring | Driver outcome; upload policy | Offline upload, size/type, ownership |
 | **Receipt confirmation** | Confirms actual quantities and discrepancies | Closes the order lifecycle; **Store manager** | Spring receipt + React | Delivery record | Discrepancy and status E2E |
 | **Live operations** | Shows stop progress, issues, and last update | Closes dispatcher visibility gap; **Dispatcher** | Spring live read model + React/SSE | Delivery/loading events | SSE scope and polling fallback |
-| **Offline synchronization** | Persists driver commands and retries safely | Keeps delivery usable without coverage; **Driver** | Dexie/PWA + Spring sync | Driver commands; idempotency table | Offline reload, duplicate replay, conflict E2E |
+| **Offline synchronization** | Persists driver commands and retries safely | Keeps delivery usable without coverage; **Driver** | `packages/field-core` (Dexie on web, SQLite on mobile) + Spring sync | Driver commands; idempotency table | Offline reload, duplicate replay, conflict E2E |
 | **Capacity forecast** | Shows future demand beside capacity | Supports fleet planning before orders arrive; **Dispatcher** | Python forecast + Spring forecast + React | History; fleet; calendar | Time split and capacity reconciliation |
 
 ### Planning Intelligence
@@ -683,7 +683,6 @@ Discovered from the booklet, the dataset and the design — classified and justi
 |---|---|
 | Real GPS tracking and turn-by-turn navigation | No coordinate data (§5); the dataset's travel model is district-level. Would be invented data dressed as precision |
 | Route optimisation beyond assignment | §19 — there is no routing problem to optimise |
-| Native mobile apps | A PWA satisfies every offline and camera requirement here |
 | Push notifications | Requires app-store presence or web-push infrastructure; in-app plus SSE covers the need |
 | Chat between dispatcher and driver | The booklet explicitly wants structured records, not more unstructured messages — this would recreate the problem being solved |
 | An AI "plan score" | §20 — eleven explainable metrics beat one unarguable number |
@@ -868,6 +867,8 @@ Each row is a decision record. "Reconsider when" is the trigger that should make
 | AD-9 | No message broker; scheduled jobs + DB job table | RabbitMQ, Kafka | Job volume outgrows a single instance, or cross-process fan-out is needed (§40) |
 | AD-10 | No Redis at v1 | Redis for cache/session/locks | Session state needs sharing across instances, or a hot read path is measurably DB-bound |
 | AD-11 | OpenAPI → generated TypeScript client | Hand-written TS interfaces; GraphQL; tRPC | Never — contract drift across a split-stack codebase is the thing this prevents |
+| AD-13 | **Driver ships as both a PWA and a React Native (Expo) Android app**, sharing one field core | PWA only; native only | The APK proves unnecessary in field trials, or iOS distribution is required (add an iOS build — no architecture change) |
+| AD-14 | Session auth with two transports: `HttpOnly` cookie for web, opaque bearer token for the native app | JWT everywhere; cookie-only | A third-party API consumer appears — then OAuth2 client credentials |
 | AD-12 | Flyway migrations, SQL-first | JPA `ddl-auto`; Liquibase | `ddl-auto` is never acceptable beyond local spikes |
 
 ### The argument from the domain
@@ -948,7 +949,8 @@ For each significant choice: why it fits, what else was considered, why this one
 | **TanStack Query** | Adopt | Server state is the overwhelming majority of state in this app. Caching, invalidation, retry, optimistic updates, and offline-friendly persistence come built in |
 | **Zustand** | Adopt, narrowly | Only for genuine client state: planning board draft edits before commit, offline queue UI state, sidebar collapse. **Not** for server data |
 | **React Hook Form + Zod** | Adopt | Order entry, defer-with-reason, receipt confirmation are all forms with real validation. Zod schemas are generated from OpenAPI where possible (§13) so client and server validation cannot drift |
-| **PWA + Dexie (IndexedDB)** | Adopt, driver/loader only | §27. Dexie over raw IndexedDB for a usable API and migrations |
+| **PWA + Dexie (IndexedDB)** | Adopt, driver/loader | §27. Dexie over raw IndexedDB for a usable API and migrations |
+| **React Native (Expo) + expo-sqlite** | Adopt, driver APK only | §8.1. Expo + EAS builds an Android APK without native toolchain setup |
 | **TanStack Table** | Adopt | The Confirmed Orders table needs sorting, filtering, selection and virtualisation; the Figma shows all four |
 | **Recharts** | Adopt | Capacity Forecast bar charts with a capacity threshold line. Lightweight, declarative, sufficient |
 | Redux Toolkit | Reject | TanStack Query + Zustand covers this app's needs with far less ceremony |
@@ -1024,9 +1026,56 @@ The brief asks not to answer "because enterprise". Here is the actual argument, 
 
 ---
 
+### 8.1 Driver client decision — PWA **and** React Native APK (revised)
+
+**Status:** adopted (replaces "PWA only"). **Decided by:** project owner.
+
+**Decision.** The driver experience is delivered twice from shared code:
+
+| Client | Tech | Role |
+|---|---|---|
+| Driver **PWA** | React (in `apps/web`), service worker, IndexedDB via Dexie | Mandatory baseline. The competition requires a responsive web app usable on phones, so the PWA must be complete on its own |
+| Driver **Android APK** | React Native with **Expo** (`apps/mobile`), built with EAS | Additive. Better camera, background sync, storage durability and an installable app for drivers on personal phones |
+
+Dispatcher, store manager and loader stay web-only.
+
+**What is shared, and where:**
+
+```
+packages/api-client     generated OpenAPI types + typed client   → web, mobile
+packages/field-core     offline outbox, sync engine, command      → web PWA, mobile
+                        schema, conflict policy, ETA helpers
+                        (pure TypeScript, no DOM, no React Native)
+packages/design-tokens  tokens → CSS variables (web) + TS constants (mobile)
+```
+
+`field-core` depends on a **storage port**, not a storage library:
+
+```ts
+interface OutboxStore {
+  enqueue(cmd: FieldCommand): Promise<void>
+  pending(): Promise<FieldCommand[]>
+  markResult(id: string, result: SyncResult): Promise<void>
+}
+// web:    DexieOutboxStore      (IndexedDB)
+// mobile: SqliteOutboxStore     (expo-sqlite)
+```
+
+The sync protocol, idempotency (`client_action_id`), plan-version staleness and conflict rules (§27) are therefore implemented **once** and tested once, then exercised by both clients. **The Spring sync endpoint does not change** — it is client-agnostic by design.
+
+**Consequences.**
+
+- Auth gains a bearer-token transport for the app (AD-14, §14). Cookies are unreliable in React Native.
+- Screens are written twice (React DOM vs React Native primitives). Logic, types, tokens and API calls are not. Expected duplication is limited to the view layer.
+- The PWA is built **first** (Phase 13). The APK follows in Phase 14A, after the shared field core and the sync endpoint are proven by the PWA.
+- POD photos: the PWA compresses with a canvas; the app uses `expo-image-manipulator`. Both upload through the same signed-URL endpoint.
+- CI adds a mobile job: typecheck, unit tests for `field-core` adapters, and an EAS preview build on demand (not on every PR).
+
+**Rejected alternatives.** *PWA only*: weaker background sync and storage eviction risk on Android. *Native only*: fails the competition's web requirement and doubles the loader/store work. *Capacitor wrapping the PWA*: one codebase, but it keeps IndexedDB eviction and WebView camera limits — the main reasons for wanting an APK.
+
 ## 9. Repository Architecture
 
-Evaluated against the brief's proposal and adjusted.
+Evaluated against the brief's proposal and adjusted. **Revised for AD-13:** adds `apps/mobile` (React Native driver app) and the shared packages `packages/api-client`, `packages/field-core` and `packages/design-tokens`.
 
 ```
 waypoint/
@@ -1878,7 +1927,7 @@ RFC 7807 shape, extended with `violations`. Status codes: `400` malformed · `40
 
 ### Mechanism
 
-**Session cookie (opaque, server-side) rather than JWT**, for three concrete reasons: logout must be immediate (a dispatcher removing a driver's access cannot wait for token expiry); there is no third-party API consumer needing bearer tokens; and the driver PWA stores far less sensitive material if the credential is an `HttpOnly` cookie rather than a readable token.
+**Opaque server-side sessions rather than JWT** (AD-14). The web uses an `HttpOnly` cookie; the React Native driver app sends the same opaque session id as `Authorization: Bearer <token>`, stored in `expo-secure-store`. Both resolve to one server-side session table, so revocation is immediate for both. Reasons for opaque sessions over JWT: logout must be immediate (a dispatcher removing a driver's access cannot wait for token expiry); there is no third-party API consumer needing bearer tokens; and the PWA stores far less sensitive material if the credential is an `HttpOnly` cookie rather than a readable token.
 
 ```
 POST /api/v1/auth/login   {username, password}
