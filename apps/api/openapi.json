@@ -1,6 +1,125 @@
 {
   "components" : {
     "schemas" : {
+      "AvailabilityRequest" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "status" : {
+            "minLength" : 1,
+            "pattern" : "available|in_workshop",
+            "type" : "string"
+          }
+        },
+        "required" : [ "date", "expectedVersion", "note", "status" ],
+        "type" : "object"
+      },
+      "CalendarDay" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "festival" : {
+            "type" : [ "string", "null" ]
+          },
+          "festivalRamp" : {
+            "type" : "number"
+          },
+          "isoWeek" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "isoYear" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "monsoon" : {
+            "type" : "boolean"
+          },
+          "operating" : {
+            "type" : "boolean"
+          },
+          "payday" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "DistrictTravel" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "depotToDistrictKm" : {
+            "type" : "number"
+          },
+          "depotToDistrictMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "freeFlowKmh" : {
+            "type" : "number"
+          },
+          "interStopKm" : {
+            "type" : "number"
+          },
+          "interStopMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "roadClass" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FuelBalance" : {
+        "properties" : {
+          "actualLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "committedLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "isoWeek" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "isoYear" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "quotaLitres" : {
+            "type" : "number"
+          },
+          "recorded" : {
+            "type" : "boolean"
+          },
+          "remainingLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "LoginRequest" : {
         "properties" : {
           "password" : {
@@ -18,6 +137,48 @@
           }
         },
         "required" : [ "password", "username" ],
+        "type" : "object"
+      },
+      "Outlet" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "effectiveWindowClose" : {
+            "type" : "string"
+          },
+          "effectiveWindowOpen" : {
+            "type" : "string"
+          },
+          "mallWindowClose" : {
+            "type" : [ "string", "null" ]
+          },
+          "mallWindowOpen" : {
+            "type" : [ "string", "null" ]
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "parkingConstraint" : {
+            "type" : "string"
+          },
+          "windowClose" : {
+            "type" : "string"
+          },
+          "windowOpen" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "outletId" ],
         "type" : "object"
       },
       "ReferenceSummary" : {
@@ -43,6 +204,21 @@
             "type" : "integer"
           },
           "vehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ServiceAllowance" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "minutes" : {
             "format" : "int32",
             "type" : "integer"
           }
@@ -84,6 +260,72 @@
           },
           "username" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Vehicle" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "fuelType" : {
+            "type" : "string"
+          },
+          "kmPerL" : {
+            "type" : "number"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeCapM3" : {
+            "type" : "number"
+          },
+          "weeklyFuelQuotaL" : {
+            "type" : "number"
+          },
+          "weightCapKg" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "vehicleId" ],
+        "type" : "object"
+      },
+      "VehicleAvailability" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "recorded" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "updatedBy" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -166,6 +408,298 @@
         "tags" : [ "auth-controller" ]
       }
     },
+    "/api/v1/dispatcher/vehicles/{id}/availability" : {
+      "get" : {
+        "operationId" : "availability",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VehicleAvailability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      },
+      "patch" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AvailabilityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VehicleAvailability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/vehicles/{id}/fuel" : {
+      "get" : {
+        "operationId" : "fuel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FuelBalance"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/reference/calendar" : {
+      "get" : {
+        "operationId" : "calendar",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CalendarDay"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/depots" : {
+      "get" : {
+        "operationId" : "depots",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/districts" : {
+      "get" : {
+        "operationId" : "districts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DistrictTravel"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/outlets" : {
+      "get" : {
+        "operationId" : "outlets",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "brand",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "district",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Outlet"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/outlets/{id}" : {
+      "get" : {
+        "operationId" : "outlet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Outlet"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/service-allowances" : {
+      "get" : {
+        "operationId" : "allowances",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServiceAllowance"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
     "/api/v1/reference/summary" : {
       "get" : {
         "operationId" : "summary",
@@ -185,6 +719,59 @@
           "session" : [ ]
         } ],
         "tags" : [ "reference-controller" ]
+      }
+    },
+    "/api/v1/reference/vehicles" : {
+      "get" : {
+        "operationId" : "vehicles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Vehicle"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/vehicles/{id}" : {
+      "get" : {
+        "operationId" : "vehicle",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Vehicle"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
       }
     },
     "/api/v1/system/health" : {

@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Phase 1 design system and Phase 2 authentication are implemented locally. Phase 0 GitHub CI verification remains pending; operational features follow the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
+> **Status:** Phases 1–3 are implemented and verified locally: design system, authentication, and reference data foundation. Phase 3A Dispatcher and Store Manager screens are next. Phase 0 GitHub CI verification remains pending; operational features follow the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -294,3 +294,7 @@ CI fails if `apps/api/openapi.json` or `apps/web/src/generated/` is out of date.
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase-by-phase checklist, priorities, exit gates
 - [Technical reference](docs/TECHNICAL_REFERENCE.md) — architecture, data model, planning engine, offline design
 - [Design documentation](docs/waypoint-design-documentation.md) — Designathon submission
+
+## Reference data foundation (Phase 3)
+
+The scoped reference APIs supply outlet/vehicle selectors, calendar, travel and service allowances. Fleet availability uses versioned, audited writes; missing availability and fuel balances remain explicitly unrecorded. [Phase 3 verification](docs/PHASE3_VERIFICATION.md) documents endpoints, source CSVs, date bounds, tests and curl responses. The supplied calendar ends on 28 June 2026; no automatic extension is performed.

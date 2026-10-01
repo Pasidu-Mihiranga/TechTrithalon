@@ -44,6 +44,12 @@ class RealDatasetSeedIT {
         assertThat(count("outlet WHERE brand = 'Tech'")).isEqualTo(15);
         assertThat(count("outlet WHERE parking_constraint = 'van_only'")).isEqualTo(13);
         assertThat(count("outlet WHERE mall_window_open IS NOT NULL")).isEqualTo(12);
+        assertThat(count("outlet")).isEqualTo(120);
+        assertThat(count("vehicle")).isEqualTo(60);
+        assertThat(count("district_travel")).isEqualTo(12);
+        assertThat(count("vehicle WHERE type = 'truck' AND temp = 'reefer'")).isEqualTo(12);
+        assertThat(count("vehicle WHERE type = 'truck' AND temp = 'ambient'")).isEqualTo(40);
+        assertThat(count("vehicle WHERE type = 'van' AND temp = 'ambient'")).isEqualTo(4);
         assertThat(count("vehicle WHERE temp = 'reefer'")).isEqualTo(16);
         assertThat(count("vehicle WHERE type = 'van'")).isEqualTo(8);
         assertThat(count("vehicle WHERE type = 'van' AND temp = 'reefer'")).isEqualTo(4);

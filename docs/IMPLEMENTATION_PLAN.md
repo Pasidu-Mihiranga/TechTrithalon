@@ -9,7 +9,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 0 — Repository & Development Foundation
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
-- [ ] Phase 3 — Reference Data Foundation
+- [x] Phase 3 — Reference Data Foundation
 - [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
 - [ ] Phase 4 — Store Manager Order Flow
 - [ ] Phase 5 — Dispatcher Confirmed Orders
@@ -323,16 +323,16 @@ Orders and rules must read the actual outlet, vehicle, calendar, travel, and ser
 
 #### Backend
 
-- [ ] Implement read APIs and fleet availability transitions.
-- [ ] Derive effective mall windows and reject empty intersections.
+- [x] Implement read APIs and fleet availability transitions.
+- [x] Derive effective mall windows and reject empty intersections.
 
 #### Frontend
 
-- [ ] Add only the fleet/outlet selectors needed by order and planning flows.
+- [x] Add only the fleet/outlet selectors needed by order and planning flows.
 
 #### Database
 
-- [ ] Import CSVs idempotently with natural IDs; persist availability and weekly fuel ledger.
+- [x] Import CSVs idempotently with natural IDs; persist availability and weekly fuel ledger.
 
 #### Python / Intelligence
 
@@ -340,12 +340,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Assert 120 outlets, 60 vehicles, 12 districts, 13 van-only outlets, 12 mall outlets, and exact fleet mix.
-- [ ] Test workshop status, mall intersection, and role-scoped reads against PostgreSQL.
+- [x] Assert 120 outlets, 60 vehicles, 12 districts, 13 van-only outlets, 12 mall outlets, and exact fleet mix.
+- [x] Test workshop status, mall intersection, and role-scoped reads against PostgreSQL.
 
 #### Documentation
 
-- [ ] Record source CSV paths, verified counts, and any date-extension policy.
+- [x] Record source CSV paths, verified counts, and any date-extension policy.
 
 ### Parallel Work for 9 Members
 
@@ -353,13 +353,15 @@ CSV/import work, API contract, and selectors can advance in parallel. Synchroniz
 
 ### Exit Gate
 
-- [ ] Reference counts and invariants match supplied files.
-- [ ] Read APIs return real seeded data.
-- [ ] Invalid mall windows fail import.
+- [x] Reference counts and invariants match supplied files.
+- [x] Read APIs return real seeded data.
+- [x] Invalid mall windows fail import.
 
 ### Result
 
 After this phase, the system can use verified operational reference data.
+
+**Verified locally:** [Phase 3 evidence](./PHASE3_VERIFICATION.md) — 28 backend tests, 37 web tests, generated-contract drift checks, smoke checks and curl against real and isolated synthetic PostgreSQL stacks. Selector components are ready for integration into the Phase 3A screens; no full order/planning screen is introduced here.
 
 ## Phase 3A — Dispatcher & Store Manager UI on Live Data
 

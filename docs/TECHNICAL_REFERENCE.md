@@ -1631,6 +1631,8 @@ CREATE TABLE constraint_violation (
 
 ### Fleet operations
 
+**Implemented in Phase 3:** [verification record](./PHASE3_VERIFICATION.md). The additive migration `V20261002_0002__fleet_reference_state.sql` adds the tables below plus audit storage. The implemented availability row also carries required change note, optimistic `version`, trusted `updated_by`, and Clock-derived `updated_at`. Its date references the supplied calendar; missing availability or fuel rows remain unrecorded rather than becoming available/zero by default. Reference reads and fleet operations enforce outlet/depot scope through published application services. The SQL below remains the wider design sketch; the Flyway migration is the implemented schema.
+
 ```sql
 CREATE TABLE vehicle_availability (
   vehicle_id varchar(8) NOT NULL REFERENCES vehicle(vehicle_id),

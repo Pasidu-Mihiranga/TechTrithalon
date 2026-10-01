@@ -52,6 +52,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/vehicles/{id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/dispatcher/vehicles/{id}/fuel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["fuel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["calendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/depots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["depots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/districts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["districts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/outlets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["outlets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/outlets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["outlet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/service-allowances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["allowances"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reference/summary": {
         parameters: {
             query?: never;
@@ -60,6 +188,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["vehicles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reference/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["vehicle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -88,10 +248,69 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AvailabilityRequest: {
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            expectedVersion: number;
+            note: string;
+            status: string;
+        };
+        CalendarDay: {
+            /** Format: date */
+            date?: string;
+            festival?: string | null;
+            festivalRamp?: number;
+            /** Format: int32 */
+            isoWeek?: number;
+            /** Format: int32 */
+            isoYear?: number;
+            monsoon?: boolean;
+            operating?: boolean;
+            payday?: boolean;
+        };
+        DistrictTravel: {
+            depot?: string;
+            depotToDistrictKm?: number;
+            /** Format: int32 */
+            depotToDistrictMinutes?: number;
+            district?: string;
+            freeFlowKmh?: number;
+            interStopKm?: number;
+            /** Format: int32 */
+            interStopMinutes?: number;
+            roadClass?: string;
+        };
+        FuelBalance: {
+            actualLitres?: number | null;
+            committedLitres?: number | null;
+            /** Format: int32 */
+            isoWeek?: number;
+            /** Format: int32 */
+            isoYear?: number;
+            quotaLitres?: number;
+            recorded?: boolean;
+            remainingLitres?: number | null;
+            vehicleId?: string;
+        };
         LoginRequest: {
             password: string;
             rememberMe?: boolean;
             username: string;
+        };
+        Outlet: {
+            brand?: string;
+            depot?: string;
+            district?: string;
+            dockType?: string;
+            effectiveWindowClose?: string;
+            effectiveWindowOpen?: string;
+            mallWindowClose?: string | null;
+            mallWindowOpen?: string | null;
+            outletId: string;
+            parkingConstraint?: string;
+            windowClose?: string;
+            windowOpen?: string;
         };
         ReferenceSummary: {
             /** Format: int32 */
@@ -107,6 +326,12 @@ export interface components {
             /** Format: int32 */
             vehicles?: number;
         };
+        ServiceAllowance: {
+            brand?: string;
+            dockType?: string;
+            /** Format: int32 */
+            minutes?: number;
+        };
         SystemHealth: {
             intelligence?: string;
             service?: string;
@@ -121,6 +346,31 @@ export interface components {
             /** @enum {string} */
             role?: "DISPATCHER" | "STORE_MANAGER" | "LOADER" | "DRIVER";
             username?: string;
+        };
+        Vehicle: {
+            depot?: string;
+            fuelType?: string;
+            kmPerL?: number;
+            temp?: string;
+            type?: string;
+            vehicleId: string;
+            volumeCapM3?: number;
+            weeklyFuelQuotaL?: number;
+            weightCapKg?: number;
+        };
+        VehicleAvailability: {
+            /** Format: date */
+            date?: string;
+            note?: string | null;
+            recorded?: boolean;
+            status?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
+            /** Format: int64 */
+            updatedBy?: number | null;
+            vehicleId?: string;
+            /** Format: int64 */
+            version?: number;
         };
     };
     responses: never;
@@ -193,6 +443,208 @@ export interface operations {
             };
         };
     };
+    availability: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["VehicleAvailability"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["VehicleAvailability"];
+                };
+            };
+        };
+    };
+    fuel: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FuelBalance"];
+                };
+            };
+        };
+    };
+    calendar: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CalendarDay"][];
+                };
+            };
+        };
+    };
+    depots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string[];
+                };
+            };
+        };
+    };
+    districts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DistrictTravel"][];
+                };
+            };
+        };
+    };
+    outlets: {
+        parameters: {
+            query?: {
+                brand?: string;
+                district?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Outlet"][];
+                };
+            };
+        };
+    };
+    outlet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Outlet"];
+                };
+            };
+        };
+    };
+    allowances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ServiceAllowance"][];
+                };
+            };
+        };
+    };
     summary: {
         parameters: {
             query?: never;
@@ -209,6 +661,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ReferenceSummary"];
+                };
+            };
+        };
+    };
+    vehicles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Vehicle"][];
+                };
+            };
+        };
+    };
+    vehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Vehicle"];
                 };
             };
         };

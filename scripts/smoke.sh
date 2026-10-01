@@ -50,6 +50,21 @@ for key in outlets vehicles calendarDays districts serviceAllowances; do
   (( n > 0 )) || fail "$key is 0: $summary"
 done
 
+echo "Phase 3: reference reads and unrecorded fleet state"
+for path in outlets vehicles districts depots service-allowances; do
+  curl -fsS -b "$cookies" "$API/api/v1/reference/$path" > /dev/null || fail "reference $path failed"
+done
+demo_date=$(echo "$summary" | json_field "['demoOperatingDate']")
+first_vehicle=$(curl -fsS -b "$cookies" "$API/api/v1/reference/vehicles" | json_field "[0]['vehicleId']")
+first_outlet=$(curl -fsS -b "$cookies" "$API/api/v1/reference/outlets" | json_field "[0]['outletId']")
+curl -fsS -b "$cookies" "$API/api/v1/reference/outlets/$first_outlet" > /dev/null
+curl -fsS -b "$cookies" "$API/api/v1/reference/vehicles/$first_vehicle" > /dev/null
+curl -fsS -b "$cookies" "$API/api/v1/reference/calendar?from=$demo_date&to=$demo_date" > /dev/null
+for path in availability fuel; do
+  curl -fsS -b "$cookies" "$API/api/v1/dispatcher/vehicles/$first_vehicle/$path?date=$demo_date" > /dev/null || fail "fleet $path failed"
+done
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/outlets/UNKNOWN")" == "404" ]] || fail "unknown outlet did not return 404"
+
 echo "5/5 requests carry a trace id"
 curl -fsS -D - -o /dev/null "$API/api/v1/system/health" | tr -d '\r' | grep -qi '^x-request-id' || fail "missing X-Request-Id header"
 
