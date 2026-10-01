@@ -1,0 +1,13 @@
+{
+  "name": "@techtrithalon/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    ".": "./tokens.ts"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

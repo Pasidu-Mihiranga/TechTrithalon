@@ -163,17 +163,17 @@ Shared visual foundations reduce repeated UI work in every role flow.
 
 #### Backend
 
-- [ ] Expose session/role shell metadata only as needed for UI integration.
+- [x] Expose session/role shell metadata only as needed for UI integration. *(Nothing needed before authentication exists; the role is chosen by URL until Phase 2.)*
 
 #### Frontend
 
-- [ ] Extract Figma tokens for color, type, spacing, status, and responsive breakpoints.
-- [ ] Build shared button, input, select, badge, card, table, dialog, drawer, sidebar, and top bar used by the first screens.
-- [ ] Add role shells and loading, empty, error, and unauthorized states.
+- [x] Extract Figma tokens for color, type, spacing, status, and responsive breakpoints.
+- [x] Build shared button, input, select, badge, card, table, dialog, drawer, sidebar, and top bar used by the first screens.
+- [x] Add role shells and loading, empty, error, and unauthorized states.
 
 #### Database
 
-- [ ] No migration required; retain token JSON in the repository.
+- [x] No migration required; retain token JSON in the repository.
 
 #### Python / Intelligence
 
@@ -181,12 +181,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Use Vitest/Testing Library for stateful primitives.
-- [ ] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma.
+- [x] Use Vitest/Testing Library for stateful primitives.
+- [ ] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma. *(Layouts and visual comparison done; keyboard focus tested for dialogs only; contrast has open findings below.)*
 
 #### Documentation
 
-- [ ] Record token source and mark missing role screens for final Figma verification.
+- [x] Record token source and mark missing role screens for final Figma verification.
 
 ### Parallel Work for 9 Members
 
@@ -194,9 +194,41 @@ Token extraction, shell layout, and accessibility review can progress in paralle
 
 ### Exit Gate
 
-- [ ] First role shell renders from shared components.
-- [ ] Core controls match the current Figma language.
-- [ ] Responsive and accessibility checks pass.
+- [x] First role shell renders from shared components.
+- [x] Core controls match the current Figma language.
+- [x] Responsive checks pass (375 px phone and 1280 px desktop).
+- [ ] Accessibility checks pass *(blocked by the open contrast findings and a full keyboard pass of the shell)*.
+
+### Evidence (local, verified)
+
+- **Tokens:** `packages/design-tokens/tokens.json` holds 28 colours, spacing, radius, shadows and 15 text styles, extracted from Figma nodes `74:5232` and `30:3416`. CSS and TypeScript are generated; CI fails if they are stale.
+- **Components** (`apps/web/src/components/`, flat): Button, Input, Select, Badge/TypeBadge, Card/MetricCard, DataTable (server-side sort contract), Dialog and Drawer (focus trap, Escape, focus return), PageHeader, AppShell, Sidebar, TopBar, SystemStatus, and the Empty/Error/Forbidden/Loading states.
+- **Role shells:** one `RoleShell` driven by `app/roles.ts` renders Dispatcher, Store manager, Loader and Driver. Below 1024 px the rail becomes a bottom tab bar. Screens whose backend arrives later show "Not available yet" and name the phase; there is no sample data.
+- **Real data:** the dispatcher home shows live counts from `/api/v1/reference/summary` (120 / 60 / 12 / 910) and the sidebar pill reads `/api/v1/system/health`.
+- **Tests:** 20 web tests pass (components, states, role shells, API client); typecheck, lint and build pass. `docker compose up --build` serves the new UI; `scripts/smoke.sh` still passes.
+- **Visual check:** compared with Figma frames 28:2936 and 74:5232 (dark rail, yellow active pill, yellow edge strip, title and card styles match). Screenshots taken at 1280 px and 375 px.
+
+### Known differences from Figma (need design review)
+
+- No depot switcher, notification bell, help button or user chip: they need data that does not exist yet (depot list endpoint, session). The search field is shown disabled.
+- The logo is a text wordmark; the Figma logo is a raster image.
+- The active nav pill has no "notch" curves, and metric cards have no yellow accent tick.
+- Breakpoints (768 / 1024 / 1280) are not in Figma; they are derived.
+- Store Manager, Loader and Driver pages have no Figma frames; they use the shared components.
+
+### Open accessibility findings (contrast, WCAG AA 4.5:1 for small text)
+
+Computed from the Figma token pairs. Fixed with existing tokens: captions and placeholders (tertiary → secondary), field errors and the danger button (danger → `type/van`), table headers and error-state text.
+
+Still failing **as designed in Figma**, so left unchanged pending a designer decision:
+
+| Pair | Ratio |
+|---|---:|
+| `status/danger` on `status/danger-soft` (danger badge) | 3.16 |
+| `type/fridge` on `type/fridge-soft` | 3.56 |
+| `type/normal` on `type/normal-soft` | 3.80 |
+| `type/van` on `type/van-soft` | 4.01 |
+| `status/warning` on `status/warning-soft` | 4.47 |
 
 ### Result
 

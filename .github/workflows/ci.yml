@@ -34,6 +34,12 @@ jobs:
           node-version: '20'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      # Generated token files must match tokens.json.
+      - name: Design tokens are up to date
+        run: |
+          pnpm --dir packages/design-tokens build
+          git diff --exit-code -- packages/design-tokens \
+            || (echo "::error::design tokens are stale. Run 'pnpm --dir packages/design-tokens build' and commit." && exit 1)
       - name: Lint
         run: pnpm --dir apps/web lint
       - name: Typecheck
