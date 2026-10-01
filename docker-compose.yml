@@ -26,6 +26,11 @@ services:
       TZ: ${APP_TIME_ZONE:-Asia/Colombo}
     ports:
       - "${INTELLIGENCE_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   api:
     build:
@@ -36,24 +41,31 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-techtrithalon}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
       INTELLIGENCE_BASE_URL: http://intelligence:8000
+      WEB_ORIGINS: http://localhost:${WEB_PORT:-5173}
+      DEMO_OPERATING_DATE: ${DEMO_OPERATING_DATE:-2026-06-26}
+      EXPECTED_OUTLETS: ${EXPECTED_OUTLETS:-120}
+      EXPECTED_VEHICLES: ${EXPECTED_VEHICLES:-60}
+      EXPECTED_CALENDAR_DAYS: ${EXPECTED_CALENDAR_DAYS:-910}
+      EXPECTED_DISTRICTS: ${EXPECTED_DISTRICTS:-12}
+      EXPECTED_SERVICE_ALLOWANCES: ${EXPECTED_SERVICE_ALLOWANCES:-9}
       REFERENCE_DATA_DIR: /app/reference-data
       TZ: ${APP_TIME_ZONE:-Asia/Colombo}
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
-      - "./dataset/data/General Data:/app/reference-data:ro"
+      - "${REFERENCE_DATA_HOST_DIR:-./dataset/data/General Data}:/app/reference-data:ro"
     depends_on:
       postgres:
         condition: service_healthy
       intelligence:
-        condition: service_started
+        condition: service_healthy
 
   web:
     build:
       context: .
       dockerfile: infrastructure/docker/web.Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api/v1}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     ports:
       - "${WEB_PORT:-5173}:80"
     depends_on:

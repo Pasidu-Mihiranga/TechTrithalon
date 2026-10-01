@@ -98,30 +98,30 @@ Every later feature needs a reproducible workspace, contracts, and running servi
 
 #### Backend
 
-- [ ] Scaffold Java 21 Spring Boot modular monolith, health endpoint, `Clock`, error envelope, and OpenAPI.
-- [ ] Expose a small API endpoint consumed by the web app.
+- [x] Scaffold Java 21 Spring Boot modular monolith, health endpoint, `Clock`, error envelope, and OpenAPI.
+- [x] Expose a small API endpoint consumed by the web app.
 
 #### Frontend
 
-- [ ] Scaffold React, TypeScript, Vite, router, query provider, and generated OpenAPI client.
+- [x] Scaffold React, TypeScript, Vite, router, query provider, and generated OpenAPI client.
 
 #### Database
 
-- [ ] Start PostgreSQL with Docker Compose; create baseline Flyway migration.
-- [ ] Add idempotent reference seed/import and a documented demo operating date.
+- [x] Start PostgreSQL with Docker Compose; create baseline Flyway migration.
+- [x] Add idempotent reference seed/import and a documented demo operating date.
 
 #### Python / Intelligence
 
-- [ ] Scaffold Python project, FastAPI health endpoint, Pydantic contracts, and pytest; no operational DB credentials.
+- [x] Scaffold Python project, FastAPI health endpoint, Pydantic contracts, and pytest; no operational DB credentials.
 
 #### Testing
 
-- [ ] Run migrations from an empty DB, seed twice without duplicates, and smoke-test React → Spring and Spring → Python.
-- [ ] Set CI for Gradle/JUnit, frontend lint/typecheck/Vitest, Python pytest, contract drift, and Compose smoke.
+- [x] Run migrations from an empty DB, seed twice without duplicates, and smoke-test React → Spring and Spring → Python.
+- [ ] Set CI for Gradle/JUnit, frontend lint/typecheck/Vitest, Python pytest, contract drift, and Compose smoke. *(Workflow written in `.github/workflows/ci.yml` and every step run locally; not yet run on GitHub.)*
 
 #### Documentation
 
-- [ ] Write root `.env.example`, local setup, seed/reset instructions, and service ownership.
+- [x] Write root `.env.example`, local setup, seed/reset instructions, and service ownership.
 
 ### Parallel Work for 9 Members
 
@@ -129,9 +129,17 @@ Scaffold API, web, database seed, and Python health in parallel after agreeing o
 
 ### Exit Gate
 
-- [ ] All services start through one Compose command.
-- [ ] Empty database migrates and seeds repeatably.
-- [ ] Frontend reaches Spring; Spring health-checks Python; CI is green.
+- [x] All services start through one Compose command.
+- [x] Empty database migrates and seeds repeatably.
+- [x] Frontend reaches Spring; Spring health-checks Python.
+- [ ] CI is green on GitHub *(pending the first push of this work)*.
+
+### Evidence (local, verified)
+
+- `docker compose up --build` starts postgres, intelligence, api and web; `scripts/smoke.sh` passes all 5 checks (web serves, Spring healthy, Spring → Python reachable, CORS for the web origin, reference data seeded, trace-id header).
+- Restarting the API leaves 120 outlets / 60 vehicles / 910 days unchanged; `docker compose down -v` then `up` re-seeds from an empty database.
+- The same smoke test passes on the synthetic CI fixtures (3 outlets / 2 vehicles).
+- API: 11 tests pass (Testcontainers on PostgreSQL 16). Python: 3 pass. Web: lint, typecheck, 2 Vitest tests and build pass. Generated client and `openapi.json` have no drift.
 
 ### Result
 

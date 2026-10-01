@@ -168,6 +168,10 @@ docker compose up --build
 
 The **demo operating date** is `2026-06-26` (a Friday). The API checks at startup that it is an operating day in the calendar. To change it, set `DEMO_OPERATING_DATE`.
 
+> **Port already in use?** If another project holds 8080 (or 5173/5432/8000), change `API_PORT` (and `WEB_PORT`, etc.) in `.env`, and set `VITE_API_BASE_URL` to match, for example `http://localhost:8081`. Then rebuild: `docker compose up --build`.
+
+**Verify the stack:** `make smoke` (or `./scripts/smoke.sh`) checks the web app, Spring, Spring → Python, CORS and the seeded data. **Start from scratch:** `make reset` wipes the database volume and re-seeds.
+
 ### 3. Run without containers
 
 ```bash
@@ -192,7 +196,9 @@ corepack pnpm install && corepack pnpm --dir apps/web dev
 ```bash
 cd apps/api && ./gradlew test              # unit, contract and Testcontainers (needs Docker)
 cd apps/intelligence && .venv/bin/pytest   # Python tests
+corepack pnpm --dir apps/web lint && corepack pnpm --dir apps/web typecheck && corepack pnpm --dir apps/web test
 corepack pnpm --dir apps/web build         # type-check and build the web app
+make smoke                                 # whole-stack smoke test (stack must be running)
 ```
 
 | Test | What it proves |
@@ -207,8 +213,10 @@ corepack pnpm --dir apps/web build         # type-check and build the web app
 
 ```bash
 cd apps/api && ./gradlew test --tests '*OpenApiContractTest' -PupdateOpenApi
-corepack pnpm --dir apps/web generate:api
+corepack pnpm --dir apps/web generate:api   # or: make gen-api
 ```
+
+CI fails if `apps/api/openapi.json` or `apps/web/src/generated/` is out of date.
 
 ---
 
@@ -246,7 +254,7 @@ corepack pnpm --dir apps/web generate:api
 | `DEMO_OPERATING_DATE` | `2026-06-26` | Seeded walkthrough day |
 | `INTELLIGENCE_BASE_URL` | `http://localhost:8000` | Python service URL |
 | `WEB_ORIGINS` | `http://localhost:5173` | Allowed CORS origins |
-| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | API URL used by the web build |
+| `VITE_API_BASE_URL` | `http://localhost:8080` | API origin used by the web build (generated client paths already include `/api/v1`) |
 | `APP_TIME_ZONE` | `Asia/Colombo` | Container time zone |
 
 ---
