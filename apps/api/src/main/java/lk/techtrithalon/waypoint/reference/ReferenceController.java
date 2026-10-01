@@ -1,5 +1,6 @@
 package lk.techtrithalon.waypoint.reference;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +17,7 @@ public class ReferenceController {
         this.properties = properties;
     }
 
+    @SecurityRequirement(name = "session")
     @GetMapping("/summary")
     public ReferenceSummary summary() {
         return new ReferenceSummary(

@@ -20,7 +20,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @Testcontainers(disabledWithoutDocker = true)
 @EnabledIf("datasetPresent")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = "app.security.seed.enabled=false")
 @Import(PostgresTestSupport.class)
 class RealDatasetSeedIT {
     static boolean datasetPresent() {

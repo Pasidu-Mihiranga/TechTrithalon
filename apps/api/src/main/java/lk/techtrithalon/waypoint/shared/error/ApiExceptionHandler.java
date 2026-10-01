@@ -29,8 +29,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
-    ProblemDetail handleApi(ApiException ex) {
-        return problem(ex.status(), ex.code(), ex.getMessage());
+    ResponseEntity<ProblemDetail> handleApi(ApiException ex) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.status());
+        ex.headers().forEach(response::header);
+        return response.body(problem(ex.status(), ex.code(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ProblemDetail handleAccessDenied() {
+        return problem(HttpStatus.FORBIDDEN, "FORBIDDEN", "Your role does not have access to this resource");
     }
 
     @ExceptionHandler(Exception.class)
@@ -49,6 +56,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             .toList();
         problem.setProperty("violations", violations);
         return ResponseEntity.badRequest().headers(headers).body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).headers(headers)
+            .body(problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found"));
     }
 
     /** Every framework-generated error passes through here; stamp it with a code and the trace id. */

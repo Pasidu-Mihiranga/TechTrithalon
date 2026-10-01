@@ -1,68 +1,92 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from './routes'
+import { AuthProvider } from '../features/auth/auth'
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}><AppRoutes /></MemoryRouter>
-    </QueryClientProvider>,
-  )
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><AuthProvider><AppRoutes /></AuthProvider></MemoryRouter></QueryClientProvider>)
+}
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+const syntheticUser = (role = 'DISPATCHER') => ({ id: 901, username: 'synthetic-user', displayName: 'Synthetic operator', role, outletId: null, depot: null })
+function signedIn(role = 'DISPATCHER', handler?: (url: string) => Promise<Response>) {
+  vi.stubGlobal('fetch', vi.fn(async (input: Request) => {
+    if (input.url.endsWith('/api/v1/auth/me')) return json(syntheticUser(role))
+    if (handler) return handler(input.url)
+    return new Promise<Response>(() => {})
+  }))
 }
 
-const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
-
-describe('role shells', () => {
-  it('renders every role shell from the shared components', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Promise(() => {})))
-    for (const [path, role] of [['/dispatcher/orders', 'Dispatcher'], ['/store', 'Store manager'], ['/loader', 'Loader'], ['/driver', 'Driver']] as const) {
+describe('authenticated role shells', () => {
+  it('renders every role shell from the shared components', async () => {
+    for (const [path, label, role] of [['/dispatcher/orders', 'Dispatcher', 'DISPATCHER'], ['/store', 'Store manager', 'STORE_MANAGER'], ['/loader', 'Loader', 'LOADER'], ['/driver', 'Driver', 'DRIVER']] as const) {
+      signedIn(role)
       const { unmount } = renderAt(path)
-      expect(screen.getByRole('complementary', { name: `${role} navigation` })).toBeInTheDocument()
+      expect(await screen.findByRole('complementary', { name: `${label} navigation` })).toBeInTheDocument()
       expect(screen.getByRole('main')).toBeInTheDocument()
+      expect(screen.getByText('Synthetic operator')).toBeVisible()
       unmount()
     }
   })
-
-  it('marks the current page in the navigation', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Promise(() => {})))
+  it('marks the current page in the navigation', async () => {
+    signedIn()
     renderAt('/dispatcher/fleet')
-    expect(screen.getByRole('link', { name: 'Fleet' })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByRole('link', { name: 'Fleet' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Orders' })).not.toHaveAttribute('aria-current')
   })
-
-  it('shows an honest empty state, not sample data, for screens that are not built yet', () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Promise(() => {})))
+  it('shows an honest empty state for screens that are not built yet', async () => {
+    signedIn()
     renderAt('/dispatcher/forecast')
-    expect(screen.getByRole('heading', { name: 'Capacity forecast' })).toBeInTheDocument()
-    const empty = within(screen.getByRole('main')).getByRole('status')
-    expect(empty).toHaveTextContent('Not available yet')
-    expect(empty).toHaveTextContent('Phase 17')
+    expect(await screen.findByRole('heading', { name: 'Capacity forecast' })).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Not available yet')
+    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Phase 17')
   })
-
-  it('shows real reference counts from the API on the dispatcher home', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: Request | string) => {
-      const url = typeof input === 'string' ? input : input.url
-      if (url.endsWith('/api/v1/reference/summary')) return json({ outlets: 120, vehicles: 60, calendarDays: 910, districts: 12, serviceAllowances: 9, demoOperatingDate: '2026-06-26' })
-      return json({ service: 'api', status: 'ok', intelligence: 'reachable' })
-    }))
+  it('shows reference counts returned by the API', async () => {
+    signedIn('DISPATCHER', async (url) => url.endsWith('/api/v1/reference/summary')
+      ? json({ outlets: 7, vehicles: 3, calendarDays: 6, districts: 2, serviceAllowances: 4, demoOperatingDate: '2026-07-03' })
+      : json({ service: 'api', status: 'ok', intelligence: 'reachable' }))
     renderAt('/dispatcher')
-    expect(await screen.findByText('120')).toBeVisible()
-    expect(screen.getByText('60')).toBeVisible()
+    expect(await screen.findByText('7')).toBeVisible()
+    expect(screen.getByText('3')).toBeVisible()
     expect(await screen.findByText('All systems operational')).toBeVisible()
   })
-
-  it('shows an error state with retry when the API fails', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500, headers: { 'content-type': 'application/json' } })))
+  it('shows an error state with retry when a feature API fails', async () => {
+    signedIn('DISPATCHER', async () => json({}, 500))
     renderAt('/dispatcher')
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeVisible()
     expect(await screen.findByText('API unavailable')).toBeVisible()
   })
-
+  it('is keyboard navigable after session restoration', async () => {
+    signedIn()
+    renderAt('/dispatcher')
+    await screen.findByRole('link', { name: 'Skip to content' })
+    await userEvent.tab()
+    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveFocus()
+    for (const name of ['Home', 'Orders', 'Planning', 'Live Operations', 'Forecast', 'Fleet', 'Exceptions', 'Deferred Orders', 'Settings']) {
+      await userEvent.tab()
+      expect(screen.getByRole('link', { name })).toHaveFocus()
+    }
+  })
   it('shows not-found for unknown addresses', () => {
+    signedIn()
     renderAt('/nope')
     expect(screen.getByRole('alert')).toHaveTextContent('Page not found')
+  })
+  it('rejects every other role workspace before rendering its content', async () => {
+    const paths = ['/dispatcher', '/store', '/loader', '/driver']
+    const roleNames = ['DISPATCHER', 'STORE_MANAGER', 'LOADER', 'DRIVER']
+    for (let i = 0; i < paths.length; i++) {
+      for (let j = 0; j < paths.length; j++) {
+        if (i === j) continue
+        signedIn(roleNames[i])
+        const { unmount } = renderAt(paths[j])
+        expect(await screen.findByText('Access denied')).toBeVisible()
+        expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
+        unmount()
+      }
+    }
   })
 })

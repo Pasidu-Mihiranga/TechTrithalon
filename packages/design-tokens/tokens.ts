@@ -27,7 +27,14 @@ export const color = {
   "typeFridge": "#1e8e4a",
   "typeFridgeSoft": "#daf3e1",
   "typeVan": "#d93025",
-  "typeVanSoft": "#fde6e6"
+  "typeVanSoft": "#fde6e6",
+  "authAccent": "#f5b517",
+  "authInk": "#0b1220",
+  "authMuted": "#94a3b8",
+  "authField": "rgba(17,28,46,0.88)",
+  "authBorder": "#22314a",
+  "authIcon": "#1e2b42",
+  "authScrim": "rgba(11,18,32,0.72)"
 } as const
 export const space = {
   "2": 2,
@@ -47,7 +54,10 @@ export const radius = {
   "sm": 8,
   "md": 12,
   "lg": 16,
-  "full": 999
+  "full": 999,
+  "authField": 14,
+  "authIcon": 11,
+  "authButton": 15
 } as const
 export const breakpoint = {
   "tablet": 768,
@@ -57,5 +67,19 @@ export const breakpoint = {
 export const layout = {
   "sidebarWidth": 248,
   "navItemHeight": 40,
-  "topBarHeight": 72
+  "topBarHeight": 72,
+  "authFormWidth": 338,
+  "authTop": 117,
+  "authFieldHeight": 60,
+  "authButtonHeight": 56,
+  "authLogoWidth": 158,
+  "authLogoHeight": 57,
+  "authLogoTop": 35,
+  "authFieldInset": 63,
+  "authIconSize": 40,
+  "authSceneHeight": 981,
+  "authSceneTop": -42,
+  "authSceneWidth": 1308,
+  "authSceneLeft": -4,
+  "authScrimHeight": 650
 } as const

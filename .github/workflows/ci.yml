@@ -80,14 +80,33 @@ jobs:
       EXPECTED_CALENDAR_DAYS: '3'
       EXPECTED_DISTRICTS: '2'
       EXPECTED_SERVICE_ALLOWANCES: '9'
+      SEED_STORE_MANAGER_OUTLET: OUT901
+      COOKIE_SECURE: 'false'
     steps:
       - uses: actions/checkout@v4
       - name: Start the stack from clean volumes
         run: |
           cp .env.example .env
+          python3 - <<'PYCODE'
+          import secrets
+          from pathlib import Path
+          config = Path('.env')
+          text = config.read_text().replace('SEED_STORE_MANAGER_OUTLET=OUT001', 'SEED_STORE_MANAGER_OUTLET=OUT901')
+          for role in ['DISPATCHER', 'STORE_MANAGER', 'LOADER', 'DRIVER']:
+              text = text.replace(f'SEED_{role}_PASSWORD=', f'SEED_{role}_PASSWORD={secrets.token_urlsafe(24)}')
+          config.write_text(text)
+          PYCODE
           docker compose up --build -d
       - name: Smoke test
         run: ./scripts/smoke.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/web exec playwright install --with-deps chromium
+      - name: Authentication browser journeys
+        run: pnpm --dir apps/web test:e2e
       - name: Show logs on failure
         if: failure()
         run: docker compose logs --no-color --tail=200

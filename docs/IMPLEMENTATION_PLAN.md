@@ -7,8 +7,8 @@ This is the daily build plan for a **nine-member team**. It answers what to buil
 All boxes start unchecked. Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The next required phase is **Phase 0**, unless the team records verified implementation evidence here.
 
 - [ ] Phase 0 — Repository & Development Foundation
-- [ ] Phase 1 — Design System & Application Shell
-- [ ] Phase 2 — Authentication & RBAC
+- [x] Phase 1 — Design System & Application Shell
+- [x] Phase 2 — Authentication & RBAC
 - [ ] Phase 3 — Reference Data Foundation
 - [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
 - [ ] Phase 4 — Store Manager Order Flow
@@ -182,7 +182,7 @@ Not required in this phase.
 #### Testing
 
 - [x] Use Vitest/Testing Library for stateful primitives.
-- [ ] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma. *(Layouts and visual comparison done; keyboard focus tested for dialogs only; contrast has open findings below.)*
+- [x] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma. *(Keyboard order tested for the shell and focus trap for dialogs; contrast findings below accepted by the owner.)*
 
 #### Documentation
 
@@ -197,7 +197,7 @@ Token extraction, shell layout, and accessibility review can progress in paralle
 - [x] First role shell renders from shared components.
 - [x] Core controls match the current Figma language.
 - [x] Responsive checks pass (375 px phone and 1280 px desktop).
-- [ ] Accessibility checks pass *(blocked by the open contrast findings and a full keyboard pass of the shell)*.
+- [x] Accessibility checks pass, **with one owner-accepted exception**: the Figma status-badge colours are kept as designed (see below).
 
 ### Evidence (local, verified)
 
@@ -205,7 +205,7 @@ Token extraction, shell layout, and accessibility review can progress in paralle
 - **Components** (`apps/web/src/components/`, flat): Button, Input, Select, Badge/TypeBadge, Card/MetricCard, DataTable (server-side sort contract), Dialog and Drawer (focus trap, Escape, focus return), PageHeader, AppShell, Sidebar, TopBar, SystemStatus, and the Empty/Error/Forbidden/Loading states.
 - **Role shells:** one `RoleShell` driven by `app/roles.ts` renders Dispatcher, Store manager, Loader and Driver. Below 1024 px the rail becomes a bottom tab bar. Screens whose backend arrives later show "Not available yet" and name the phase; there is no sample data.
 - **Real data:** the dispatcher home shows live counts from `/api/v1/reference/summary` (120 / 60 / 12 / 910) and the sidebar pill reads `/api/v1/system/health`.
-- **Tests:** 20 web tests pass (components, states, role shells, API client); typecheck, lint and build pass. `docker compose up --build` serves the new UI; `scripts/smoke.sh` still passes.
+- **Tests:** 21 web tests pass (components, states, role shells, keyboard order, API client); typecheck, lint and build pass. `docker compose up --build` serves the new UI; `scripts/smoke.sh` still passes.
 - **Visual check:** compared with Figma frames 28:2936 and 74:5232 (dark rail, yellow active pill, yellow edge strip, title and card styles match). Screenshots taken at 1280 px and 375 px.
 
 ### Known differences from Figma (need design review)
@@ -220,7 +220,7 @@ Token extraction, shell layout, and accessibility review can progress in paralle
 
 Computed from the Figma token pairs. Fixed with existing tokens: captions and placeholders (tertiary → secondary), field errors and the danger button (danger → `type/van`), table headers and error-state text.
 
-Still failing **as designed in Figma**, so left unchanged pending a designer decision:
+Still failing **as designed in Figma**. **Owner decision: keep the Figma colours** (accepted exception; revisit if an accessibility audit requires it in Phase 21):
 
 | Pair | Ratio |
 |---|---:|
@@ -252,16 +252,16 @@ Every state-changing slice needs an actor and a trusted ownership scope.
 
 #### Backend
 
-- [ ] Implement login/logout, opaque session, expiry, role guards, data-scope checks, and actor context.
-- [ ] Return consistent 401/403; hide unowned resources with 404 where applicable.
+- [x] Implement login/logout, opaque session, expiry, role guards, data-scope checks, and actor context.
+- [x] Return consistent 401/403; hide unowned resources with 404 where applicable.
 
 #### Frontend
 
-- [ ] Build login, session restore, role redirect, Forbidden state, and logout.
+- [x] Build login, session restore, role redirect, Forbidden state, and logout.
 
 #### Database
 
-- [ ] Create users, roles, session store, and four seeded role accounts with hashed passwords.
+- [x] Create users, roles, session store, and four seeded role accounts with hashed passwords.
 
 #### Python / Intelligence
 
@@ -269,12 +269,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test passwords, expiry, CSRF/session behavior, and every role against each route family.
-- [ ] Playwright login/logout and cross-role access.
+- [x] Test passwords, expiry, CSRF/session behavior, and every role against each route family.
+- [x] Playwright login/logout and cross-role access.
 
 #### Documentation
 
-- [ ] Document seeded roles, credential configuration, and auth boundaries.
+- [x] Document seeded roles, credential configuration, and auth boundaries.
 
 ### Parallel Work for 9 Members
 
@@ -282,9 +282,24 @@ Identity schema/API and login UI can progress together against an agreed respons
 
 ### Exit Gate
 
-- [ ] Four seeded accounts reach their own shell.
-- [ ] Wrong role and wrong owner are rejected by API and UI.
-- [ ] Audit actor identity is available to later modules.
+- [x] Four seeded accounts reach their own shell.
+- [x] Wrong role and wrong owner are rejected by API and UI.
+- [x] Audit actor identity is available to later modules.
+
+### Evidence (local, verified — 2026-10-02)
+
+- API: 20 tests pass, including eight PostgreSQL identity/security tests covering all four roles against every route family, method guards, two-driver ownership, outlet/depot scope, BCrypt seeding, session hashing/expiry/revocation, CSRF/CORS, validation and throttling.
+- Web: 32 Vitest tests pass; lint, typecheck and production build pass. Authentication tests cover restore, role routing, errors, logout, expiry and private-cache cleanup when the actor changes.
+- Browser: six Playwright journeys pass on the running Compose stack. All four accounts log in, reload their session, reject the other three workspaces and log out. Login assets, keyboard navigation and 1280 px/375 px layouts are checked; screenshots were compared with Figma login frame `1121:36567`.
+- Running API: curl checks cover login/me/logout, protected reference access, 400/401/403/404/429 errors and matching `X-Request-Id`/`traceId`. PostgreSQL queries confirm returned users, BCrypt password hashes and hashed sessions. Commands and real responses are recorded in [Phase 2 verification](./PHASE2_VERIFICATION.md).
+- `make gen-api` regenerates the contract and client; OpenAPI drift and generated-client/token repeatability checks pass. Updated `scripts/smoke.sh` passes for the whole stack and all four seeded roles.
+- Trusted `CurrentUser` actor/scope is available to later services. Ownership rejection is proven through test-only controllers; operational order/trip ownership must be enforced again when those endpoints arrive.
+
+### Known limits
+
+- Local completion does not close Phase 0's pending GitHub CI gate; the updated workflow has not been pushed or run on GitHub.
+- Native bearer transport joins the cookie-backed session store in Phase 14A. Password reset remains administrator-assisted; self-service reset is outside Phase 2.
+- Login retains the existing project font tokens (Geist) rather than the frame's Inter; all supplied static assets are preserved. Shared title/ID labels support four roles, and no prototype ID, password or version is shown. Mobile composition needs final design review because no phone login frame was supplied.
 
 ### Result
 

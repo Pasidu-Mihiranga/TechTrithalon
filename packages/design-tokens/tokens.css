@@ -28,6 +28,13 @@
   --color-type-fridge-soft: #daf3e1;
   --color-type-van: #d93025;
   --color-type-van-soft: #fde6e6;
+  --color-auth-accent: #f5b517;
+  --color-auth-ink: #0b1220;
+  --color-auth-muted: #94a3b8;
+  --color-auth-field: rgba(17,28,46,0.88);
+  --color-auth-border: #22314a;
+  --color-auth-icon: #1e2b42;
+  --color-auth-scrim: rgba(11,18,32,0.72);
   --space-2: 2px;
   --space-4: 4px;
   --space-6: 6px;
@@ -44,6 +51,9 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 999px;
+  --radius-authField: 14px;
+  --radius-authIcon: 11px;
+  --radius-authButton: 15px;
   --shadow-elevation-1: 0 1px 2px 0 #0B12200D, 0 1px 3px 0 #0B12200A;
   --shadow-elevation-2: 0 12px 32px -8px #0B122024, 0 2px 6px 0 #0B12200D;
   --shadow-focus-ring: 0 0 0 3px #E0A80040;
@@ -125,9 +135,38 @@
   --font-button-l-weight: 600;
   --font-button-l-line-height: 24px;
   --font-button-l-letter-spacing: 0em;
+  --font-auth-heading-family: var(--font-family-sans);
+  --font-auth-heading-size: 34px;
+  --font-auth-heading-weight: 700;
+  --font-auth-heading-line-height: 42px;
+  --font-auth-heading-letter-spacing: -0.0118em;
+  --font-auth-overline-family: var(--font-family-sans);
+  --font-auth-overline-size: 11px;
+  --font-auth-overline-weight: 600;
+  --font-auth-overline-line-height: 14px;
+  --font-auth-overline-letter-spacing: 0.2909em;
+  --font-auth-label-family: var(--font-family-sans);
+  --font-auth-label-size: 10px;
+  --font-auth-label-weight: 500;
+  --font-auth-label-line-height: 14px;
+  --font-auth-label-letter-spacing: 0.06em;
   --layout-sidebar-width: 248px;
   --layout-nav-item-height: 40px;
   --layout-top-bar-height: 72px;
+  --layout-auth-form-width: 338px;
+  --layout-auth-top: 117px;
+  --layout-auth-field-height: 60px;
+  --layout-auth-button-height: 56px;
+  --layout-auth-logo-width: 158px;
+  --layout-auth-logo-height: 57px;
+  --layout-auth-logo-top: 35px;
+  --layout-auth-field-inset: 63px;
+  --layout-auth-icon-size: 40px;
+  --layout-auth-scene-height: 981px;
+  --layout-auth-scene-top: -42px;
+  --layout-auth-scene-width: 1308px;
+  --layout-auth-scene-left: -4px;
+  --layout-auth-scrim-height: 650px;
 }
 
 .text-display-l {
@@ -235,4 +274,25 @@
   font-weight: var(--font-button-l-weight);
   line-height: var(--font-button-l-line-height);
   letter-spacing: var(--font-button-l-letter-spacing);
+}
+.text-auth-heading {
+  font-family: var(--font-auth-heading-family);
+  font-size: var(--font-auth-heading-size);
+  font-weight: var(--font-auth-heading-weight);
+  line-height: var(--font-auth-heading-line-height);
+  letter-spacing: var(--font-auth-heading-letter-spacing);
+}
+.text-auth-overline {
+  font-family: var(--font-auth-overline-family);
+  font-size: var(--font-auth-overline-size);
+  font-weight: var(--font-auth-overline-weight);
+  line-height: var(--font-auth-overline-line-height);
+  letter-spacing: var(--font-auth-overline-letter-spacing);
+}
+.text-auth-label {
+  font-family: var(--font-auth-label-family);
+  font-size: var(--font-auth-label-size);
+  font-weight: var(--font-auth-label-weight);
+  line-height: var(--font-auth-label-line-height);
+  letter-spacing: var(--font-auth-label-letter-spacing);
 }

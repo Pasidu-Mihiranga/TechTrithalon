@@ -1,6 +1,8 @@
 package lk.techtrithalon.waypoint.shared.web;
 
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
@@ -14,6 +16,10 @@ public class OpenApiConfiguration {
     public OpenAPI waypointOpenApi() {
         return new OpenAPI()
             .info(new Info().title("TechTrithalon — Waypoint Operations API").version("v1"))
+            .components(new Components().addSecuritySchemes("session",
+                new SecurityScheme()
+                    .type(SecurityScheme.Type.APIKEY)
+                    .in(SecurityScheme.In.COOKIE).name("WP_SESSION")))
             .servers(List.of(new Server().url("/")));
     }
 }

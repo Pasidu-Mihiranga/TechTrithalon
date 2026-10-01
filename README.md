@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Phase 0 (foundation). The module structure is in place; business features are built phase by phase. See the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
+> **Status:** Phase 1 design system and Phase 2 authentication are implemented locally. Phase 0 GitHub CI verification remains pending; operational features follow the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
 ---
 
@@ -153,6 +153,7 @@ The API imports these five files on startup. The import is **idempotent**: re-ru
 
 ```bash
 cp .env.example .env
+# Set all four SEED_*_PASSWORD values (12+ characters) in .env first.
 docker compose up --build
 ```
 
@@ -171,6 +172,29 @@ The **demo operating date** is `2026-06-26` (a Friday). The API checks at startu
 > **Port already in use?** If another project holds 8080 (or 5173/5432/8000), change `API_PORT` (and `WEB_PORT`, etc.) in `.env`, and set `VITE_API_BASE_URL` to match, for example `http://localhost:8081`. Then rebuild: `docker compose up --build`.
 
 **Verify the stack:** `make smoke` (or `./scripts/smoke.sh`) checks the web app, Spring, Spring → Python, CORS and the seeded data. **Start from scratch:** `make reset` wipes the database volume and re-seeds.
+
+### Sign in and account configuration
+
+Open `/login` in the web app. The server chooses your workspace from the account's role; changing the URL does not grant access.
+
+| Default user ID | Role | Password configuration |
+|---|---|---|
+| `DSP-001` | Dispatcher | `SEED_DISPATCHER_PASSWORD` |
+| `STM-001` | Store manager | `SEED_STORE_MANAGER_PASSWORD` |
+| `LDR-001` | Loader | `SEED_LOADER_PASSWORD` |
+| `DRV-001` | Driver | `SEED_DRIVER_PASSWORD` |
+
+Passwords have no fallback. Set unique values of at least 12 characters and at most 72 UTF-8 bytes in the ignored `.env` before first startup. The seed runs after reference import and is idempotent: existing accounts and password hashes are preserved. Changing a seed password later does **not** reset an existing account. Local credentials generated during development remain only in `.env`; never publish them or commit the file. To disable account seeding after provisioning, set `SEED_ACCOUNTS_ENABLED=false`.
+
+`SEED_STORE_MANAGER_OUTLET` selects the manager's outlet (`OUT001` by default; `OUT901` for synthetic CI fixtures). `SEED_LOADER_DEPOT` selects the loader's depot. The dispatcher initially covers both depots. Usernames can be overridden with the corresponding `SEED_*_USERNAME` variables.
+
+The web uses an opaque `HttpOnly; SameSite=Lax` cookie; PostgreSQL stores only its SHA-256 hash. Sessions expire after 16 hours by default (`SESSION_TTL=PT16H`), and logout revokes them immediately. Unchecked **Remember me** creates a browser-session cookie; checked persists it until server expiry. Neither setting stores credentials in browser storage. Set `COOKIE_SECURE=false` for local HTTP and `true` for HTTPS deployment.
+
+Every state-changing API call, including login, needs `X-Requested-With: Waypoint`. Browser origins must be in `WEB_ORIGINS`. Missing/expired sessions return `401`; a wrong role returns `403`. Later feature services must enforce method and ownership guards, returning `404` for someone else's resource. `CurrentUser` provides the trusted actor ID and outlet/depot scope. Driver assignment checks belong to the future trip service; there are no operational trip/order endpoints in Phase 2. Native bearer transport is deferred to Phase 14A.
+
+Login is throttled independently per username and source address after five failed attempts in 15 minutes; `429` includes `Retry-After`. Buckets are in memory for this single API instance. Password recovery currently directs users to their administrator.
+
+Run `corepack pnpm --dir apps/web test:e2e` against the running stack after `corepack pnpm --dir apps/web exec playwright install chromium`. Local tests read credentials from `.env`. An installed Chrome can be used with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. [Phase 2 verification](docs/PHASE2_VERIFICATION.md) records the endpoint and browser evidence.
 
 ### 3. Run without containers
 

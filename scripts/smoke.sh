@@ -37,8 +37,14 @@ echo "3/5 browser origin $WEB may call the API (React -> Spring, CORS)"
 cors=$(curl -fsS -D - -o /dev/null -H "Origin: $WEB" "$API/api/v1/system/health" | tr -d '\r' | grep -i '^access-control-allow-origin' || true)
 [[ "$cors" == *"$WEB"* ]] || fail "CORS does not allow $WEB (got: '${cors:-none}')"
 
-echo "4/5 reference data is seeded"
-summary=$(curl -fsS "$API/api/v1/reference/summary")
+echo "4/5 authenticated reference data is seeded"
+[[ -n "${SEED_DISPATCHER_PASSWORD:-}" ]] || fail "set SEED_DISPATCHER_PASSWORD in .env"
+cookies=$(mktemp)
+login_body=$(mktemp)
+trap 'rm -f -- "${cookies:?}" "${login_body:?}"' EXIT
+python3 -c 'import os,json; print(json.dumps({"username":os.environ.get("SEED_DISPATCHER_USERNAME", "DSP-001"),"password":os.environ["SEED_DISPATCHER_PASSWORD"]}))' > "$login_body"
+curl -fsS -c "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' --data-binary "@$login_body" "$API/api/v1/auth/login" > /dev/null
+summary=$(curl -fsS -b "$cookies" "$API/api/v1/reference/summary")
 for key in outlets vehicles calendarDays districts serviceAllowances; do
   n=$(echo "$summary" | json_field "['$key']")
   (( n > 0 )) || fail "$key is 0: $summary"
@@ -47,4 +53,19 @@ done
 echo "5/5 requests carry a trace id"
 curl -fsS -D - -o /dev/null "$API/api/v1/system/health" | tr -d '\r' | grep -qi '^x-request-id' || fail "missing X-Request-Id header"
 
-echo "SMOKE OK: $summary"
+echo "Phase 2: session restore, revocation and every seeded role"
+[[ "$(curl -fsS -b "$cookies" "$API/api/v1/auth/me" | json_field "['role']")" == "DISPATCHER" ]] || fail "dispatcher session not restored"
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout")" == "204" ]] || fail "logout failed"
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/auth/me")" == "401" ]] || fail "revoked session still works"
+for role in STORE_MANAGER LOADER DRIVER; do
+  export SMOKE_ROLE="$role"
+  python3 -c 'import os,json; role=os.environ["SMOKE_ROLE"]; print(json.dumps({"username":os.environ.get("SEED_"+role+"_USERNAME", {"STORE_MANAGER":"STM-001","LOADER":"LDR-001","DRIVER":"DRV-001"}[role]), "password":os.environ["SEED_"+role+"_PASSWORD"]}))' > "$login_body"
+  curl -fsS -c "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' --data-binary "@$login_body" "$API/api/v1/auth/login" > /dev/null
+  [[ "$(curl -fsS -b "$cookies" "$API/api/v1/auth/me" | json_field "['role']")" == "$role" ]] || fail "$role session not restored"
+  expected=403
+  [[ "$role" == "STORE_MANAGER" ]] && expected=200
+  [[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/summary")" == "$expected" ]] || fail "$role reference guard failed"
+  curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
+ done
+unset SMOKE_ROLE
+echo "SMOKE OK: $summary · all four sessions and role guards passed"
