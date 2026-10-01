@@ -31,3 +31,6 @@ __pycache__/
 # the datasets to any external site, and this repository is public.
 # Place the supplied files locally at dataset/data/ (see README).
 dataset/
+
+# Competition booklet — not for the public repo
+docs/Challenge Booklet.pdf
