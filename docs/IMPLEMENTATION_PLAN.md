@@ -11,7 +11,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
 - [x] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
-- [ ] Phase 4 — Store Manager Order Flow
+- [x] Phase 4 — Store Manager Order Flow
 - [ ] Phase 5 — Dispatcher Confirmed Orders
 - [ ] Phase 6 — Trip-Time & Constraint Engine
 - [ ] Phase 7 — Manual Planning First
@@ -471,16 +471,16 @@ Confirmed orders are the input to every planning run.
 
 #### Backend
 
-- [ ] Implement order state machine, validation, server-side 16:00 Asia/Colombo cutoff, and next operating-day selection.
-- [ ] Permit same-day ambient and chilled Fresh orders.
+- [x] Implement order state machine, validation, server-side 16:00 Asia/Colombo cutoff, and next operating-day selection.
+- [x] Permit same-day ambient and chilled Fresh orders.
 
 #### Frontend
 
-- [ ] Build Place Order → Review → Confirm → My Orders → Order Detail, including form errors and empty state.
+- [x] Build Place Order → Review → Confirm → My Orders → Order Detail, including form errors and empty state.
 
 #### Database
 
-- [ ] Add customer order, indexes, version, and audit fields.
+- [x] Add customer order, indexes, version, and audit fields. *(migration landed in Phase 3A; Phase 4 writes confirmed rows + `order.confirmed` audit)*
 
 #### Python / Intelligence
 
@@ -488,12 +488,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test cutoff boundary, Sunday/holiday rollover, two-temperature orders, ownership, and bad quantities.
-- [ ] Playwright the complete store order slice.
+- [x] Test cutoff boundary, Sunday/holiday rollover, two-temperature orders, ownership, and bad quantities.
+- [x] Playwright the complete store order slice.
 
 #### Documentation
 
-- [ ] Document order lifecycle and cutoff behavior.
+- [x] Document order lifecycle and cutoff behavior.
 
 ### Parallel Work for 9 Members
 
@@ -501,13 +501,25 @@ Order schema/domain and React form can proceed against an agreed API DTO; integr
 
 ### Exit Gate
 
-- [ ] A store manager confirms a persisted order through the UI.
-- [ ] Dispatcher-facing status is confirmed and auditable.
-- [ ] Cutoff and ownership tests pass.
+- [x] A store manager confirms a persisted order through the UI.
+- [x] Dispatcher-facing status is confirmed and auditable.
+- [x] Cutoff and ownership tests pass.
 
 ### Result
 
 After this phase, the system can capture real confirmed demand from stores.
+
+### Order lifecycle and cutoff (implemented)
+
+- Place + confirm is one server step: `POST /api/v1/store/orders` creates `status=confirmed` via `OrderStateMachine` and writes `audit_event` type `order.confirmed`.
+- Cutoff is 16:00 Asia/Colombo (`DeliveryDateService`). Before cutoff → first operating day after today; at/after cutoff → first operating day after tomorrow. Sundays/holidays skip via `calendar_day.is_operating`. When wall-clock is past the seeded calendar, delivery date falls back to `DEMO_OPERATING_DATE`.
+- Fresh outlets may place ambient and chilled for the same delivery day; Style/other brands cannot place chilled (`CHILLED_FRESH_ONLY`). One active (non-cancelled) order per outlet/day/temp (`DUPLICATE_TEMP_ORDER`).
+
+### Evidence (local, verified — 2026-10-02)
+
+- API: `OrderCommandIT` + `OrderStateMachineTest`; full prior suite green. Curl on Compose (`API_PORT=8081`): store login → `POST /api/v1/store/orders` → **201** `ORD-000256` confirmed for `OUT001` / `2026-06-26` (row in `customer_order`); **400** `VALIDATION_FAILED`, **401** `UNAUTHENTICATED`, **403** `FORBIDDEN`, **409** `DUPLICATE_TEMP_ORDER`; path in `/v3/api-docs`.
+- Web: Place Order form → review → confirm; OpenAPI client regenerated; lint/typecheck/40 Vitest/build pass; Playwright `store-order.spec.ts`.
+- Remaining: Figma frames for store place-order when design lands.
 
 ## Phase 5 — Dispatcher Confirmed Orders
 

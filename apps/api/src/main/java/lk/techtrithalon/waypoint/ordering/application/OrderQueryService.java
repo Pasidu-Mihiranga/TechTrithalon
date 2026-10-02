@@ -1,11 +1,6 @@
 package lk.techtrithalon.waypoint.ordering.application;
 
-import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.identity.domain.Role;
@@ -22,24 +17,21 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class OrderQueryService {
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Colombo");
-    private static final LocalTime CUTOFF = LocalTime.of(16, 0);
-
     private final OrderRepository orders;
     private final ReferenceService reference;
     private final ReferenceProperties referenceProperties;
-    private final Clock clock;
+    private final DeliveryDateService deliveryDates;
 
     public OrderQueryService(
         OrderRepository orders,
         ReferenceService reference,
         ReferenceProperties referenceProperties,
-        Clock clock
+        DeliveryDateService deliveryDates
     ) {
         this.orders = orders;
         this.reference = reference;
         this.referenceProperties = referenceProperties;
-        this.clock = clock;
+        this.deliveryDates = deliveryDates;
     }
 
     @PreAuthorize("hasRole('DISPATCHER')")
@@ -103,24 +95,7 @@ public class OrderQueryService {
     @PreAuthorize("hasRole('STORE_MANAGER')")
     public CutoffInfo cutoff(CurrentUser user) {
         if (user.outletId() == null) throw missing();
-        Instant now = clock.instant();
-        ZonedDateTime localNow = now.atZone(BUSINESS_ZONE);
-        ZonedDateTime nextCutoff = localNow.toLocalDate().atTime(CUTOFF).atZone(BUSINESS_ZONE);
-        if (!localNow.toLocalTime().isBefore(CUTOFF)) {
-            nextCutoff = nextCutoff.plusDays(1);
-        }
-        // Delivery is for the next operating calendar day after the cutoff day. Until Phase 4
-        // rolls over Sundays/holidays, expose the demo operating date when open, otherwise the day
-        // after nextCutoff's calendar date when that is known in calendar_day.
-        LocalDate candidate = nextCutoff.toLocalDate().plusDays(1);
-        LocalDate deliveryDate = reference.calendar(candidate, candidate).stream()
-            .filter(d -> d.operating())
-            .map(d -> d.date())
-            .findFirst()
-            .orElse(referenceProperties.demoOperatingDate());
-        long seconds = Math.max(0, nextCutoff.toInstant().getEpochSecond() - now.getEpochSecond());
-        boolean open = localNow.toLocalTime().isBefore(CUTOFF);
-        return new CutoffInfo(CUTOFF, BUSINESS_ZONE.getId(), now, nextCutoff.toInstant(), seconds, open, deliveryDate);
+        return deliveryDates.cutoffInfo();
     }
 
     private static ApiException missing() {

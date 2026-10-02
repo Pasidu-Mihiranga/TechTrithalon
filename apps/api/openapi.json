@@ -424,6 +424,30 @@
         "required" : [ "outletId" ],
         "type" : "object"
       },
+      "PlaceOrderRequest" : {
+        "properties" : {
+          "tempRequirement" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "maximum" : 100000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "minimum" : 0.001,
+            "type" : "number"
+          },
+          "weightKg" : {
+            "minimum" : 0.01,
+            "type" : "number"
+          }
+        },
+        "required" : [ "tempRequirement", "units", "volumeM3", "weightKg" ],
+        "type" : "object"
+      },
       "PlanningProgress" : {
         "properties" : {
           "available" : {
@@ -1349,6 +1373,35 @@
               }
             },
             "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-order-controller" ]
+      },
+      "post" : {
+        "operationId" : "place",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlaceOrderRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerOrder"
+                }
+              }
+            },
+            "description" : "Created"
           }
         },
         "security" : [ {

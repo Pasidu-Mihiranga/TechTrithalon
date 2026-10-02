@@ -98,6 +98,26 @@ for role in STORE_MANAGER LOADER DRIVER; do
   if [[ "$role" == "STORE_MANAGER" ]]; then
     curl -fsS -b "$cookies" "$API/api/v1/store/cutoff" > /dev/null || fail "store cutoff failed"
     curl -fsS -b "$cookies" "$API/api/v1/store/orders" > /dev/null || fail "store orders failed"
+    echo "Phase 4: store place-order (accept create or demo-day duplicate)"
+    place_code=$(curl -sS -o /tmp/smoke-place.json -w '%{http_code}' -b "$cookies" \
+      -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+      -d '{"tempRequirement":"ambient","units":2,"weightKg":10,"volumeM3":0.05}' \
+      "$API/api/v1/store/orders")
+    if [[ "$place_code" == "201" ]]; then
+      [[ "$(json_field "['status']" < /tmp/smoke-place.json)" == "confirmed" ]] || fail "placed order not confirmed"
+    elif [[ "$place_code" == "409" ]]; then
+      [[ "$(json_field "['code']" < /tmp/smoke-place.json)" == "DUPLICATE_TEMP_ORDER" ]] || fail "unexpected 409 on place: $(cat /tmp/smoke-place.json)"
+      place_code=$(curl -sS -o /tmp/smoke-place.json -w '%{http_code}' -b "$cookies" \
+        -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+        -d '{"tempRequirement":"chilled","units":2,"weightKg":10,"volumeM3":0.05}' \
+        "$API/api/v1/store/orders")
+      [[ "$place_code" == "201" || "$place_code" == "409" ]] || fail "chilled place failed: $place_code $(cat /tmp/smoke-place.json)"
+    else
+      fail "place order unexpected status $place_code: $(cat /tmp/smoke-place.json)"
+    fi
+    [[ "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+      -d '{"tempRequirement":"ambient","units":0,"weightKg":10,"volumeM3":0.05}' \
+      "$API/api/v1/store/orders")" == "401" ]] || fail "unauthenticated place did not return 401"
   fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done

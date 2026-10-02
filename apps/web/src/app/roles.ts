@@ -40,7 +40,7 @@ export const roles: Record<RoleKey, RoleConfig> = {
     pages: [
       { to: '/store', label: 'Home', icon: House, end: true, title: 'Home', description: 'Order cutoff and your recent orders.', phase: 'Phase 3A' },
       { to: '/store/orders', label: 'My orders', icon: ClipboardList, end: true, title: 'My orders', description: 'Orders from your outlet and their status.', phase: 'Phase 3A' },
-      { to: '/store/orders/new', label: 'Place order', icon: PackagePlus, title: 'Place an order', description: 'Order form layout; submission arrives in Phase 4.', phase: 'Phase 4' },
+      { to: '/store/orders/new', label: 'Place order', icon: PackagePlus, title: 'Place an order', description: 'Place and confirm an order before the 16:00 cutoff.', phase: 'Phase 4' },
     ],
   },
   loader: {

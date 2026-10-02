@@ -40,6 +40,7 @@
 .table-link:hover { text-decoration: underline; }
 .card-header-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-12); }
 .form-stack { display: grid; gap: var(--space-16); max-width: 28rem; }
+.form-actions { display: flex; flex-wrap: wrap; gap: var(--space-12); margin-top: var(--space-16); }
 .text-secondary { color: var(--color-text-secondary); }
 .text-brand { color: var(--color-text-brand); font-weight: var(--font-body-s-medium-weight); }
 

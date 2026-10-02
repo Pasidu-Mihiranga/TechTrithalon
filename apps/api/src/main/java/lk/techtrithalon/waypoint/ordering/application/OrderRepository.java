@@ -1,5 +1,7 @@
 package lk.techtrithalon.waypoint.ordering.application;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Optional;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
@@ -25,4 +27,22 @@ public interface OrderRepository {
     Optional<CustomerOrder> findByRef(String ref);
 
     long countByDateDepotStatus(LocalDate date, String depot, String status);
+
+    boolean existsActive(String outletId, LocalDate orderDate, String tempRequirement);
+
+    CustomerOrder insertConfirmed(
+        String outletId,
+        String brand,
+        String depot,
+        String district,
+        LocalDate orderDate,
+        Instant placedAt,
+        String tempRequirement,
+        int units,
+        BigDecimal weightKg,
+        BigDecimal volumeM3,
+        int isoYear,
+        int isoWeek,
+        long placedBy
+    );
 }

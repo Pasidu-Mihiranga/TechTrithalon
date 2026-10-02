@@ -33,7 +33,7 @@ class ReferenceSeedIT {
         registry.add("app.reference.data-dir", () -> fixtureDir("reference-fixture"));
         registry.add("app.reference.expected.outlets", () -> 3);
         registry.add("app.reference.expected.vehicles", () -> 2);
-        registry.add("app.reference.expected.calendar-days", () -> 3);
+        registry.add("app.reference.expected.calendar-days", () -> 5);
         registry.add("app.reference.expected.districts", () -> 2);
         registry.add("app.reference.expected.service-allowances", () -> 9);
     }
@@ -52,12 +52,12 @@ class ReferenceSeedIT {
         // The seeder already ran once at startup against a freshly migrated database.
         assertThat(db.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class))
             .isGreaterThanOrEqualTo(1);
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
 
         seeder.seed();
         seeder.seed();
 
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
     }
 
     @Test
@@ -79,7 +79,7 @@ class ReferenceSeedIT {
         assertCounts(0, 0, 0, 0, 0);
 
         seeder.seed();
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
     }
 
     @Test

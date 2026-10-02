@@ -1,15 +1,20 @@
 package lk.techtrithalon.waypoint.ordering.infrastructure;
 
+import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import lk.techtrithalon.waypoint.ordering.application.OrderRepository;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
+import lk.techtrithalon.waypoint.ordering.domain.OrderStateMachine;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -110,5 +115,39 @@ class JdbcOrderRepository implements OrderRepository {
             Long.class, Date.valueOf(date), depot, depot, status
         );
         return count == null ? 0 : count;
+    }
+
+    @Override
+    public boolean existsActive(String outletId, LocalDate orderDate, String tempRequirement) {
+        Integer count = db.queryForObject("""
+            SELECT count(*) FROM customer_order
+            WHERE outlet_id=? AND order_date=? AND temp_requirement=? AND status <> 'cancelled'
+            """, Integer.class, outletId, Date.valueOf(orderDate), tempRequirement);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public CustomerOrder insertConfirmed(
+        String outletId, String brand, String depot, String district, LocalDate orderDate,
+        Instant placedAt, String tempRequirement, int units, BigDecimal weightKg, BigDecimal volumeM3,
+        int isoYear, int isoWeek, long placedBy
+    ) {
+        String status = OrderStateMachine.newConfirmed().value();
+        String tempRef = "TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        Long id = db.queryForObject("""
+            INSERT INTO customer_order (
+              ref, outlet_id, brand, depot, district, order_date, placed_at, confirmed_at,
+              temp_requirement, units, weight_kg, volume_m3, status, iso_year, iso_week,
+              placed_by, version, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            RETURNING id
+            """, Long.class,
+            tempRef, outletId, brand, depot, district, Date.valueOf(orderDate),
+            Timestamp.from(placedAt), Timestamp.from(placedAt), tempRequirement, units, weightKg, volumeM3,
+            status, isoYear, isoWeek, placedBy, Timestamp.from(placedAt));
+        if (id == null) throw new IllegalStateException("Order insert returned no id");
+        String ref = "ORD-" + String.format("%06d", id);
+        db.update("UPDATE customer_order SET ref=? WHERE id=?", ref, id);
+        return findById(id).orElseThrow();
     }
 }

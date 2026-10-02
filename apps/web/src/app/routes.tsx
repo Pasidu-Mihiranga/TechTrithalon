@@ -9,7 +9,7 @@ import { roleKey, useAuth } from '../features/auth/auth'
 import { DispatcherOrdersPage } from '../features/ordering/DispatcherOrdersPage'
 import { PlanningConfirmedOrdersPage } from '../features/ordering/PlanningConfirmedOrdersPage'
 import { DispatcherOrderDetailPage, StoreOrderDetailPage } from '../features/ordering/OrderDetailPage'
-import { PlaceOrderLayoutPage } from '../features/ordering/PlaceOrderLayoutPage'
+import { PlaceOrderPage } from '../features/ordering/PlaceOrderPage'
 import { StoreHomePage } from '../features/ordering/StoreHomePage'
 import { StoreOrdersPage } from '../features/ordering/StoreOrdersPage'
 import { FleetDetailPage } from '../features/fleet/FleetDetailPage'
@@ -24,7 +24,7 @@ function pageElement(role: RoleConfig, page: RolePage) {
   if (role.key === 'dispatcher' && page.to === '/dispatcher/fleet') return <FleetPage />
   if (role.key === 'store' && page.end && page.to === '/store') return <StoreHomePage />
   if (role.key === 'store' && page.to === '/store/orders') return <StoreOrdersPage />
-  if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderLayoutPage />
+  if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderPage />
   return <PlaceholderPage page={page} />
 }
 

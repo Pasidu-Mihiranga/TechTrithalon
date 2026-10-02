@@ -67,7 +67,7 @@ class IdentitySecurityIT {
         });
         registry.add("app.reference.expected.outlets", () -> 3);
         registry.add("app.reference.expected.vehicles", () -> 2);
-        registry.add("app.reference.expected.calendar-days", () -> 3);
+        registry.add("app.reference.expected.calendar-days", () -> 5);
         registry.add("app.reference.expected.districts", () -> 2);
         registry.add("app.reference.expected.service-allowances", () -> 9);
         registry.add("app.demo.data-dir", () -> {

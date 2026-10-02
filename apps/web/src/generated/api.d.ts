@@ -333,7 +333,7 @@ export interface paths {
         };
         get: operations["orders"];
         put?: never;
-        post?: never;
+        post: operations["place"];
         delete?: never;
         options?: never;
         head?: never;
@@ -532,6 +532,13 @@ export interface components {
             parkingConstraint?: string;
             windowClose?: string;
             windowOpen?: string;
+        };
+        PlaceOrderRequest: {
+            tempRequirement: string;
+            /** Format: int32 */
+            units: number;
+            volumeM3: number;
+            weightKg: number;
         };
         PlanningProgress: {
             available?: boolean;
@@ -1100,6 +1107,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    place: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CustomerOrder"];
                 };
             };
         };
