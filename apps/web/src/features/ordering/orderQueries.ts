@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../../lib/apiClient'
 
-export function useDispatcherDashboard(date?: string) {
+export function useDispatcherDashboard(date?: string, depot?: string) {
   return useQuery({
-    queryKey: ['dispatcher', 'dashboard', date ?? 'demo'],
+    queryKey: ['dispatcher', 'dashboard', date ?? 'demo', depot],
     queryFn: async () => {
       const { data, error, response } = await api.GET('/api/v1/dispatcher/dashboard', {
-        params: { query: date ? { date } : {} },
+        params: { query: { date, depot } },
       })
       if (error || !data) throw apiReadError(response, 'Dashboard data could not be loaded')
       return data

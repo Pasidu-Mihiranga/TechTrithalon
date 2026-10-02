@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge, DataTable, EmptyState, ErrorState, LoadingState, PageHeader, TypeBadge, type Column } from '../../components'
 import { useFleet } from './fleetQueries'
+import { useDispatcherScope } from '../shell/useDispatcherScope'
 
 type FleetRow = NonNullable<ReturnType<typeof useFleet>['data']>[number]
 
 
 export function FleetPage() {
-  const fleet = useFleet()
+  const scope = useDispatcherScope()
+  const fleet = useFleet(undefined, scope.depot)
   const columns = useMemo<Column<FleetRow>[]>(() => [
     {
       key: 'vehicleId', header: 'Vehicle',

@@ -14,6 +14,11 @@ class OrderQueryIT extends ReferenceApiTestSupport {
     @Test
     void dispatcherReadsSeededOrdersAndHonestDashboardMetrics() throws Exception {
         Cookie cookie = login("DSP-001", "synthetic-dispatcher-password");
+        mvc.perform(get("/api/v1/dispatcher/dashboard?date=2026-06-26&depot=Kandy").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.ordersToPlan.value").value(0))
+            .andExpect(jsonPath("$.depot").value("Kandy"));
+        failure(mvc.perform(get("/api/v1/dispatcher/dashboard?depot=UNKNOWN").cookie(cookie)).andReturn(),
+            404, "NOT_FOUND");
         mvc.perform(get("/api/v1/dispatcher/dashboard?date=2026-06-26").cookie(cookie))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.ordersToPlan.value").value(2))
@@ -83,6 +88,8 @@ class OrderQueryIT extends ReferenceApiTestSupport {
         db.update("UPDATE app_user SET depot='Kandy' WHERE username='DSP-001'");
         try {
             Cookie kandy = login("DSP-001", "synthetic-dispatcher-password");
+            failure(mvc.perform(get("/api/v1/dispatcher/dashboard?depot=Peliyagoda").cookie(kandy)).andReturn(),
+                404, "NOT_FOUND");
             mvc.perform(get("/api/v1/dispatcher/orders?date=2026-06-26").cookie(kandy))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(0));

@@ -25,9 +25,10 @@ class DispatcherOrderController {
     @GetMapping("/dashboard")
     DashboardSnapshot dashboard(
         @AuthenticationPrincipal CurrentUser user,
-        @RequestParam(required = false) LocalDate date
+        @RequestParam(required = false) LocalDate date,
+        @RequestParam(required = false) String depot
     ) {
-        return service.dashboard(user, date);
+        return service.dashboard(user, date, depot);
     }
 
     @GetMapping("/orders")

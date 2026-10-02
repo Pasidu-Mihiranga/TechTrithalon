@@ -29,9 +29,10 @@ class FleetReadController {
     @GetMapping
     List<FleetVehicle> fleet(
         @AuthenticationPrincipal CurrentUser user,
-        @RequestParam(required = false) LocalDate date
+        @RequestParam(required = false) LocalDate date,
+        @RequestParam(required = false) String depot
     ) {
-        return service.fleet(user, date == null ? reference.demoOperatingDate() : date);
+        return service.fleet(user, date == null ? reference.demoOperatingDate() : date, depot);
     }
 
     @GetMapping("/{vehicleId}")

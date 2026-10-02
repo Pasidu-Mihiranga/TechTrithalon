@@ -765,6 +765,7 @@ export interface operations {
         parameters: {
             query?: {
                 date?: string;
+                depot?: string;
             };
             header?: never;
             path?: never;
@@ -787,6 +788,7 @@ export interface operations {
         parameters: {
             query?: {
                 date?: string;
+                depot?: string;
             };
             header?: never;
             path?: never;

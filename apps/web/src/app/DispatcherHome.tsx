@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Badge, Card, EmptyState, ErrorState, LoadingState, MetricCard, PageHeader } from '../components'
 import { useDispatcherDashboard } from '../features/ordering/orderQueries'
 import { useSystemHealth } from '../features/shell/useSystemHealth'
+import { useDispatcherScope } from '../features/shell/useDispatcherScope'
 
 function metricValue(metric: { available?: boolean; value?: number | null; availableFromPhase?: string | null }) {
   if (!metric.available) return '—'
@@ -15,7 +16,8 @@ function metricCaption(metric: { available?: boolean; availableFromPhase?: strin
 
 /** Phase 3A dashboard: live confirmed-order count; later KPIs stay honestly unavailable. */
 export function DispatcherHome() {
-  const dashboard = useDispatcherDashboard()
+  const scope = useDispatcherScope()
+  const dashboard = useDispatcherDashboard(undefined, scope.depot)
   const health = useSystemHealth()
 
   return (
@@ -27,7 +29,7 @@ export function DispatcherHome() {
           : 'Planning status for the demo delivery day.'}
       />
       {dashboard.isPending && <LoadingState rows={2} label="Loading dashboard" />}
-      {dashboard.isError && <ErrorState message="Dashboard data could not be loaded." onRetry={() => void dashboard.refetch()} />}
+      {dashboard.isError && <ErrorState error={dashboard.error} message="Dashboard data could not be loaded." onRetry={() => void dashboard.refetch()} />}
       {dashboard.data && (
         <>
           <section aria-label="Planning metrics" className="grid-metrics">

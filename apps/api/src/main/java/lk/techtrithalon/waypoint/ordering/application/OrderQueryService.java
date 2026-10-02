@@ -35,10 +35,11 @@ public class OrderQueryService {
     }
 
     @PreAuthorize("hasRole('DISPATCHER')")
-    public DashboardSnapshot dashboard(CurrentUser user, LocalDate date) {
+    public DashboardSnapshot dashboard(CurrentUser user, LocalDate date, String requestedDepot) {
         LocalDate day = date == null ? referenceProperties.demoOperatingDate() : date;
         reference.day(day);
-        String depot = user.depot();
+        String depot = requestedDepot == null || requestedDepot.isBlank() ? user.depot() : requestedDepot;
+        if (depot != null && (!user.canAccessDepot(depot) || !reference.depots(user).contains(depot))) throw missing();
         long confirmed = orders.countByDateDepotStatus(day, depot, "confirmed");
         String depotLabel = depot == null ? "All depots" : depot;
         return new DashboardSnapshot(

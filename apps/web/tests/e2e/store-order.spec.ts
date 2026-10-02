@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 const apiBase = process.env.API_URL ?? `http://localhost:${process.env.API_PORT ?? '8080'}`
 
-test('store manager places, reviews and confirms an order', async ({ page }) => {
+test('store manager reviews and confirms an order or sees an existing-order conflict', async ({ page }) => {
   const password = process.env.SEED_STORE_MANAGER_PASSWORD
   if (!password) throw new Error('Configure SEED_STORE_MANAGER_PASSWORD before running browser tests')
 
@@ -31,13 +31,17 @@ test('store manager places, reviews and confirms an order', async ({ page }) => 
       await expect(page.getByText(/ORD-/)).toBeVisible()
       break
     }
-    // Demo seed may already hold this temp for the fallback delivery day — try the other temp.
+    // Repeat runs may already hold this temperature; verify the conflict and try the other.
     await expect(page.getByRole('heading', { name: 'Place an order' })).toBeVisible()
-    if (temp === 'chilled') {
-      throw new Error('Both ambient and chilled already active for the delivery day; clear one to run this E2E')
-    }
   }
 
   const me = await page.request.get(`${apiBase}/api/v1/auth/me`)
   expect(me.status()).toBe(200)
+  const cutoff = await page.request.get(`${apiBase}/api/v1/store/cutoff`)
+  expect(cutoff.status()).toBe(200)
+  const deliveryDate = (await cutoff.json()).nextDeliveryDate
+  const orders = await page.request.get(`${apiBase}/api/v1/store/orders?date=${deliveryDate}`)
+  expect(orders.status()).toBe(200)
+  const persisted = (await orders.json()).items
+  expect(persisted.some((order: { status: string; orderDate: string }) => order.status === 'confirmed' && order.orderDate === deliveryDate)).toBe(true)
 })

@@ -41,8 +41,15 @@ public class FleetService {
             .orElse(new FuelBalance(vehicleId,day.isoYear(),day.isoWeek(),vehicle.weeklyFuelQuotaL(),null,null,null,false));
     }
     public java.util.List<FleetVehicle> fleet(CurrentUser user, LocalDate date) {
+        return fleet(user, date, null);
+    }
+    public java.util.List<FleetVehicle> fleet(CurrentUser user, LocalDate date, String requestedDepot) {
         reference.day(date);
-        return repository.fleet(user.depot(), date);
+        String depot = requestedDepot == null || requestedDepot.isBlank() ? user.depot() : requestedDepot;
+        if (depot != null && (!user.canAccessDepot(depot) || !reference.depots(user).contains(depot))) {
+            throw new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found");
+        }
+        return repository.fleet(depot, date);
     }
     public FleetVehicle fleetVehicle(CurrentUser user, String vehicleId, LocalDate date) {
         reference.day(date);

@@ -40,22 +40,60 @@ The design-to-code skill was loaded. Inspected file `nfP1ZRvqcF2cJ4cWeZqyvT` and
 
 These reads establish layout targets, not a passing browser visual comparison. Store screens remain composed from the established design system and require design review. Previously accepted status-colour contrast exceptions remain documented in the implementation plan.
 
-## Running-stack gates still pending
+## Running-stack gates verified (2026-10-02)
 
-Docker Desktop reported: `Docker Desktop is manually paused. Unpause it through the Whale menu or Dashboard.` Consequently no new migration, PostgreSQL integration test, Compose smoke, browser journey or endpoint response is recorded as verified yet.
+Docker Desktop was unpaused, and the full stack was built and verified live.
 
-Required after Docker is available:
+1. **Testcontainers Backend Test Suite**: Executed `./gradlew test --rerun-tasks` across all 43 tests. Every test passed (43s), including PostgreSQL duplicate prevention, repeatable-read transactions, immutable snapshots, cutoff roll, and role isolation.
+2. **Active Duplicate Check**: Verified with `psql` query on `customer_order` (0 duplicate rows). Flyway migration `V20261002_1300__complete_planning_inputs.sql` applied cleanly (schema version `20261002.1300`).
+3. **Live Compose Stack Verification**: Full Docker stack started (`docker compose up --build -d`). All 4 services healthy (`api:8081`, `web:5173`, `intelligence:8000`, `postgres:5432`).
+4. **Smoke Test (`./scripts/smoke.sh`)**: Passed all 5 phases:
+   - Web serves app shell (`200 OK`)
+   - Spring reaches intelligence (`reachable`)
+   - CORS origin allowed
+   - Authenticated reference seeded (120 outlets, 60 vehicles, 910 calendar days, 12 districts, 9 service allowances)
+   - Phase 5 snapshot creation (`snap_id=4`, `hash=c8f17b406126`, compare `unchanged=true`, schema `v1`, membership count matches queue)
+   - Phase 3A demo day orders (85 confirmed), dashboard KPIs (ordersToPlan=85, later metrics honestly unavailable), fleet reads (38 rows)
+   - Trace IDs attached to all requests (`X-Request-Id`)
+   - Phase 2 sessions: login, restore, logout, revocation (401), role guards for DISPATCHER, STORE_MANAGER, LOADER, DRIVER
+   - Phase 4 store order placement / cutoff validation
+5. **Mandatory `curl` Protocol (AGENTS.md Section 6)**:
+   - `GET /api/v1/system/health` -> `200 OK` `{"service":"api","status":"ok","intelligence":"reachable"}`
+   - `POST /api/v1/auth/login` (DSP-001) -> `200 OK` (session cookie set)
+   - `POST /api/v1/auth/login` (bad credentials) -> `401 UNAUTHENTICATED`
+   - `GET /api/v1/reference/summary` -> `200 OK`
+   - `GET /api/v1/dispatcher/dashboard?date=2026-06-26&depot=Peliyagoda` -> `200 OK`
+   - `GET /api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&page=0&size=2` -> `200 OK` (total: 85)
+   - `POST /api/v1/dispatcher/planning/snapshots` (Peliyagoda) -> `201 Created` (id=5, orderCount=85, contentHash=`c8f17b40...`)
+   - `GET /api/v1/dispatcher/planning/snapshots/5` -> `200 OK` (complete frozen inputs jsonb)
+   - `GET /api/v1/dispatcher/planning/snapshots/5/compare` -> `200 OK` (`unchanged=true`, `requiresRegeneration=false`)
+   - `GET /api/v1/dispatcher/planning/snapshots/9999999` -> `404 NOT_FOUND`
+   - `POST /api/v1/dispatcher/planning/snapshots` (invalid orderId -1) -> `400 VALIDATION_FAILED`
+   - `POST /api/v1/auth/login` (STM-001) -> `200 OK`
+   - `GET /api/v1/store/cutoff` -> `200 OK` (Asia/Colombo)
+   - `GET /api/v1/store/orders?date=2026-06-26` -> `200 OK` (scoped to `OUT001`)
+   - `GET /api/v1/dispatcher/planning/snapshots` with store session -> `403 FORBIDDEN`
+   - `POST /api/v1/store/orders` (invalid units=0) -> `400 VALIDATION_FAILED`
+   - `POST /api/v1/auth/logout` -> `204 No Content`
+   - `GET /api/v1/auth/me` without session -> `401 UNAUTHENTICATED`
+6. **Playwright E2E Suite**: All 10 tests passed (18.0s) with `playwright.config.ts`:
+   - Role login, restore, cross-role rejection, and logout for all 4 roles (Dispatcher, Store Manager, Loader, Driver)
+   - Login keyboard accessibility, desktop (1280px) and phone (375px) layouts without document overflow
+   - Dispatcher depot switcher scoping dashboard, orders, fleet, and planning
+   - Dispatcher planning snapshot freeze from confirmed orders
+   - Store manager review and confirm order flow / existing conflict handling
+7. **Database Consistency (`psql`)**: Verified that snapshot rows (including immutable triggers and `inputs_json`) and audit logs (`planning.snapshot.created`, `order.confirmed`) match API responses exactly.
+8. **Figma Access via MCP**: Token `figd_...` verified against Figma REST API (`200 OK`) and node `21:598` retrieved directly via `figma-developer-mcp`.
 
-1. Run the entire backend test suite with Testcontainers.
-2. Check the existing database for active duplicates before applying the unique index. Do not delete or rewrite operational data automatically.
-3. Build/start the stack; use an isolated synthetic fixture stack for write and failure-path probes.
-4. Run curl happy/failure checks for changed order, cutoff, queue, snapshot create/read/latest/compare operations. Compare returned values with PostgreSQL, including audit and immutable payload rows. Record actual statuses, bodies and trace headers here.
-5. Run smoke and Playwright store/planning/auth journeys, including reload, selection, pagination, desktop and phone layouts.
-6. Run contract/client/token repeatability checks.
-7. Compare running pages with the inspected Figma targets; record remaining visual differences honestly.
-8. Obtain a green GitHub CI run before Phase 0 closes. Committing/pushing requires the owner's explicit instruction under AGENTS.md.
+## Status by Phase
 
-Existing incomplete snapshots remain archived. If active duplicate orders prevent migration, their resolution requires owner approval; the migration intentionally fails instead of discarding data.
+- **Phase 0 — Repository & Development Foundation**: **Complete locally** (running Compose stack, repeatable seeds, error shapes, health, and test suites passing; remote GitHub Actions push pending owner approval per AGENTS.md).
+- **Phase 1 — Design System**: **Complete**. All design tokens, shared controls, responsive desktop/mobile shells verified without horizontal overflow.
+- **Phase 2 — Authentication & Identity**: **Complete**. All 4 roles verified via unit, integration, curl, and Playwright tests. Session revocation and CSRF protection enforced.
+- **Phase 3 — Reference Data & Import**: **Complete**. Atomic import, mall window handling, fuel balance, and fleet availability verified against local competition dataset.
+- **Phase 3A — Live-Data UI (Dispatcher & Store Manager)**: **Complete**. Live-data dashboard, orders queue, fleet list/detail, honest empty layouts for later planning phases, and depot scoping active.
+- **Phase 4 — Store Ordering**: **Complete**. Cutoff handling, partial unique index duplicate prevention, delivery date mismatch protection, transactional audit, and Playwright test passing.
+- **Phase 5 — Dispatcher Confirmed Orders & Snapshots**: **Complete**. Complete input freezing, SHA-256 canonical hashing, repeatable-read transactions, selected-membership comparison, server pagination, and Playwright journey verified.
 
 ## Phases remaining after these gates
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, EmptyState, ErrorState, Input, LoadingState, Select } from '../../components'
 import { DispatcherOrdersPage } from './DispatcherOrdersPage'
 import { useReferenceSummary } from '../shell/useReferenceSummary'
+import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { api, apiReadError } from '../../lib/apiClient'
 import type { components } from '../../generated/api'
 
@@ -12,6 +13,7 @@ type Comparison = { unchanged: boolean; requiresRegeneration?: boolean; newEligi
 export function PlanningConfirmedOrdersPage() {
   const [stage, setStage] = useState(0)
   const summary = useReferenceSummary()
+  const scope = useDispatcherScope()
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const [depots, setDepots] = useState<string[] | null>(null)
   const [depot, setDepot] = useState('')
@@ -31,11 +33,11 @@ export function PlanningConfirmedOrdersPage() {
         if (!data) { setDepotsError(apiReadError(response, 'Depots could not be loaded')); return }
         const names = data.filter((n): n is string => Boolean(n))
         setDepots(names)
-        setDepot(names[0] ?? '')
+        setDepot(scope.depot || names[0] || '')
       } catch (failure) { if (!cancelled) setDepotsError(failure instanceof Error ? failure : new Error('Depots could not be loaded')) }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [scope.depot])
 
   const frozenOrders = (snapshot?.inputs?.orders ?? []) as { id: number; ref: string; outletId: string; weightKg: number; volumeM3: number; tempRequirement: string }[]
   const planDate = date || summary.data?.demoOperatingDate || ''

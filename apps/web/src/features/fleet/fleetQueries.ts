@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../../lib/apiClient'
 
-export function useFleet(date?: string) {
+export function useFleet(date?: string, depot?: string) {
   return useQuery({
-    queryKey: ['dispatcher', 'fleet', date ?? 'demo'],
+    queryKey: ['dispatcher', 'fleet', date ?? 'demo', depot],
     queryFn: async () => {
       const { data, error, response } = await api.GET('/api/v1/dispatcher/fleet', {
-        params: { query: date ? { date } : {} },
+        params: { query: { date, depot } },
       })
       if (error || !data) throw apiReadError(response, 'Fleet data could not be loaded')
       return data

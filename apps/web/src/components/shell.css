@@ -61,3 +61,7 @@
 }
 
 .brand-logo { width: var(--layout-brand-logo-width); height: var(--layout-brand-logo-height); object-fit: contain; align-self: center; }
+.topbar { flex-wrap: wrap; padding-block: var(--space-8); }
+.topbar-search { min-width: 0; }
+.topbar-search input { min-width: 0; }
+.topbar .field { min-width: 0; }

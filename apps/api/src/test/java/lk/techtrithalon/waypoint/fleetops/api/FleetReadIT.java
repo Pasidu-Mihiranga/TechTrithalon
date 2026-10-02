@@ -13,6 +13,11 @@ class FleetReadIT extends ReferenceApiTestSupport {
     @Test
     void listsDepotFleetWithSeededAvailability() throws Exception {
         Cookie cookie = login("DSP-001", "synthetic-dispatcher-password");
+        mvc.perform(get("/api/v1/dispatcher/fleet?date=2026-06-26&depot=Kandy").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].vehicleId").value("VEH902"));
+        failure(mvc.perform(get("/api/v1/dispatcher/fleet?depot=UNKNOWN").cookie(cookie)).andReturn(),
+            404, "NOT_FOUND");
         mvc.perform(get("/api/v1/dispatcher/fleet?date=2026-06-26").cookie(cookie))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(2))
@@ -30,6 +35,8 @@ class FleetReadIT extends ReferenceApiTestSupport {
         db.update("UPDATE app_user SET depot='Peliyagoda' WHERE username='DSP-001'");
         try {
             Cookie scoped = login("DSP-001", "synthetic-dispatcher-password");
+            failure(mvc.perform(get("/api/v1/dispatcher/fleet?depot=Kandy").cookie(scoped)).andReturn(),
+                404, "NOT_FOUND");
             mvc.perform(get("/api/v1/dispatcher/fleet?date=2026-06-26").cookie(scoped))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, DataTable, EmptyState, ErrorState, Input, LoadingState, PageHeader, Select, TypeBadge, type Column, type SortState } from '../../components'
 import { formatVolume, planningLabel, planningTone, statusTone, tempKind, tempLabel } from './orderDisplay'
 import { useDispatcherOrders } from './orderQueries'
+import { useDispatcherScope } from '../shell/useDispatcherScope'
 
 type OrderRow = NonNullable<NonNullable<ReturnType<typeof useDispatcherOrders>['data']>['items']>[number]
 
@@ -26,6 +27,7 @@ export function DispatcherOrdersPage({
   depot?: string
 } = {}) {
   const [page, setPage] = useState(0)
+  const scope = useDispatcherScope()
   const [searchParams, setSearchParams] = useSearchParams()
   const q = searchParams.get('q') ?? ''
   function setQ(value: string) {
@@ -36,7 +38,7 @@ export function DispatcherOrdersPage({
   const [status, setStatus] = useState(statusFilter)
   const [sort, setSort] = useState<SortState>({ key: 'ref', direction: 'asc' })
   const orders = useDispatcherOrders({
-    date, depot, page,
+    date, depot: depot || scope.depot, page,
     q: q || undefined,
     brand: brand || undefined,
     tempRequirement: tempRequirement || undefined,
