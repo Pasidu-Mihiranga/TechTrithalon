@@ -11,7 +11,7 @@ import type { RoleConfig } from './roles'
 export function RoleShell({ role }: { role: RoleConfig }) {
   const navigate = useNavigate()
   const auth = useAuth()
-  const [depot, setDepot] = useState('')
+  const [depot, setDepot] = useState(auth.user?.depot || 'Peliyagoda')
   const depots = useQuery({
     queryKey: ['reference', 'depots'],
     enabled: role.key === 'dispatcher',
@@ -46,8 +46,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
                   onChange={(event) => setDepot(event.target.value)}
                   className="topbar-depot-select"
                 >
-                  <option value="">{auth.user?.depot || 'Peliyagoda Depot'}</option>
-                  {(depots.data ?? []).map((name) => (
+                  {(depots.data && depots.data.length > 0 ? depots.data : ['Peliyagoda', 'Kandy']).map((name) => (
                     <option key={name} value={name}>
                       {name.endsWith('Depot') ? name : `${name} Depot`}
                     </option>

@@ -6,6 +6,19 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 
 ## 2026-10-03
 
+### 2. Fix Planning Bottom Action Bar Layout, Overflow and Active Depot Scoping
+- **Category:** UI Layout & State Fixes
+- **Summary:** Resolved text clipping, element overflow, and hardcoded volume fallback on the planning bottom action bar, and aligned active depot scoping between TopBar and PlanningConfirmedOrdersPage.
+- **Details:**
+  - **Fixed Token & Padding:** Replaced undefined `--space-14` CSS token across `ui.css` (which caused browser shorthand `padding` declarations to be invalidated and reset to 0) with valid `--space-16`. Set explicit `box-sizing: border-box` and generous `padding: var(--space-16) var(--space-32)` on `.planning-bottom-bar`.
+  - **Eliminated Text Clipping:** Added `white-space: nowrap` on `.bottom-bar-metric` and `.bottom-bar-sub`, with `flex-wrap: wrap` on action buttons to prevent crowding. Set `.planning-page-container` padding-bottom to 0 so the sticky bar sits flush at the bottom.
+  - **Removed Hardcoded Fallback:** Removed the hardcoded `vol || 412.5` fallback in `PlanningConfirmedOrdersPage.tsx`, so empty or filtered scopes show real 0.0 m³ volume instead of 412.5 m³.
+  - **Depot Scoping Alignment:** Initialized `RoleShell` topbar select with `auth.user?.depot || 'Peliyagoda'`, mapped options directly with matching values, and set fallback to `Peliyagoda` when available so the page query matches the topbar selection and loads confirmed orders properly.
+- **Files Modified:**
+  - `apps/web/src/components/ui.css`
+  - `apps/web/src/app/RoleShell.tsx`
+  - `apps/web/src/features/ordering/PlanningConfirmedOrdersPage.tsx`
+
 ### 1. Complete 5-Step Planning Workflow Matching Figma (UI Implementation)
 - **Category:** UI Implementation & Workflow Alignment
 - **Summary:** Implemented the full end-to-end 5-step planning workflow matching every Figma frame (Steps 1 through 5, including split view, drawer, and modals) with complete interactivity, real backend data integration, and unit test coverage.

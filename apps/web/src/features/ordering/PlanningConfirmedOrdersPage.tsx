@@ -79,13 +79,14 @@ export function PlanningConfirmedOrdersPage() {
         if (!data) { setDepotsError(apiReadError(response, 'Depots could not be loaded')); return }
         const names = data.filter((n): n is string => Boolean(n))
         setDepots(names)
-        setDepot(scope.depot || names[0] || '')
+        const initial = scope.depot || (names.includes('Peliyagoda') ? 'Peliyagoda' : names[0]) || ''
+        setDepot(initial)
       } catch (failure) { if (!cancelled) setDepotsError(failure instanceof Error ? failure : new Error('Depots could not be loaded')) }
     })()
     return () => { cancelled = true }
   }, [scope.depot])
 
-  const activeDepot = scope.depot || depot || depots?.[0] || 'Peliyagoda'
+  const activeDepot = scope.depot || depot || (depots?.includes('Peliyagoda') ? 'Peliyagoda' : depots?.[0]) || 'Peliyagoda'
   const planDate = date || summary.data?.demoOperatingDate || ''
 
   const outletsMap = useMemo(() => {
@@ -133,7 +134,7 @@ export function PlanningConfirmedOrdersPage() {
       normalCount: normal,
       chilledCount: chilled,
       vanCount: van,
-      totalVolume: vol || 412.5,
+      totalVolume: vol,
     }
   }, [allOrdersQuery.data?.items, outletsMap])
 
