@@ -137,3 +137,38 @@ describe('state components', () => {
     expect(screen.getByRole('status', { name: 'Loading orders' })).toHaveAttribute('aria-busy', 'true')
   })
 })
+
+describe('Sidebar', () => {
+  it('renders navigation items with badges and toggles collapse state', async () => {
+    localStorage.clear()
+    const { House, TriangleAlert } = await import('lucide-react')
+    const { MemoryRouter } = await import('react-router-dom')
+    const { Sidebar } = await import('.')
+
+    const items = [
+      { to: '/home', label: 'Home', icon: House, end: true },
+      { to: '/exceptions', label: 'Exceptions', icon: TriangleAlert, badge: 3 },
+    ]
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/home']}>
+        <Sidebar roleLabel="Dispatcher" items={items} />
+      </MemoryRouter>
+    )
+
+    const aside = screen.getByRole('complementary', { name: 'Dispatcher navigation' })
+    expect(aside).not.toHaveClass('sidebar-collapsed')
+    expect(screen.getByText('Home')).toBeVisible()
+    expect(screen.getByText('Exceptions')).toBeVisible()
+    expect(screen.getByText('3')).toBeVisible()
+    expect(container.querySelector('.sidebar-strip')).toBeInTheDocument()
+
+    const collapseBtn = screen.getByRole('button', { name: 'Collapse sidebar' })
+    await userEvent.click(collapseBtn)
+
+    expect(aside).toHaveClass('sidebar-collapsed')
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
+    expect(localStorage.getItem('waypoint:sidebar-collapsed')).toBe('true')
+  })
+})
+
