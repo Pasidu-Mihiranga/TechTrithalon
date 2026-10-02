@@ -10,7 +10,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
-- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
+- [x] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
 - [ ] Phase 4 — Store Manager Order Flow
 - [ ] Phase 5 — Dispatcher Confirmed Orders
 - [ ] Phase 6 — Trip-Time & Constraint Engine
@@ -387,29 +387,29 @@ The dispatcher experience is the most fully designed part of the product (21 Fig
 
 #### Backend
 
-- [ ] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
-- [ ] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
-- [ ] All counts and KPIs computed server-side; the UI never derives business numbers.
+- [x] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
+- [x] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
+- [x] All counts and KPIs computed server-side; the UI never derives business numbers.
 
 #### Frontend — Dispatcher (Figma, class A)
 
-- [ ] App shell: sidebar, top bar, depot switcher, global search.
-- [ ] Dashboard (KPI cards and attention lists from live queries).
-- [ ] Orders and Order Detail.
-- [ ] Planning → Step 1 Confirmed Orders (table, filters, sorts, selection).
-- [ ] Fleet and Fleet Detail (workshop status from the database).
-- [ ] Deferred Orders, Exceptions, Live Operations, Capacity Forecast, Capacity Decision: layouts built; real empty states until Phases 8, 10, 16, 17 and 19 supply data.
-- [ ] Profile and Login.
+- [x] App shell: sidebar, top bar, depot switcher, global search. *(Shell from Phase 1–2; depot switcher/search remain disabled until those endpoints exist.)*
+- [x] Dashboard (KPI cards and attention lists from live queries). *(Later KPIs return `available: false` with phase labels.)*
+- [x] Orders and Order Detail.
+- [x] Planning → Step 1 Confirmed Orders (table, filters, sorts, selection). *(Live table; selection/snapshot actions deferred to Phase 5.)*
+- [x] Fleet and Fleet Detail (workshop status from the database).
+- [x] Deferred Orders, Exceptions, Live Operations, Capacity Forecast, Capacity Decision: layouts built; real empty states until Phases 8, 10, 16, 17 and 19 supply data.
+- [x] Profile and Login. *(Login complete in Phase 2; Settings/Profile still shows honest empty until more preference APIs exist.)*
 
 #### Frontend — Store Manager (no Figma frames yet; class C)
 
-- [ ] Home with real cutoff countdown (server time, Asia/Colombo).
-- [ ] My Orders and Order Detail (status timeline from real order status).
-- [ ] Place Order layout (submission is wired in Phase 4).
+- [x] Home with real cutoff countdown (server time, Asia/Colombo).
+- [x] My Orders and Order Detail (status timeline from real order status). *(Status badge from API; full timeline expands in Phase 4.)*
+- [x] Place Order layout (submission is wired in Phase 4).
 
 #### Database
 
-- [ ] `customer_order` table (as specified in the reference) and the demo-day seed.
+- [x] `customer_order` table (as specified in the reference) and the demo-day seed.
 
 #### Python / Intelligence
 
@@ -417,24 +417,41 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] API integration tests for every read endpoint, including role scope (store manager sees only own outlet).
-- [ ] Component tests for loading, empty, error and forbidden states.
-- [ ] A test that fails if the web bundle contains fixture/mock data imports (guard against hard-coded data).
-- [ ] Visual check of each dispatcher screen against its Figma frame.
+- [x] API integration tests for every read endpoint, including role scope (store manager sees only own outlet).
+- [x] Component tests for loading, empty, error and forbidden states.
+- [x] A test that fails if the web bundle contains fixture/mock data imports (guard against hard-coded data).
+- [ ] Visual check of each dispatcher screen against its Figma frame. *(Screenshots pending owner review against Figma.)*
 
 #### Documentation
 
-- [ ] List each screen with its Figma frame, its endpoint, and which later phase completes it.
+- [x] List each screen with its Figma frame, its endpoint, and which later phase completes it. *(See Result notes below.)*
 
 ### Exit Gate
 
-- [ ] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
-- [ ] Store manager can see their own real orders and the live cutoff.
-- [ ] No mock data or hard-coded business values in the web app.
+- [x] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
+- [x] Store manager can see their own real orders and the live cutoff.
+- [x] No mock data or hard-coded business values in the web app.
+
+### Evidence (local, verified — 2026-10-02)
+
+- Flyway `V20261002_0003__customer_order.sql`; demo seeder loads local Test Data CSVs (85 orders / 38 fleet rows on `2026-06-26`).
+- API: full `./gradlew test` green, including `OrderQueryIT` and `FleetReadIT`. Curl on Compose (`API_PORT=8081`): dashboard `ordersToPlan=85`, later metrics unavailable, orders total 85, store outlet-scoped orders, cutoff Asia/Colombo.
+- Web: lint/typecheck/40 Vitest tests/build pass; OpenAPI client regenerated.
+- Remaining for polish: Figma visual sign-off; depot switcher / global search when those APIs exist.
 
 ### Result
 
 After this phase, the dispatcher and store manager can navigate the full product UI on real seeded data, and later phases add behavior to existing screens instead of building them.
+
+| Screen | Figma | Endpoint | Completed by |
+|---|---|---|---|
+| Dashboard | `74:5232` | `GET /api/v1/dispatcher/dashboard` | 3A (later KPIs in 7/10/11/16) |
+| Orders / Detail | `74:5535` / `74:5850` | `GET /api/v1/dispatcher/orders` | 3A |
+| Planning Step 1 | `21:598` | same orders API | 3A table; 5+ actions |
+| Fleet / Detail | `719:12338` | `GET /api/v1/dispatcher/fleet` | 3A |
+| Deferred / Exceptions / Live / Forecast / Capacity | various | empty until later | 8 / 10 / 16 / 17 / 19 |
+| Store home / orders | none yet | `GET /api/v1/store/cutoff`, `/store/orders` | 3A |
+| Place order | none yet | layout only | submit in 4 |
 
 ## Phase 4 — Store Manager Order Flow
 

@@ -62,11 +62,16 @@ services:
       EXPECTED_DISTRICTS: ${EXPECTED_DISTRICTS:-12}
       EXPECTED_SERVICE_ALLOWANCES: ${EXPECTED_SERVICE_ALLOWANCES:-9}
       REFERENCE_DATA_DIR: /app/reference-data
+      DEMO_DATA_DIR: /app/demo-data
+      DEMO_SEED_ON_STARTUP: ${DEMO_SEED_ON_STARTUP:-true}
+      EXPECTED_DEMO_ORDERS: ${EXPECTED_DEMO_ORDERS:-85}
+      EXPECTED_DEMO_FLEET: ${EXPECTED_DEMO_FLEET:-38}
       TZ: ${APP_TIME_ZONE:-Asia/Colombo}
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
       - "${REFERENCE_DATA_HOST_DIR:-./dataset/data/General Data}:/app/reference-data:ro"
+      - "${DEMO_DATA_HOST_DIR:-./dataset/data/Test Data}:/app/demo-data:ro"
     depends_on:
       postgres:
         condition: service_healthy

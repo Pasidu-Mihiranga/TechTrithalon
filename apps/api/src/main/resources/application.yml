@@ -78,3 +78,9 @@ app:
       calendar-days: ${EXPECTED_CALENDAR_DAYS:910}
       districts: ${EXPECTED_DISTRICTS:12}
       service-allowances: ${EXPECTED_SERVICE_ALLOWANCES:9}
+  demo:
+    seed-on-startup: ${DEMO_SEED_ON_STARTUP:true}
+    # Local peak-day CSVs (never committed). Compose mounts this read-only.
+    data-dir: ${DEMO_DATA_DIR:../../dataset/data/Test Data}
+    expected-orders: ${EXPECTED_DEMO_ORDERS:85}
+    expected-fleet-rows: ${EXPECTED_DEMO_FLEET:38}

@@ -6,19 +6,45 @@ import { RoleShell } from './RoleShell'
 import { roles } from './roles'
 import { LoginPage } from '../features/auth/LoginPage'
 import { roleKey, useAuth } from '../features/auth/auth'
+import { DispatcherOrdersPage } from '../features/ordering/DispatcherOrdersPage'
+import { PlanningConfirmedOrdersPage } from '../features/ordering/PlanningConfirmedOrdersPage'
+import { DispatcherOrderDetailPage, StoreOrderDetailPage } from '../features/ordering/OrderDetailPage'
+import { PlaceOrderLayoutPage } from '../features/ordering/PlaceOrderLayoutPage'
+import { StoreHomePage } from '../features/ordering/StoreHomePage'
+import { StoreOrdersPage } from '../features/ordering/StoreOrdersPage'
+import { FleetDetailPage } from '../features/fleet/FleetDetailPage'
+import { FleetPage } from '../features/fleet/FleetPage'
 import type { ReactNode } from 'react'
-import type { RoleConfig } from './roles'
+import type { RoleConfig, RolePage } from './roles'
+
+function pageElement(role: RoleConfig, page: RolePage) {
+  if (role.key === 'dispatcher' && page.end) return <DispatcherHome />
+  if (role.key === 'dispatcher' && page.to === '/dispatcher/orders') return <DispatcherOrdersPage />
+  if (role.key === 'dispatcher' && page.to === '/dispatcher/planning') return <PlanningConfirmedOrdersPage />
+  if (role.key === 'dispatcher' && page.to === '/dispatcher/fleet') return <FleetPage />
+  if (role.key === 'store' && page.end && page.to === '/store') return <StoreHomePage />
+  if (role.key === 'store' && page.to === '/store/orders') return <StoreOrdersPage />
+  if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderLayoutPage />
+  return <PlaceholderPage page={page} />
+}
 
 function roleRoutes(role: RoleConfig) {
   const pages = [...role.pages, ...(role.footerPages ?? [])]
   return (
     <Route key={role.key} path={role.basePath} element={<SessionGuard role={role}><RoleShell role={role} /></SessionGuard>}>
       {pages.map((page) => {
-        const element = role.key === 'dispatcher' && page.end ? <DispatcherHome /> : <PlaceholderPage page={page} />
+        const element = pageElement(role, page)
         return page.to === role.basePath
           ? <Route key={page.to} index element={element} />
           : <Route key={page.to} path={page.to.slice(role.basePath.length + 1)} element={element} />
       })}
+      {role.key === 'dispatcher' ? (
+        <>
+          <Route path="orders/:id" element={<DispatcherOrderDetailPage />} />
+          <Route path="fleet/:vehicleId" element={<FleetDetailPage />} />
+        </>
+      ) : null}
+      {role.key === 'store' ? <Route path="orders/:id" element={<StoreOrderDetailPage />} /> : null}
     </Route>
   )
 }

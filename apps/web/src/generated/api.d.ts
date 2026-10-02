@@ -52,6 +52,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/fleet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["fleet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/fleet/{vehicleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["vehicle_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["orders_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["order_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/vehicles/{id}/availability": {
         parameters: {
             query?: never;
@@ -228,6 +308,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/store/cutoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["cutoff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["orders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["order"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system/health": {
         parameters: {
             query?: never;
@@ -248,6 +376,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AttentionItem: {
+            id?: string;
+            label?: string;
+            reason?: string;
+        };
         AvailabilityRequest: {
             /** Format: date */
             date: string;
@@ -269,6 +402,61 @@ export interface components {
             operating?: boolean;
             payday?: boolean;
         };
+        CustomerOrder: {
+            brand?: string;
+            /** Format: date-time */
+            confirmedAt?: string | null;
+            depot?: string;
+            district?: string;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            isoWeek?: number;
+            /** Format: int32 */
+            isoYear?: number;
+            /** Format: date */
+            orderDate?: string;
+            outletId: string;
+            /** Format: date-time */
+            placedAt?: string;
+            /** Format: int64 */
+            placedBy?: number | null;
+            ref: string;
+            status?: string;
+            tempRequirement?: string;
+            /** Format: int32 */
+            units?: number;
+            /** Format: int32 */
+            version?: number;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        CutoffInfo: {
+            cutoffLocalTime?: string;
+            /** Format: date-time */
+            nextCutoffAt?: string;
+            /** Format: date */
+            nextDeliveryDate?: string;
+            open?: boolean;
+            /** Format: int64 */
+            secondsRemaining?: number;
+            /** Format: date-time */
+            serverNow?: string;
+            timeZone?: string;
+        };
+        DashboardSnapshot: {
+            activeTrips?: components["schemas"]["Metric"];
+            /** Format: date */
+            date?: string;
+            depot?: string;
+            exceptions?: components["schemas"]["Metric"];
+            orderAttention?: components["schemas"]["AttentionItem"][];
+            ordersPlanned?: components["schemas"]["Metric"];
+            ordersToPlan?: components["schemas"]["Metric"];
+            planningProgress?: components["schemas"]["PlanningProgress"];
+            tripAttention?: components["schemas"]["AttentionItem"][];
+            tripsReady?: components["schemas"]["Metric"];
+        };
         DistrictTravel: {
             depot?: string;
             depotToDistrictKm?: number;
@@ -280,6 +468,24 @@ export interface components {
             /** Format: int32 */
             interStopMinutes?: number;
             roadClass?: string;
+        };
+        FleetVehicle: {
+            availabilityNote?: string | null;
+            availabilityRecorded?: boolean;
+            availabilityStatus?: string | null;
+            /** Format: int64 */
+            availabilityVersion?: number;
+            /** Format: date */
+            date?: string;
+            depot?: string;
+            fuelType?: string;
+            kmPerL?: number;
+            temp?: string;
+            type?: string;
+            vehicleId: string;
+            volumeCapM3?: number;
+            weeklyFuelQuotaL?: number;
+            weightCapKg?: number;
         };
         FuelBalance: {
             actualLitres?: number | null;
@@ -298,6 +504,21 @@ export interface components {
             rememberMe?: boolean;
             username: string;
         };
+        Metric: {
+            available?: boolean;
+            availableFromPhase?: string | null;
+            /** Format: int32 */
+            value?: number | null;
+        };
+        OrderPage: {
+            items?: components["schemas"]["CustomerOrder"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            total?: number;
+        };
         Outlet: {
             brand?: string;
             depot?: string;
@@ -311,6 +532,14 @@ export interface components {
             parkingConstraint?: string;
             windowClose?: string;
             windowOpen?: string;
+        };
+        PlanningProgress: {
+            available?: boolean;
+            availableFromPhase?: string | null;
+            /** Format: int32 */
+            planned?: number | null;
+            /** Format: int32 */
+            total?: number | null;
         };
         ReferenceSummary: {
             /** Format: int32 */
@@ -439,6 +668,126 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    dashboard: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DashboardSnapshot"];
+                };
+            };
+        };
+    };
+    fleet: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FleetVehicle"][];
+                };
+            };
+        };
+    };
+    vehicle_1: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FleetVehicle"];
+                };
+            };
+        };
+    };
+    orders_1: {
+        parameters: {
+            query?: {
+                date?: string;
+                brand?: string;
+                tempRequirement?: string;
+                status?: string;
+                q?: string;
+                sort?: string;
+                asc?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    order_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CustomerOrder"];
                 };
             };
         };
@@ -703,6 +1052,76 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Vehicle"];
+                };
+            };
+        };
+    };
+    cutoff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CutoffInfo"];
+                };
+            };
+        };
+    };
+    orders: {
+        parameters: {
+            query?: {
+                date?: string;
+                status?: string;
+                q?: string;
+                sort?: string;
+                asc?: boolean;
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CustomerOrder"];
                 };
             };
         };

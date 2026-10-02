@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Phases 1–3 are implemented and verified locally: design system, authentication, and reference data foundation. Phase 3A Dispatcher and Store Manager screens are next. Phase 0 GitHub CI verification remains pending; operational features follow the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
+> **Status:** Phases 1–3A are implemented and verified locally: design system, authentication, reference data, demo-day orders/fleet seed, and Dispatcher/Store Manager screens on live APIs. Phase 0 GitHub CI verification remains pending; order submission and planning follow in Phases 4+.
 
 ---
 
@@ -148,6 +148,15 @@ dataset/data/General Data/service_allowance.csv
 ```
 
 The API imports these five files on startup. The import is **idempotent**: re-running it creates no duplicates. It is also **atomic**: it checks the row counts (120 outlets, 60 vehicles, 910 calendar days, 12 districts, 9 allowances) and rolls back completely if they don't match. Training and test files are never loaded into the operational database.
+
+Phase 3A also mounts local peak-day files (never committed) from `dataset/data/Test Data/`:
+
+```
+dataset/data/Test Data/task2b_peak_day_scenarios.csv
+dataset/data/Test Data/task2b_peak_day_fleet.csv
+```
+
+Those seed 85 confirmed Peliyagoda orders and 38 fleet availability rows for `DEMO_OPERATING_DATE`.
 
 ### 2. Run the full stack
 

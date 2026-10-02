@@ -70,6 +70,12 @@ class IdentitySecurityIT {
         registry.add("app.reference.expected.calendar-days", () -> 3);
         registry.add("app.reference.expected.districts", () -> 2);
         registry.add("app.reference.expected.service-allowances", () -> 9);
+        registry.add("app.demo.data-dir", () -> {
+            try { return Path.of(Objects.requireNonNull(IdentitySecurityIT.class.getResource("/demo-fixture")).toURI()).toString(); }
+            catch (Exception e) { throw new IllegalStateException(e); }
+        });
+        registry.add("app.demo.expected-orders", () -> 2);
+        registry.add("app.demo.expected-fleet-rows", () -> 1);
     }
 
     @Autowired MockMvc mvc;

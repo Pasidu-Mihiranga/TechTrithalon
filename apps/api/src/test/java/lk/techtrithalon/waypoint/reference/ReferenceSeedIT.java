@@ -18,7 +18,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Empty database → Flyway → seed → seed again, against real PostgreSQL, using synthetic fixtures. */
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = "app.security.seed.enabled=false")
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+    "app.security.seed.enabled=false",
+    "app.demo.seed-on-startup=false"
+})
 @Import(PostgresTestSupport.class)
 class ReferenceSeedIT {
     static Path fixture(String name) throws Exception {
@@ -66,7 +69,7 @@ class ReferenceSeedIT {
 
     @Test
     void failedImportRollsBackEverything() {
-        db.execute("TRUNCATE audit_event, vehicle_availability, fuel_ledger, user_session, app_user, outlet, vehicle, calendar_day, service_allowance, district_travel");
+        db.execute("TRUNCATE customer_order, audit_event, vehicle_availability, fuel_ledger, user_session, app_user, outlet, vehicle, calendar_day, service_allowance, district_travel");
         var bad = new ReferenceProperties(fixtureDir("reference-fixture-bad"), true,
             properties.demoOperatingDate(), properties.expected());
 

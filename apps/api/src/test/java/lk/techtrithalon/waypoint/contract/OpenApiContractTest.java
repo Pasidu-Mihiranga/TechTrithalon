@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
         + "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration,"
         + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
     "app.reference.seed-on-startup=false",
+    "app.demo.seed-on-startup=false",
     "app.security.seed.enabled=false",
     "springdoc.writer-with-order-by-keys=true",
 })

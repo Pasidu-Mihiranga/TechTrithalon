@@ -65,6 +65,21 @@ for path in availability fuel; do
 done
 [[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/outlets/UNKNOWN")" == "404" ]] || fail "unknown outlet did not return 404"
 
+echo "Phase 3A: demo-day orders, dashboard and fleet reads"
+dashboard=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/dashboard?date=$demo_date")
+[[ "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "True" || "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "true" ]] || fail "ordersToPlan unavailable: $dashboard"
+orders_to_plan=$(echo "$dashboard" | json_field "['ordersToPlan']['value']")
+(( orders_to_plan > 0 )) || fail "ordersToPlan is 0: $dashboard"
+[[ "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "False" || "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "false" ]] || fail "ordersPlanned should be unavailable until Phase 7"
+order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&size=1")
+[[ "$(echo "$order_page" | json_field "['total']")" == "$orders_to_plan" ]] || fail "orders total mismatch: $order_page vs $orders_to_plan"
+first_order_id=$(echo "$order_page" | json_field "['items'][0]['id']")
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/$first_order_id" > /dev/null
+fleet=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet?date=$demo_date")
+fleet_len=$(echo "$fleet" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+(( fleet_len > 0 )) || fail "fleet list empty"
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet/$(echo "$fleet" | json_field "[0]['vehicleId']")?date=$demo_date" > /dev/null
+
 echo "5/5 requests carry a trace id"
 curl -fsS -D - -o /dev/null "$API/api/v1/system/health" | tr -d '\r' | grep -qi '^x-request-id' || fail "missing X-Request-Id header"
 
@@ -80,7 +95,11 @@ for role in STORE_MANAGER LOADER DRIVER; do
   expected=403
   [[ "$role" == "STORE_MANAGER" ]] && expected=200
   [[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/summary")" == "$expected" ]] || fail "$role reference guard failed"
+  if [[ "$role" == "STORE_MANAGER" ]]; then
+    curl -fsS -b "$cookies" "$API/api/v1/store/cutoff" > /dev/null || fail "store cutoff failed"
+    curl -fsS -b "$cookies" "$API/api/v1/store/orders" > /dev/null || fail "store orders failed"
+  fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done
 unset SMOKE_ROLE
-echo "SMOKE OK: $summary · all four sessions and role guards passed"
+echo "SMOKE OK: $summary · demo orders=$orders_to_plan · all four sessions and role guards passed"

@@ -24,7 +24,7 @@ export const roles: Record<RoleKey, RoleConfig> = {
     pages: [
       { to: '/dispatcher', label: 'Home', icon: House, end: true, title: 'Dashboard', description: 'Planning status and items that need attention.', phase: 'Phase 3A' },
       { to: '/dispatcher/orders', label: 'Orders', icon: ClipboardList, title: 'Orders', description: 'All confirmed orders for the planning day.', phase: 'Phase 3A' },
-      { to: '/dispatcher/planning', label: 'Planning', icon: Route, title: 'Planning', description: 'Build, review and publish tomorrow’s delivery plan.', phase: 'Phase 5 onward' },
+      { to: '/dispatcher/planning', label: 'Planning', icon: Route, title: 'Planning', description: 'Step 1 confirmed orders on live data; later steps arrive in Phases 5–11.', phase: 'Phase 3A / 5+' },
       { to: '/dispatcher/live-operations', label: 'Live Operations', icon: Activity, title: 'Live Operations', description: 'Trips in progress and problems on the road.', phase: 'Phase 16' },
       { to: '/dispatcher/forecast', label: 'Forecast', icon: TrendingUp, title: 'Capacity forecast', description: 'Expected demand against fleet capacity.', phase: 'Phase 17' },
       { to: '/dispatcher/fleet', label: 'Fleet', icon: Truck, title: 'Fleet', description: 'Vehicles, availability and workshop status.', phase: 'Phase 3A' },
@@ -40,7 +40,7 @@ export const roles: Record<RoleKey, RoleConfig> = {
     pages: [
       { to: '/store', label: 'Home', icon: House, end: true, title: 'Home', description: 'Order cutoff and your recent orders.', phase: 'Phase 3A' },
       { to: '/store/orders', label: 'My orders', icon: ClipboardList, end: true, title: 'My orders', description: 'Orders from your outlet and their status.', phase: 'Phase 3A' },
-      { to: '/store/orders/new', label: 'Place order', icon: PackagePlus, title: 'Place an order', description: 'Order goods for your next delivery.', phase: 'Phase 4' },
+      { to: '/store/orders/new', label: 'Place order', icon: PackagePlus, title: 'Place an order', description: 'Order form layout; submission arrives in Phase 4.', phase: 'Phase 4' },
     ],
   },
   loader: {

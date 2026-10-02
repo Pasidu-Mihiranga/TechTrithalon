@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import lk.techtrithalon.waypoint.fleetops.application.FleetRepository;
 import lk.techtrithalon.waypoint.fleetops.domain.*;
@@ -17,6 +18,13 @@ class JdbcFleetRepository implements FleetRepository {
     private static final RowMapper<VehicleAvailability> AVAILABILITY = (rs,i) -> new VehicleAvailability(
         rs.getString("vehicle_id"),rs.getDate("date").toLocalDate(),rs.getString("status"),rs.getString("note"),
         rs.getLong("version"),rs.getTimestamp("updated_at").toInstant(),rs.getLong("updated_by"),true);
+    private static final RowMapper<FleetVehicle> FLEET = (rs,i) -> new FleetVehicle(
+        rs.getString("vehicle_id"), rs.getString("type"), rs.getString("temp"),
+        rs.getBigDecimal("weight_cap_kg"), rs.getBigDecimal("volume_cap_m3"), rs.getString("fuel_type"),
+        rs.getBigDecimal("km_per_l"), rs.getBigDecimal("weekly_fuel_quota_l"), rs.getString("depot"),
+        rs.getDate("as_of").toLocalDate(),
+        rs.getString("availability_status"), rs.getString("availability_note"),
+        rs.getLong("availability_version"), rs.getBoolean("availability_recorded"));
     public Optional<VehicleAvailability> availability(String id,LocalDate date) {
         return db.query("SELECT * FROM vehicle_availability WHERE vehicle_id=? AND date=?",AVAILABILITY,id,Date.valueOf(date)).stream().findFirst();
     }
@@ -35,5 +43,28 @@ class JdbcFleetRepository implements FleetRepository {
             FROM fuel_ledger WHERE vehicle_id=? AND iso_year=? AND iso_week=?
             """,(rs,i) -> new FuelBalance(id,year,week,rs.getBigDecimal("quota"),rs.getBigDecimal("litres_committed"),
                 rs.getBigDecimal("litres_actual"),rs.getBigDecimal("remaining"),true),quota,quota,id,year,week).stream().findFirst();
+    }
+    public List<FleetVehicle> fleet(String depot, LocalDate date) {
+        return db.query("""
+            SELECT v.*, ?::date AS as_of,
+              a.status AS availability_status, a.note AS availability_note,
+              COALESCE(a.version, 0) AS availability_version,
+              (a.vehicle_id IS NOT NULL) AS availability_recorded
+            FROM vehicle v
+            LEFT JOIN vehicle_availability a ON a.vehicle_id=v.vehicle_id AND a.date=?
+            WHERE (?::text IS NULL OR v.depot=?)
+            ORDER BY v.vehicle_id
+            """, FLEET, Date.valueOf(date), Date.valueOf(date), depot, depot);
+    }
+    public Optional<FleetVehicle> fleetVehicle(String vehicleId, LocalDate date) {
+        return db.query("""
+            SELECT v.*, ?::date AS as_of,
+              a.status AS availability_status, a.note AS availability_note,
+              COALESCE(a.version, 0) AS availability_version,
+              (a.vehicle_id IS NOT NULL) AS availability_recorded
+            FROM vehicle v
+            LEFT JOIN vehicle_availability a ON a.vehicle_id=v.vehicle_id AND a.date=?
+            WHERE v.vehicle_id=?
+            """, FLEET, Date.valueOf(date), Date.valueOf(date), vehicleId).stream().findFirst();
     }
 }

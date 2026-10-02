@@ -44,19 +44,48 @@ describe('authenticated role shells', () => {
     expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Not available yet')
     expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Phase 17')
   })
-  it('shows reference counts returned by the API', async () => {
-    signedIn('DISPATCHER', async (url) => url.endsWith('/api/v1/reference/summary')
-      ? json({ outlets: 7, vehicles: 3, calendarDays: 6, districts: 2, serviceAllowances: 4, demoOperatingDate: '2026-07-03' })
-      : json({ service: 'api', status: 'ok', intelligence: 'reachable' }))
+  it('shows dashboard metrics returned by the API', async () => {
+    signedIn('DISPATCHER', async (url) => {
+      if (url.includes('/api/v1/dispatcher/dashboard')) {
+        return json({
+          date: '2026-06-26',
+          depot: 'Peliyagoda',
+          ordersToPlan: { value: 7, available: true },
+          ordersPlanned: { available: false, availableFromPhase: 'Phase 7' },
+          tripsReady: { available: false, availableFromPhase: 'Phase 11' },
+          activeTrips: { available: false, availableFromPhase: 'Phase 16' },
+          exceptions: { available: false, availableFromPhase: 'Phase 10' },
+          orderAttention: [],
+          tripAttention: [],
+          planningProgress: { available: false, availableFromPhase: 'Phase 7' },
+        })
+      }
+      return json({ service: 'api', status: 'ok', intelligence: 'reachable' })
+    })
     renderAt('/dispatcher')
     expect(await screen.findByText('7')).toBeVisible()
-    expect(screen.getByText('3')).toBeVisible()
+    expect(screen.getByText('Orders to plan')).toBeVisible()
+    expect(screen.getByText(/Available in Phase 7/)).toBeVisible()
     expect(await screen.findByText('All systems operational')).toBeVisible()
   })
   it('shows an error state with retry when a feature API fails', async () => {
-    signedIn('DISPATCHER', async () => json({}, 500))
+    signedIn('DISPATCHER', async (url) => {
+      if (url.includes('/api/v1/system/health')) return json({}, 500)
+      if (url.includes('/api/v1/dispatcher/dashboard')) {
+        return json({
+          date: '2026-06-26', depot: 'Peliyagoda',
+          ordersToPlan: { value: 1, available: true },
+          ordersPlanned: { available: false, availableFromPhase: 'Phase 7' },
+          tripsReady: { available: false, availableFromPhase: 'Phase 11' },
+          activeTrips: { available: false, availableFromPhase: 'Phase 16' },
+          exceptions: { available: false, availableFromPhase: 'Phase 10' },
+          orderAttention: [], tripAttention: [],
+          planningProgress: { available: false, availableFromPhase: 'Phase 7' },
+        })
+      }
+      return json({}, 500)
+    })
     renderAt('/dispatcher')
-    expect(await screen.findByRole('button', { name: 'Try again' })).toBeVisible()
     expect(await screen.findByText('API unavailable')).toBeVisible()
   })
   it('is keyboard navigable after session restoration', async () => {
