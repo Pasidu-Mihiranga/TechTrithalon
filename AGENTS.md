@@ -35,6 +35,7 @@ Small, local, reversible changes inside the current task (a bug fix, a test, a c
 2. **Do only what was asked.** If the owner asks for structure only, create structure only. Don't implement ahead.
 3. Respect the **predefined file structure** (section 5). Work in **vertical slices**: migration → Spring → OpenAPI → generated client → UI → tests. A feature is done only when it meets the plan's definition of done.
 4. Mark a plan checkbox only with evidence (a test run, a PR, a running screen). Never mark something done that wasn't verified.
+5. **Additional tasks, UI refinements & work log:** When the owner requests UI refinements, testing aids, or ad-hoc tasks outside the formal implementation plan, accommodate them. Always keep [`docs/WORK_LOG.md`](docs/WORK_LOG.md) updated with a chronological log of what was done (date, summary, files/features touched, and rationale) for both plan milestones and ad-hoc additions.
 
 ## 4. Architecture guardrails
 
@@ -135,8 +136,8 @@ curl -i http://localhost:8081/api/v1/orders/999999
 
 - Never commit unless the owner asks. Never push unless the owner asks.
 - Before committing, check `git status` for secrets, `.env` files and dataset files.
-- Write short, descriptive commit messages that explain what changed and why.
-- One feature slice per branch, named like `feat/phase-3a-dispatcher-dashboard`.
+- Write simple, humanized, and descriptive commit messages that clearly explain what changed and why. **Do NOT mention internal phase numbers (e.g. avoid 'Phase 6', 'Phase 3A') in commit messages**, because phase numbers are unclear and meaningless to outside readers. State the actual capability, feature, or refinement (e.g. `feat(planning): implement trip-time and constraint validation engine`, `feat(auth): add quick demo login buttons for user roles`).
+- One feature slice per branch, named descriptively like `feat/dispatcher-dashboard` or `feat/constraint-engine`.
 
 ## 10. Communication
 
