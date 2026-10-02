@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Phase 0 (foundation). The module structure is in place; business features are built phase by phase. See the [implementation plan](docs/IMPLEMENTATION_PLAN.md).
+> **Status:** Code through Phase 5 includes store confirmation and complete planning snapshots. The completion corrections require fresh PostgreSQL, curl and browser verification before their phase gates close. Phase 0 GitHub CI remains pending. See [current verification](docs/PHASE0_5_COMPLETION_VERIFICATION.md).
 
 ---
 
@@ -149,10 +149,20 @@ dataset/data/General Data/service_allowance.csv
 
 The API imports these five files on startup. The import is **idempotent**: re-running it creates no duplicates. It is also **atomic**: it checks the row counts (120 outlets, 60 vehicles, 910 calendar days, 12 districts, 9 allowances) and rolls back completely if they don't match. Training and test files are never loaded into the operational database.
 
+Phase 3A also mounts local peak-day files (never committed) from `dataset/data/Test Data/`:
+
+```
+dataset/data/Test Data/task2b_peak_day_scenarios.csv
+dataset/data/Test Data/task2b_peak_day_fleet.csv
+```
+
+Those seed 85 confirmed Peliyagoda orders and 38 fleet availability rows for `DEMO_OPERATING_DATE`.
+
 ### 2. Run the full stack
 
 ```bash
 cp .env.example .env
+# Set all four SEED_*_PASSWORD values (12+ characters) in .env first.
 docker compose up --build
 ```
 
@@ -167,6 +177,39 @@ docker compose up --build
 | PostgreSQL | localhost:5432 |
 
 The **demo operating date** is `2026-06-26` (a Friday). The API checks at startup that it is an operating day in the calendar. To change it, set `DEMO_OPERATING_DATE`.
+
+For a local walkthrough after the supplied calendar ends, explicitly set `DEMO_CLOCK_INSTANT=2026-06-25T11:00:00Z` (16:30 Asia/Colombo) and rebuild the API. This fixes the injected business clock for the walkthrough, including sessions and audit timestamps; leave it empty for normal operation. Orders never silently fall back to an old delivery date. With real time and no future calendar records, ordering returns `422 NO_OPERATING_DAY` until the calendar is extended. Do not use a fixed clock for deployment.
+
+Order review sends `expectedDeliveryDate`; crossing cutoff returns `409 DELIVERY_DATE_CHANGED` so the manager can review again. The persisted response supplies the confirmation date. PostgreSQL enforces one active order per outlet/date/temperature even for concurrent requests.
+
+Planning snapshots freeze complete order rows, vehicle capabilities and fuel state, outlet windows/access, travel, service allowances, calendar and rule parameters. Their reference version is content-derived. Selected snapshots compare the same selection; all-order snapshots also detect new confirmed orders. Legacy snapshots remain readable but require regeneration. The additive migration deliberately does not backfill historical inputs or delete duplicate orders: if existing active duplicates are present, resolve them with owner approval before applying the unique index.
+
+> **Port already in use?** If another project holds 8080 (or 5173/5432/8000), change `API_PORT` (and `WEB_PORT`, etc.) in `.env`, and set `VITE_API_BASE_URL` to match, for example `http://localhost:8081`. Then rebuild: `docker compose up --build`.
+
+**Verify the stack:** `make smoke` (or `./scripts/smoke.sh`) checks the web app, Spring, Spring → Python, CORS and the seeded data. **Start from scratch:** `make reset` wipes the database volume and re-seeds.
+
+### Sign in and account configuration
+
+Open `/login` in the web app. The server chooses your workspace from the account's role; changing the URL does not grant access.
+
+| Default user ID | Role | Password configuration |
+|---|---|---|
+| `DSP-001` | Dispatcher | `SEED_DISPATCHER_PASSWORD` |
+| `STM-001` | Store manager | `SEED_STORE_MANAGER_PASSWORD` |
+| `LDR-001` | Loader | `SEED_LOADER_PASSWORD` |
+| `DRV-001` | Driver | `SEED_DRIVER_PASSWORD` |
+
+Passwords have no fallback. Set unique values of at least 12 characters and at most 72 UTF-8 bytes in the ignored `.env` before first startup. The seed runs after reference import and is idempotent: existing accounts and password hashes are preserved. Changing a seed password later does **not** reset an existing account. Local credentials generated during development remain only in `.env`; never publish them or commit the file. To disable account seeding after provisioning, set `SEED_ACCOUNTS_ENABLED=false`.
+
+`SEED_STORE_MANAGER_OUTLET` selects the manager's outlet (`OUT001` by default; `OUT901` for synthetic CI fixtures). `SEED_LOADER_DEPOT` selects the loader's depot. The dispatcher initially covers both depots. Usernames can be overridden with the corresponding `SEED_*_USERNAME` variables.
+
+The web uses an opaque `HttpOnly; SameSite=Lax` cookie; PostgreSQL stores only its SHA-256 hash. Sessions expire after 16 hours by default (`SESSION_TTL=PT16H`), and logout revokes them immediately. Unchecked **Remember me** creates a browser-session cookie; checked persists it until server expiry. Neither setting stores credentials in browser storage. Set `COOKIE_SECURE=false` for local HTTP and `true` for HTTPS deployment.
+
+Every state-changing API call, including login, needs `X-Requested-With: Waypoint`. Browser origins must be in `WEB_ORIGINS`. Missing/expired sessions return `401`; a wrong role returns `403`. Later feature services must enforce method and ownership guards, returning `404` for someone else's resource. `CurrentUser` provides the trusted actor ID and outlet/depot scope. Driver assignment checks belong to the future trip service; there are no operational trip/order endpoints in Phase 2. Native bearer transport is deferred to Phase 14A.
+
+Login is throttled independently per username and source address after five failed attempts in 15 minutes; `429` includes `Retry-After`. Buckets are in memory for this single API instance. Password recovery currently directs users to their administrator.
+
+Run `corepack pnpm --dir apps/web test:e2e` against the running stack after `corepack pnpm --dir apps/web exec playwright install chromium`. Local tests read credentials from `.env`. An installed Chrome can be used with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. [Phase 2 verification](docs/PHASE2_VERIFICATION.md) records the endpoint and browser evidence.
 
 ### 3. Run without containers
 
@@ -192,7 +235,9 @@ corepack pnpm install && corepack pnpm --dir apps/web dev
 ```bash
 cd apps/api && ./gradlew test              # unit, contract and Testcontainers (needs Docker)
 cd apps/intelligence && .venv/bin/pytest   # Python tests
+corepack pnpm --dir apps/web lint && corepack pnpm --dir apps/web typecheck && corepack pnpm --dir apps/web test
 corepack pnpm --dir apps/web build         # type-check and build the web app
+make smoke                                 # whole-stack smoke test (stack must be running)
 ```
 
 | Test | What it proves |
@@ -207,8 +252,10 @@ corepack pnpm --dir apps/web build         # type-check and build the web app
 
 ```bash
 cd apps/api && ./gradlew test --tests '*OpenApiContractTest' -PupdateOpenApi
-corepack pnpm --dir apps/web generate:api
+corepack pnpm --dir apps/web generate:api   # or: make gen-api
 ```
+
+CI fails if `apps/api/openapi.json` or `apps/web/src/generated/` is out of date.
 
 ---
 
@@ -246,7 +293,7 @@ corepack pnpm --dir apps/web generate:api
 | `DEMO_OPERATING_DATE` | `2026-06-26` | Seeded walkthrough day |
 | `INTELLIGENCE_BASE_URL` | `http://localhost:8000` | Python service URL |
 | `WEB_ORIGINS` | `http://localhost:5173` | Allowed CORS origins |
-| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | API URL used by the web build |
+| `VITE_API_BASE_URL` | `http://localhost:8080` | API origin used by the web build (generated client paths already include `/api/v1`) |
 | `APP_TIME_ZONE` | `Asia/Colombo` | Container time zone |
 
 ---
@@ -262,3 +309,7 @@ corepack pnpm --dir apps/web generate:api
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase-by-phase checklist, priorities, exit gates
 - [Technical reference](docs/TECHNICAL_REFERENCE.md) — architecture, data model, planning engine, offline design
 - [Design documentation](docs/waypoint-design-documentation.md) — Designathon submission
+
+## Reference data foundation (Phase 3)
+
+The scoped reference APIs supply outlet/vehicle selectors, calendar, travel and service allowances. Fleet availability uses versioned, audited writes; missing availability and fuel balances remain explicitly unrecorded. [Phase 3 verification](docs/PHASE3_VERIFICATION.md) documents endpoints, source CSVs, date bounds, tests and curl responses. The supplied calendar ends on 28 June 2026; no automatic extension is performed.

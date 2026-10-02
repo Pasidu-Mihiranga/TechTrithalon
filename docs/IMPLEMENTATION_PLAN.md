@@ -7,12 +7,12 @@ This is the daily build plan for a **nine-member team**. It answers what to buil
 All boxes start unchecked. Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The next required phase is **Phase 0**, unless the team records verified implementation evidence here.
 
 - [ ] Phase 0 — Repository & Development Foundation
-- [ ] Phase 1 — Design System & Application Shell
-- [ ] Phase 2 — Authentication & RBAC
-- [ ] Phase 3 — Reference Data Foundation
-- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
-- [ ] Phase 4 — Store Manager Order Flow
-- [ ] Phase 5 — Dispatcher Confirmed Orders
+- [x] Phase 1 — Design System & Application Shell
+- [x] Phase 2 — Authentication & RBAC
+- [x] Phase 3 — Reference Data Foundation
+- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; corrections awaiting visual/runtime verification)**
+- [ ] Phase 4 — Store Manager Order Flow **(corrections awaiting PostgreSQL/curl/browser verification)**
+- [ ] Phase 5 — Dispatcher Confirmed Orders **(corrections awaiting PostgreSQL/curl/browser verification)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine
 - [ ] Phase 7 — Manual Planning First
 - [ ] Phase 8 — Deferral & Fairness
@@ -31,6 +31,8 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 20 — Advanced Decision Support
 - [ ] Phase 21 — System Hardening
 - [ ] Phase 22 — Full-System Verification
+
+**Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
 
 ## 1. How to Use This Plan
 
@@ -98,30 +100,30 @@ Every later feature needs a reproducible workspace, contracts, and running servi
 
 #### Backend
 
-- [ ] Scaffold Java 21 Spring Boot modular monolith, health endpoint, `Clock`, error envelope, and OpenAPI.
-- [ ] Expose a small API endpoint consumed by the web app.
+- [x] Scaffold Java 21 Spring Boot modular monolith, health endpoint, `Clock`, error envelope, and OpenAPI.
+- [x] Expose a small API endpoint consumed by the web app.
 
 #### Frontend
 
-- [ ] Scaffold React, TypeScript, Vite, router, query provider, and generated OpenAPI client.
+- [x] Scaffold React, TypeScript, Vite, router, query provider, and generated OpenAPI client.
 
 #### Database
 
-- [ ] Start PostgreSQL with Docker Compose; create baseline Flyway migration.
-- [ ] Add idempotent reference seed/import and a documented demo operating date.
+- [x] Start PostgreSQL with Docker Compose; create baseline Flyway migration.
+- [x] Add idempotent reference seed/import and a documented demo operating date.
 
 #### Python / Intelligence
 
-- [ ] Scaffold Python project, FastAPI health endpoint, Pydantic contracts, and pytest; no operational DB credentials.
+- [x] Scaffold Python project, FastAPI health endpoint, Pydantic contracts, and pytest; no operational DB credentials.
 
 #### Testing
 
-- [ ] Run migrations from an empty DB, seed twice without duplicates, and smoke-test React → Spring and Spring → Python.
-- [ ] Set CI for Gradle/JUnit, frontend lint/typecheck/Vitest, Python pytest, contract drift, and Compose smoke.
+- [x] Run migrations from an empty DB, seed twice without duplicates, and smoke-test React → Spring and Spring → Python.
+- [ ] Set CI for Gradle/JUnit, frontend lint/typecheck/Vitest, Python pytest, contract drift, and Compose smoke. *(Workflow written in `.github/workflows/ci.yml` and every step run locally; not yet run on GitHub.)*
 
 #### Documentation
 
-- [ ] Write root `.env.example`, local setup, seed/reset instructions, and service ownership.
+- [x] Write root `.env.example`, local setup, seed/reset instructions, and service ownership.
 
 ### Parallel Work for 9 Members
 
@@ -129,9 +131,17 @@ Scaffold API, web, database seed, and Python health in parallel after agreeing o
 
 ### Exit Gate
 
-- [ ] All services start through one Compose command.
-- [ ] Empty database migrates and seeds repeatably.
-- [ ] Frontend reaches Spring; Spring health-checks Python; CI is green.
+- [x] All services start through one Compose command.
+- [x] Empty database migrates and seeds repeatably.
+- [x] Frontend reaches Spring; Spring health-checks Python.
+- [ ] CI is green on GitHub *(pending the first push of this work)*.
+
+### Evidence (local, verified)
+
+- `docker compose up --build` starts postgres, intelligence, api and web; `scripts/smoke.sh` passes all 5 checks (web serves, Spring healthy, Spring → Python reachable, CORS for the web origin, reference data seeded, trace-id header).
+- Restarting the API leaves 120 outlets / 60 vehicles / 910 days unchanged; `docker compose down -v` then `up` re-seeds from an empty database.
+- The same smoke test passes on the synthetic CI fixtures (3 outlets / 2 vehicles).
+- API: 11 tests pass (Testcontainers on PostgreSQL 16). Python: 3 pass. Web: lint, typecheck, 2 Vitest tests and build pass. Generated client and `openapi.json` have no drift.
 
 ### Result
 
@@ -155,17 +165,17 @@ Shared visual foundations reduce repeated UI work in every role flow.
 
 #### Backend
 
-- [ ] Expose session/role shell metadata only as needed for UI integration.
+- [x] Expose session/role shell metadata only as needed for UI integration. *(Nothing needed before authentication exists; the role is chosen by URL until Phase 2.)*
 
 #### Frontend
 
-- [ ] Extract Figma tokens for color, type, spacing, status, and responsive breakpoints.
-- [ ] Build shared button, input, select, badge, card, table, dialog, drawer, sidebar, and top bar used by the first screens.
-- [ ] Add role shells and loading, empty, error, and unauthorized states.
+- [x] Extract Figma tokens for color, type, spacing, status, and responsive breakpoints.
+- [x] Build shared button, input, select, badge, card, table, dialog, drawer, sidebar, and top bar used by the first screens.
+- [x] Add role shells and loading, empty, error, and unauthorized states.
 
 #### Database
 
-- [ ] No migration required; retain token JSON in the repository.
+- [x] No migration required; retain token JSON in the repository.
 
 #### Python / Intelligence
 
@@ -173,12 +183,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Use Vitest/Testing Library for stateful primitives.
-- [ ] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma.
+- [x] Use Vitest/Testing Library for stateful primitives.
+- [x] Check keyboard focus, contrast, and 375 px/desktop layouts; visually compare the dispatcher shell to Figma. *(Keyboard order tested for the shell and focus trap for dialogs; contrast findings below accepted by the owner.)*
 
 #### Documentation
 
-- [ ] Record token source and mark missing role screens for final Figma verification.
+- [x] Record token source and mark missing role screens for final Figma verification.
 
 ### Parallel Work for 9 Members
 
@@ -186,9 +196,41 @@ Token extraction, shell layout, and accessibility review can progress in paralle
 
 ### Exit Gate
 
-- [ ] First role shell renders from shared components.
-- [ ] Core controls match the current Figma language.
-- [ ] Responsive and accessibility checks pass.
+- [x] First role shell renders from shared components.
+- [x] Core controls match the current Figma language.
+- [x] Responsive checks pass (375 px phone and 1280 px desktop).
+- [x] Accessibility checks pass, **with one owner-accepted exception**: the Figma status-badge colours are kept as designed (see below).
+
+### Evidence (local, verified)
+
+- **Tokens:** `packages/design-tokens/tokens.json` holds 28 colours, spacing, radius, shadows and 15 text styles, extracted from Figma nodes `74:5232` and `30:3416`. CSS and TypeScript are generated; CI fails if they are stale.
+- **Components** (`apps/web/src/components/`, flat): Button, Input, Select, Badge/TypeBadge, Card/MetricCard, DataTable (server-side sort contract), Dialog and Drawer (focus trap, Escape, focus return), PageHeader, AppShell, Sidebar, TopBar, SystemStatus, and the Empty/Error/Forbidden/Loading states.
+- **Role shells:** one `RoleShell` driven by `app/roles.ts` renders Dispatcher, Store manager, Loader and Driver. Below 1024 px the rail becomes a bottom tab bar. Screens whose backend arrives later show "Not available yet" and name the phase; there is no sample data.
+- **Real data:** the dispatcher home shows live counts from `/api/v1/reference/summary` (120 / 60 / 12 / 910) and the sidebar pill reads `/api/v1/system/health`.
+- **Tests:** 21 web tests pass (components, states, role shells, keyboard order, API client); typecheck, lint and build pass. `docker compose up --build` serves the new UI; `scripts/smoke.sh` still passes.
+- **Visual check:** compared with Figma frames 28:2936 and 74:5232 (dark rail, yellow active pill, yellow edge strip, title and card styles match). Screenshots taken at 1280 px and 375 px.
+
+### Known differences from Figma (need design review)
+
+- No depot switcher, notification bell, help button or user chip: they need data that does not exist yet (depot list endpoint, session). The search field is shown disabled.
+- The logo is a text wordmark; the Figma logo is a raster image.
+- The active nav pill has no "notch" curves, and metric cards have no yellow accent tick.
+- Breakpoints (768 / 1024 / 1280) are not in Figma; they are derived.
+- Store Manager, Loader and Driver pages have no Figma frames; they use the shared components.
+
+### Open accessibility findings (contrast, WCAG AA 4.5:1 for small text)
+
+Computed from the Figma token pairs. Fixed with existing tokens: captions and placeholders (tertiary → secondary), field errors and the danger button (danger → `type/van`), table headers and error-state text.
+
+Still failing **as designed in Figma**. **Owner decision: keep the Figma colours** (accepted exception; revisit if an accessibility audit requires it in Phase 21):
+
+| Pair | Ratio |
+|---|---:|
+| `status/danger` on `status/danger-soft` (danger badge) | 3.16 |
+| `type/fridge` on `type/fridge-soft` | 3.56 |
+| `type/normal` on `type/normal-soft` | 3.80 |
+| `type/van` on `type/van-soft` | 4.01 |
+| `status/warning` on `status/warning-soft` | 4.47 |
 
 ### Result
 
@@ -212,16 +254,16 @@ Every state-changing slice needs an actor and a trusted ownership scope.
 
 #### Backend
 
-- [ ] Implement login/logout, opaque session, expiry, role guards, data-scope checks, and actor context.
-- [ ] Return consistent 401/403; hide unowned resources with 404 where applicable.
+- [x] Implement login/logout, opaque session, expiry, role guards, data-scope checks, and actor context.
+- [x] Return consistent 401/403; hide unowned resources with 404 where applicable.
 
 #### Frontend
 
-- [ ] Build login, session restore, role redirect, Forbidden state, and logout.
+- [x] Build login, session restore, role redirect, Forbidden state, and logout.
 
 #### Database
 
-- [ ] Create users, roles, session store, and four seeded role accounts with hashed passwords.
+- [x] Create users, roles, session store, and four seeded role accounts with hashed passwords.
 
 #### Python / Intelligence
 
@@ -229,12 +271,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test passwords, expiry, CSRF/session behavior, and every role against each route family.
-- [ ] Playwright login/logout and cross-role access.
+- [x] Test passwords, expiry, CSRF/session behavior, and every role against each route family.
+- [x] Playwright login/logout and cross-role access.
 
 #### Documentation
 
-- [ ] Document seeded roles, credential configuration, and auth boundaries.
+- [x] Document seeded roles, credential configuration, and auth boundaries.
 
 ### Parallel Work for 9 Members
 
@@ -242,9 +284,24 @@ Identity schema/API and login UI can progress together against an agreed respons
 
 ### Exit Gate
 
-- [ ] Four seeded accounts reach their own shell.
-- [ ] Wrong role and wrong owner are rejected by API and UI.
-- [ ] Audit actor identity is available to later modules.
+- [x] Four seeded accounts reach their own shell.
+- [x] Wrong role and wrong owner are rejected by API and UI.
+- [x] Audit actor identity is available to later modules.
+
+### Evidence (local, verified — 2026-10-02)
+
+- API: 20 tests pass, including eight PostgreSQL identity/security tests covering all four roles against every route family, method guards, two-driver ownership, outlet/depot scope, BCrypt seeding, session hashing/expiry/revocation, CSRF/CORS, validation and throttling.
+- Web: 32 Vitest tests pass; lint, typecheck and production build pass. Authentication tests cover restore, role routing, errors, logout, expiry and private-cache cleanup when the actor changes.
+- Browser: six Playwright journeys pass on the running Compose stack. All four accounts log in, reload their session, reject the other three workspaces and log out. Login assets, keyboard navigation and 1280 px/375 px layouts are checked; screenshots were compared with Figma login frame `1121:36567`.
+- Running API: curl checks cover login/me/logout, protected reference access, 400/401/403/404/429 errors and matching `X-Request-Id`/`traceId`. PostgreSQL queries confirm returned users, BCrypt password hashes and hashed sessions. Commands and real responses are recorded in [Phase 2 verification](./PHASE2_VERIFICATION.md).
+- `make gen-api` regenerates the contract and client; OpenAPI drift and generated-client/token repeatability checks pass. Updated `scripts/smoke.sh` passes for the whole stack and all four seeded roles.
+- Trusted `CurrentUser` actor/scope is available to later services. Ownership rejection is proven through test-only controllers; operational order/trip ownership must be enforced again when those endpoints arrive.
+
+### Known limits
+
+- Local completion does not close Phase 0's pending GitHub CI gate; the updated workflow has not been pushed or run on GitHub.
+- Native bearer transport joins the cookie-backed session store in Phase 14A. Password reset remains administrator-assisted; self-service reset is outside Phase 2.
+- Login retains the existing project font tokens (Geist) rather than the frame's Inter; all supplied static assets are preserved. Shared title/ID labels support four roles, and no prototype ID, password or version is shown. Mobile composition needs final design review because no phone login frame was supplied.
 
 ### Result
 
@@ -268,16 +325,16 @@ Orders and rules must read the actual outlet, vehicle, calendar, travel, and ser
 
 #### Backend
 
-- [ ] Implement read APIs and fleet availability transitions.
-- [ ] Derive effective mall windows and reject empty intersections.
+- [x] Implement read APIs and fleet availability transitions.
+- [x] Derive effective mall windows and reject empty intersections.
 
 #### Frontend
 
-- [ ] Add only the fleet/outlet selectors needed by order and planning flows.
+- [x] Add only the fleet/outlet selectors needed by order and planning flows.
 
 #### Database
 
-- [ ] Import CSVs idempotently with natural IDs; persist availability and weekly fuel ledger.
+- [x] Import CSVs idempotently with natural IDs; persist availability and weekly fuel ledger.
 
 #### Python / Intelligence
 
@@ -285,12 +342,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Assert 120 outlets, 60 vehicles, 12 districts, 13 van-only outlets, 12 mall outlets, and exact fleet mix.
-- [ ] Test workshop status, mall intersection, and role-scoped reads against PostgreSQL.
+- [x] Assert 120 outlets, 60 vehicles, 12 districts, 13 van-only outlets, 12 mall outlets, and exact fleet mix.
+- [x] Test workshop status, mall intersection, and role-scoped reads against PostgreSQL.
 
 #### Documentation
 
-- [ ] Record source CSV paths, verified counts, and any date-extension policy.
+- [x] Record source CSV paths, verified counts, and any date-extension policy.
 
 ### Parallel Work for 9 Members
 
@@ -298,13 +355,15 @@ CSV/import work, API contract, and selectors can advance in parallel. Synchroniz
 
 ### Exit Gate
 
-- [ ] Reference counts and invariants match supplied files.
-- [ ] Read APIs return real seeded data.
-- [ ] Invalid mall windows fail import.
+- [x] Reference counts and invariants match supplied files.
+- [x] Read APIs return real seeded data.
+- [x] Invalid mall windows fail import.
 
 ### Result
 
 After this phase, the system can use verified operational reference data.
+
+**Verified locally:** [Phase 3 evidence](./PHASE3_VERIFICATION.md) — 28 backend tests, 37 web tests, generated-contract drift checks, smoke checks and curl against real and isolated synthetic PostgreSQL stacks. Selector components are ready for integration into the Phase 3A screens; no full order/planning screen is introduced here.
 
 ## Phase 3A — Dispatcher & Store Manager UI on Live Data
 
@@ -330,29 +389,29 @@ The dispatcher experience is the most fully designed part of the product (21 Fig
 
 #### Backend
 
-- [ ] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
-- [ ] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
-- [ ] All counts and KPIs computed server-side; the UI never derives business numbers.
+- [x] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
+- [x] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
+- [x] All counts and KPIs computed server-side; the UI never derives business numbers.
 
 #### Frontend — Dispatcher (Figma, class A)
 
-- [ ] App shell: sidebar, top bar, depot switcher, global search.
-- [ ] Dashboard (KPI cards and attention lists from live queries).
-- [ ] Orders and Order Detail.
-- [ ] Planning → Step 1 Confirmed Orders (table, filters, sorts, selection).
-- [ ] Fleet and Fleet Detail (workshop status from the database).
-- [ ] Deferred Orders, Exceptions, Live Operations, Capacity Forecast, Capacity Decision: layouts built; real empty states until Phases 8, 10, 16, 17 and 19 supply data.
-- [ ] Profile and Login.
+- [x] App shell: sidebar, top bar, depot switcher, global search. *(Shell from Phase 1–2; depot switcher/search remain disabled until those endpoints exist.)*
+- [x] Dashboard (KPI cards and attention lists from live queries). *(Later KPIs return `available: false` with phase labels.)*
+- [x] Orders and Order Detail.
+- [x] Planning → Step 1 Confirmed Orders (table, filters, sorts, selection). *(Live table; selection/snapshot actions deferred to Phase 5.)*
+- [x] Fleet and Fleet Detail (workshop status from the database).
+- [x] Deferred Orders, Exceptions, Live Operations, Capacity Forecast, Capacity Decision: layouts built; real empty states until Phases 8, 10, 16, 17 and 19 supply data.
+- [x] Profile and Login. *(Login complete in Phase 2; Settings/Profile still shows honest empty until more preference APIs exist.)*
 
 #### Frontend — Store Manager (no Figma frames yet; class C)
 
-- [ ] Home with real cutoff countdown (server time, Asia/Colombo).
-- [ ] My Orders and Order Detail (status timeline from real order status).
-- [ ] Place Order layout (submission is wired in Phase 4).
+- [x] Home with real cutoff countdown (server time, Asia/Colombo).
+- [x] My Orders and Order Detail (status timeline from real order status). *(Status badge from API; full timeline expands in Phase 4.)*
+- [x] Place Order layout (submission is wired in Phase 4).
 
 #### Database
 
-- [ ] `customer_order` table (as specified in the reference) and the demo-day seed.
+- [x] `customer_order` table (as specified in the reference) and the demo-day seed.
 
 #### Python / Intelligence
 
@@ -360,24 +419,41 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] API integration tests for every read endpoint, including role scope (store manager sees only own outlet).
-- [ ] Component tests for loading, empty, error and forbidden states.
-- [ ] A test that fails if the web bundle contains fixture/mock data imports (guard against hard-coded data).
-- [ ] Visual check of each dispatcher screen against its Figma frame.
+- [x] API integration tests for every read endpoint, including role scope (store manager sees only own outlet).
+- [x] Component tests for loading, empty, error and forbidden states.
+- [x] A test that fails if the web bundle contains fixture/mock data imports (guard against hard-coded data).
+- [ ] Visual check of each dispatcher screen against its Figma frame. *(Screenshots pending owner review against Figma.)*
 
 #### Documentation
 
-- [ ] List each screen with its Figma frame, its endpoint, and which later phase completes it.
+- [x] List each screen with its Figma frame, its endpoint, and which later phase completes it. *(See Result notes below.)*
 
 ### Exit Gate
 
-- [ ] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
-- [ ] Store manager can see their own real orders and the live cutoff.
-- [ ] No mock data or hard-coded business values in the web app.
+- [x] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
+- [x] Store manager can see their own real orders and the live cutoff.
+- [x] No mock data or hard-coded business values in the web app.
+
+### Evidence (local, verified — 2026-10-02)
+
+- Flyway `V20261002_0003__customer_order.sql`; demo seeder loads local Test Data CSVs (85 orders / 38 fleet rows on `2026-06-26`).
+- API: full `./gradlew test` green, including `OrderQueryIT` and `FleetReadIT`. Curl on Compose (`API_PORT=8081`): dashboard `ordersToPlan=85`, later metrics unavailable, orders total 85, store outlet-scoped orders, cutoff Asia/Colombo.
+- Web: lint/typecheck/40 Vitest tests/build pass; OpenAPI client regenerated.
+- Remaining for polish: Figma visual sign-off; depot switcher / global search when those APIs exist.
 
 ### Result
 
 After this phase, the dispatcher and store manager can navigate the full product UI on real seeded data, and later phases add behavior to existing screens instead of building them.
+
+| Screen | Figma | Endpoint | Completed by |
+|---|---|---|---|
+| Dashboard | `74:5232` | `GET /api/v1/dispatcher/dashboard` | 3A (later KPIs in 7/10/11/16) |
+| Orders / Detail | `74:5535` / `74:5850` | `GET /api/v1/dispatcher/orders` | 3A |
+| Planning Step 1 | `21:598` | same orders API | 3A table; 5+ actions |
+| Fleet / Detail | `719:12338` | `GET /api/v1/dispatcher/fleet` | 3A |
+| Deferred / Exceptions / Live / Forecast / Capacity | various | empty until later | 8 / 10 / 16 / 17 / 19 |
+| Store home / orders | none yet | `GET /api/v1/store/cutoff`, `/store/orders` | 3A |
+| Place order | none yet | layout only | submit in 4 |
 
 ## Phase 4 — Store Manager Order Flow
 
@@ -397,16 +473,16 @@ Confirmed orders are the input to every planning run.
 
 #### Backend
 
-- [ ] Implement order state machine, validation, server-side 16:00 Asia/Colombo cutoff, and next operating-day selection.
-- [ ] Permit same-day ambient and chilled Fresh orders.
+- [x] Implement order state machine, validation, server-side 16:00 Asia/Colombo cutoff, and next operating-day selection.
+- [x] Permit same-day ambient and chilled Fresh orders.
 
 #### Frontend
 
-- [ ] Build Place Order → Review → Confirm → My Orders → Order Detail, including form errors and empty state.
+- [x] Build Place Order → Review → Confirm → My Orders → Order Detail, including form errors and empty state.
 
 #### Database
 
-- [ ] Add customer order, indexes, version, and audit fields.
+- [x] Add customer order, indexes, version, and audit fields. *(migration landed in Phase 3A; Phase 4 writes confirmed rows + `order.confirmed` audit)*
 
 #### Python / Intelligence
 
@@ -414,12 +490,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test cutoff boundary, Sunday/holiday rollover, two-temperature orders, ownership, and bad quantities.
-- [ ] Playwright the complete store order slice.
+- [x] Test cutoff boundary, Sunday/holiday rollover, two-temperature orders, ownership, and bad quantities.
+- [x] Playwright the complete store order slice.
 
 #### Documentation
 
-- [ ] Document order lifecycle and cutoff behavior.
+- [x] Document order lifecycle and cutoff behavior.
 
 ### Parallel Work for 9 Members
 
@@ -427,13 +503,25 @@ Order schema/domain and React form can proceed against an agreed API DTO; integr
 
 ### Exit Gate
 
-- [ ] A store manager confirms a persisted order through the UI.
-- [ ] Dispatcher-facing status is confirmed and auditable.
-- [ ] Cutoff and ownership tests pass.
+- [x] A store manager confirms a persisted order through the UI.
+- [x] Dispatcher-facing status is confirmed and auditable.
+- [x] Cutoff and ownership tests pass.
 
 ### Result
 
 After this phase, the system can capture real confirmed demand from stores.
+
+### Order lifecycle and cutoff (implemented)
+
+- Place + confirm is one server step: `POST /api/v1/store/orders` creates `status=confirmed` via `OrderStateMachine` and writes `audit_event` type `order.confirmed`.
+- Cutoff is 16:00 Asia/Colombo (`DeliveryDateService`). Before cutoff → first operating day after today; at/after cutoff → first operating day after tomorrow. Sundays/holidays skip via `calendar_day.is_operating`. When no future operating date exists, return `422 NO_OPERATING_DAY`; an explicitly configured local demo clock supports walkthroughs without backdating orders. Review-date drift returns `409 DELIVERY_DATE_CHANGED`.
+- Fresh outlets may place ambient and chilled for the same delivery day; Style/other brands cannot place chilled (`CHILLED_FRESH_ONLY`). One active (non-cancelled) order per outlet/day/temp (`DUPLICATE_TEMP_ORDER`).
+
+### Evidence (local, verified — 2026-10-02)
+
+- API: `OrderCommandIT` + `OrderStateMachineTest`; full prior suite green. Curl on Compose (`API_PORT=8081`): store login → `POST /api/v1/store/orders` → **201** `ORD-000256` confirmed for `OUT001` / `2026-06-26` (row in `customer_order`); **400** `VALIDATION_FAILED`, **401** `UNAUTHENTICATED`, **403** `FORBIDDEN`, **409** `DUPLICATE_TEMP_ORDER`; path in `/v3/api-docs`.
+- Web: Place Order form → review → confirm; OpenAPI client regenerated; lint/typecheck/40 Vitest/build pass; Playwright `store-order.spec.ts`.
+- Remaining: Figma frames for store place-order when design lands.
 
 ## Phase 5 — Dispatcher Confirmed Orders
 
@@ -453,16 +541,16 @@ A dispatcher needs a precise and stable planning input set.
 
 #### Backend
 
-- [ ] Add date/depot-scoped confirmed-order query, pagination, search, sorting, and selection rules.
-- [ ] Create immutable planning snapshots with order IDs, fleet, weekly fuel, calendar, rule version, and content hash.
+- [x] Add date/depot-scoped confirmed-order query, pagination, search, sorting, and selection rules.
+- [x] Create immutable planning snapshots with order IDs, fleet, weekly fuel, calendar, rule version, and content hash.
 
 #### Frontend
 
-- [ ] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
+- [x] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
 
 #### Database
 
-- [ ] Add planning snapshot table and appropriate order query indexes.
+- [x] Add planning snapshot table and appropriate order query indexes.
 
 #### Python / Intelligence
 
@@ -470,12 +558,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
-- [ ] Playwright queue and snapshot creation.
+- [x] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
+- [x] Playwright queue and snapshot creation.
 
 #### Documentation
 
-- [ ] Document snapshot fields and reconciliation when inputs change.
+- [x] Document snapshot fields and reconciliation when inputs change.
 
 ### Parallel Work for 9 Members
 
@@ -483,13 +571,27 @@ Queue UI and snapshot service can advance in parallel on agreed read models; int
 
 ### Exit Gate
 
-- [ ] Dispatcher can inspect the exact closed order set.
-- [ ] A snapshot freezes all inputs needed for a planning attempt.
-- [ ] Repeated reads reproduce the same snapshot.
+- [x] Dispatcher can inspect the exact closed order set.
+- [x] A snapshot freezes all inputs needed for a planning attempt.
+- [x] Repeated reads reproduce the same snapshot.
 
 ### Result
 
 After this phase, the system can freeze the inputs of a planning run.
+
+### Snapshot fields and reconciliation (implemented)
+
+`planning_snapshot` row: `plan_date`, `depot`, `taken_at`, `order_ids` (sorted), `fleet_json` (per-vehicle caps, availability, weekly fuel remaining), `constraints_json` (operating flags, cutoff, `ruleVersion`), `reference_version` (content-derived), `content_hash` (SHA-256 of the complete input payload), `taken_by`, `selection_mode`, `inputs_json`. The payload includes complete order rows, outlet windows/access, district travel, service allowances, vehicle fuel efficiency, calendar and rule parameters. Legacy rows without the payload require regeneration.
+
+- Create: `POST /api/v1/dispatcher/planning/snapshots` (optional `orderIds`; omit = all confirmed for date+depot). Insert-only — database updates are rejected by a trigger. Creation requires the preceding day’s 16:00 Asia/Colombo cutoff and records an actor-linked audit event.
+- Read: `GET .../snapshots/{id}`, `GET .../snapshots?date&depot` (latest).
+- Drift: `GET .../snapshots/{id}/compare` recomputes the current hash; `unchanged=false` when any frozen planning input changes. Selected snapshots compare their selected IDs; all-order snapshots compare the complete eligible set. The UI checks drift, offers regeneration, and can reload the latest snapshot.
+
+### Evidence (local, verified — 2026-10-02)
+
+- Flyway `V20261002_1200__planning_snapshot.sql`; full `./gradlew test` green including `PlanningSnapshotIT`.
+- Curl on Compose (`API_PORT=8081`): `POST .../planning/snapshots` → **201** with 85 `orderIds`, fleet JSON, `contentHash`; `GET` + `compare` → `unchanged=true`; **401** / **403** for anonymous / store; row in `planning_snapshot`.
+- Web: selection + snapshot on Planning Step 1; OpenAPI client regenerated; 40 Vitest/build pass; Playwright `planning-snapshot.spec.ts`; `scripts/smoke.sh` Phase 5 step OK.
 
 ## Phase 6 — Trip-Time & Constraint Engine
 

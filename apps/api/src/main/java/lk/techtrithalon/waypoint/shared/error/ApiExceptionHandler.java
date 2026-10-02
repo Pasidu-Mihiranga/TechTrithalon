@@ -6,33 +6,38 @@ import lk.techtrithalon.waypoint.shared.web.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * The one error shape for the whole API: RFC 7807 problem details extended with a stable
  * {@code code}, the request's {@code traceId}, and {@code violations} for field-level failures.
+ *
+ * <p>Extends Spring's {@link ResponseEntityExceptionHandler} so that framework errors (404, 405,
+ * malformed JSON, ...) get the same {@code code} and {@code traceId} as our own.
  */
 @RestControllerAdvice
-public class ApiExceptionHandler {
+public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
-    ProblemDetail handleApi(ApiException ex) {
-        return problem(ex.status(), ex.code(), ex.getMessage());
+    ResponseEntity<ProblemDetail> handleApi(ApiException ex) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.status());
+        ex.headers().forEach(response::header);
+        return response.body(problem(ex.status(), ex.code(), ex.getMessage()));
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
-        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed");
-        List<Map<String, String>> violations = ex.getBindingResult().getFieldErrors().stream()
-            .map(e -> Map.of("field", e.getField(), "message", String.valueOf(e.getDefaultMessage())))
-            .toList();
-        problem.setProperty("violations", violations);
-        return problem;
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ProblemDetail handleAccessDenied() {
+        return problem(HttpStatus.FORBIDDEN, "FORBIDDEN", "Your role does not have access to this resource");
     }
 
     @ExceptionHandler(Exception.class)
@@ -40,6 +45,40 @@ public class ApiExceptionHandler {
         log.error("Unhandled exception", ex);
         // Never leak internals to the client; the traceId links the response to the log line.
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "An unexpected error occurred");
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Request validation failed");
+        List<Map<String, String>> violations = ex.getBindingResult().getFieldErrors().stream()
+            .map(e -> Map.of("field", e.getField(), "message", String.valueOf(e.getDefaultMessage())))
+            .toList();
+        problem.setProperty("violations", violations);
+        return ResponseEntity.badRequest().headers(headers).body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).headers(headers)
+            .body(problem(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found"));
+    }
+
+    /** Every framework-generated error passes through here; stamp it with a code and the trace id. */
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(
+            Exception ex, Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
+        // Spring passes a null body and builds the ProblemDetail inside super, so stamp the result.
+        ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        if (response != null && response.getBody() instanceof ProblemDetail problem) {
+            if (problem.getProperties() == null || !problem.getProperties().containsKey("code")) {
+                problem.setProperty("code", statusCode instanceof HttpStatus s ? s.name() : "HTTP_" + statusCode.value());
+            }
+            problem.setProperty("traceId", MDC.get(RequestIdFilter.MDC_KEY));
+        }
+        return response;
     }
 
     private static ProblemDetail problem(HttpStatus status, String code, String detail) {

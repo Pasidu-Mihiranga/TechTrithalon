@@ -18,7 +18,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Empty database → Flyway → seed → seed again, against real PostgreSQL, using synthetic fixtures. */
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+    "app.security.seed.enabled=false",
+    "app.demo.seed-on-startup=false"
+})
 @Import(PostgresTestSupport.class)
 class ReferenceSeedIT {
     static Path fixture(String name) throws Exception {
@@ -30,7 +33,7 @@ class ReferenceSeedIT {
         registry.add("app.reference.data-dir", () -> fixtureDir("reference-fixture"));
         registry.add("app.reference.expected.outlets", () -> 3);
         registry.add("app.reference.expected.vehicles", () -> 2);
-        registry.add("app.reference.expected.calendar-days", () -> 3);
+        registry.add("app.reference.expected.calendar-days", () -> 5);
         registry.add("app.reference.expected.districts", () -> 2);
         registry.add("app.reference.expected.service-allowances", () -> 9);
     }
@@ -49,12 +52,12 @@ class ReferenceSeedIT {
         // The seeder already ran once at startup against a freshly migrated database.
         assertThat(db.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class))
             .isGreaterThanOrEqualTo(1);
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
 
         seeder.seed();
         seeder.seed();
 
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
     }
 
     @Test
@@ -66,7 +69,7 @@ class ReferenceSeedIT {
 
     @Test
     void failedImportRollsBackEverything() {
-        db.execute("TRUNCATE outlet, vehicle, calendar_day, service_allowance, district_travel");
+        db.execute("TRUNCATE planning_snapshot, customer_order, audit_event, vehicle_availability, fuel_ledger, user_session, app_user, outlet, vehicle, calendar_day, service_allowance, district_travel");
         var bad = new ReferenceProperties(fixtureDir("reference-fixture-bad"), true,
             properties.demoOperatingDate(), properties.expected());
 
@@ -76,7 +79,7 @@ class ReferenceSeedIT {
         assertCounts(0, 0, 0, 0, 0);
 
         seeder.seed();
-        assertCounts(3, 2, 3, 2, 9);
+        assertCounts(3, 2, 5, 2, 9);
     }
 
     @Test

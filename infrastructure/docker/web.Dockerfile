@@ -1,11 +1,17 @@
+# syntax=docker/dockerfile:1
 FROM node:20-alpine AS build
 WORKDIR /workspace
 RUN corepack enable
-COPY package.json pnpm-workspace.yaml ./
+
+# Dependencies first (cached until a package.json or the lockfile changes).
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --no-frozen-lockfile
+COPY packages/design-tokens/package.json packages/design-tokens/package.json
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
+
+COPY packages/design-tokens/ packages/design-tokens/
 COPY apps/web/ apps/web/
-ARG VITE_API_BASE_URL=http://localhost:8080/api/v1
+ARG VITE_API_BASE_URL=http://localhost:8080
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm --dir apps/web build
 

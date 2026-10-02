@@ -1,0 +1,3 @@
+scenario,order_ref,outlet_id,brand,district,depot,dock_type,parking_constraint,mall_window,window_open_time,window_close_time,temp_requirement,order_units,order_weight_kg,order_volume_m3,deferred_yesterday,days_since_last_served
+SYN,SYN001,OUT901,Fresh,Alpha,Peliyagoda,street,van_only,,05:00,07:30,chilled,12,240.50,1.250,0,1
+SYN,SYN002,OUT902,Style,Alpha,Peliyagoda,mall_bay,mall_dock,10:00-12:00,09:00,17:00,ambient,8,96.00,0.640,0,2

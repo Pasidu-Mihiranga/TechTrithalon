@@ -1631,6 +1631,8 @@ CREATE TABLE constraint_violation (
 
 ### Fleet operations
 
+**Implemented in Phase 3:** [verification record](./PHASE3_VERIFICATION.md). The additive migration `V20261002_0002__fleet_reference_state.sql` adds the tables below plus audit storage. The implemented availability row also carries required change note, optimistic `version`, trusted `updated_by`, and Clock-derived `updated_at`. Its date references the supplied calendar; missing availability or fuel rows remain unrecorded rather than becoming available/zero by default. Reference reads and fleet operations enforce outlet/depot scope through published application services. The SQL below remains the wider design sketch; the Flyway migration is the implemented schema.
+
 ```sql
 CREATE TABLE vehicle_availability (
   vehicle_id varchar(8) NOT NULL REFERENCES vehicle(vehicle_id),
@@ -1930,12 +1932,16 @@ RFC 7807 shape, extended with `violations`. Status codes: `400` malformed · `40
 **Opaque server-side sessions rather than JWT** (AD-14). The web uses an `HttpOnly` cookie; the React Native driver app sends the same opaque session id as `Authorization: Bearer <token>`, stored in `expo-secure-store`. Both resolve to one server-side session table, so revocation is immediate for both. Reasons for opaque sessions over JWT: logout must be immediate (a dispatcher removing a driver's access cannot wait for token expiry); there is no third-party API consumer needing bearer tokens; and the PWA stores far less sensitive material if the credential is an `HttpOnly` cookie rather than a readable token.
 
 ```
-POST /api/v1/auth/login   {username, password}
+POST /api/v1/auth/login   {username, password, rememberMe?}
   → Set-Cookie: WP_SESSION=…; HttpOnly; Secure; SameSite=Lax
-  → 200 { user, role, depot, permissions[] }
+  → 200 {id, username, displayName, role, outletId, depot}
+GET /api/v1/auth/me       → 200 same user shape; 401 if expired/revoked
+POST /api/v1/auth/logout  → 204, revoke session and clear cookie
 ```
 
-Passwords hashed with **BCrypt** (Spring Security default, cost 12).
+Passwords hashed with **BCrypt** (Spring Security default, cost 12). The web Phase 2 implementation uses cookies only; native bearer transport joins the same session store in Phase 14A. Server-side expiry is absolute (16 hours by default). `rememberMe=false` omits cookie `Max-Age`; `true` persists it for that lifetime. State-changing calls require `X-Requested-With`, with browser `Origin` checked against the allowlist. Tokens are random 256-bit values; only SHA-256 hashes are persisted. Login throttling uses independent username and address buckets (five failures per 15 minutes) and returns `429` with `Retry-After`.
+
+Phase 2 implementation and local verification: [verification record](./PHASE2_VERIFICATION.md). Auth responses expose actor and scope, never passwords or session tokens. Operational ownership enforcement must be added to each future feature service; Phase 2 tests exercise that boundary with test-only controllers and two synthetic drivers.
 
 **Offline caveat:** the driver PWA must function offline after the session cookie expires mid-shift. Policy: sessions last 16 hours (longer than any shift); the PWA caches the user profile and the trip payload; queued actions carry the `client_action_id` and are replayed on reconnect — if the session has expired by then, the driver re-authenticates and the queue replays afterwards. **Queued work is never lost to an expired session**, because the outbox lives in IndexedDB independent of the cookie.
 

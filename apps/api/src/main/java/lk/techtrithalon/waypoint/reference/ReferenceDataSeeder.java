@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -28,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * atomic: a failed import or a failed invariant check rolls the whole import back.
  */
 @Component
+@Order(10)
 @ConditionalOnProperty(name = "app.reference.seed-on-startup", havingValue = "true", matchIfMissing = true)
 public class ReferenceDataSeeder implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(ReferenceDataSeeder.class);

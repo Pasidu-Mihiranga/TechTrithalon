@@ -18,6 +18,7 @@ class ApiExceptionHandlerTest {
     @RestController
     static class FailingController {
         @GetMapping("/known") void known() { throw new ApiException(HttpStatus.CONFLICT, "STALE_PLAN", "Plan version 3 is stale"); }
+        @org.springframework.web.bind.annotation.PostMapping("/only-post") void onlyPost() {}
         @GetMapping("/unknown") void unknown() { throw new IllegalStateException("database password is hunter2"); }
     }
 
@@ -44,6 +45,15 @@ class ApiExceptionHandlerTest {
             .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
             .andExpect(jsonPath("$.detail").value("An unexpected error occurred"))
             .andExpect(jsonPath("$.traceId").value(matchesPattern("[0-9a-f-]{36}")));
+    }
+
+    @Test
+    void frameworkErrorsAlsoCarryCodeAndTraceId() throws Exception {
+        // 405 is produced by Spring itself, not by our code.
+        mvc.perform(get("/only-post").header(RequestIdFilter.HEADER, "test-trace-0002"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
+            .andExpect(jsonPath("$.traceId").value("test-trace-0002"));
     }
 
     @Test

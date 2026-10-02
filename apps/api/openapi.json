@@ -1,6 +1,559 @@
 {
   "components" : {
     "schemas" : {
+      "AttentionItem" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AvailabilityRequest" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "status" : {
+            "minLength" : 1,
+            "pattern" : "available|in_workshop",
+            "type" : "string"
+          }
+        },
+        "required" : [ "date", "expectedVersion", "note", "status" ],
+        "type" : "object"
+      },
+      "CalendarDay" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "festival" : {
+            "type" : [ "string", "null" ]
+          },
+          "festivalRamp" : {
+            "type" : "number"
+          },
+          "isoWeek" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "isoYear" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "monsoon" : {
+            "type" : "boolean"
+          },
+          "operating" : {
+            "type" : "boolean"
+          },
+          "payday" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "CreateSnapshotRequest" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "orderIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CustomerOrder" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "confirmedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "isoWeek" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "isoYear" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orderDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "placedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "placedBy" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "ref" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "tempRequirement" : {
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "outletId", "ref" ],
+        "type" : "object"
+      },
+      "CutoffInfo" : {
+        "properties" : {
+          "cutoffLocalTime" : {
+            "type" : "string"
+          },
+          "nextCutoffAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "nextDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "open" : {
+            "type" : "boolean"
+          },
+          "secondsRemaining" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "serverNow" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DashboardSnapshot" : {
+        "properties" : {
+          "activeTrips" : {
+            "$ref" : "#/components/schemas/Metric"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "exceptions" : {
+            "$ref" : "#/components/schemas/Metric"
+          },
+          "orderAttention" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AttentionItem"
+            },
+            "type" : "array"
+          },
+          "ordersPlanned" : {
+            "$ref" : "#/components/schemas/Metric"
+          },
+          "ordersToPlan" : {
+            "$ref" : "#/components/schemas/Metric"
+          },
+          "planningProgress" : {
+            "$ref" : "#/components/schemas/PlanningProgress"
+          },
+          "tripAttention" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AttentionItem"
+            },
+            "type" : "array"
+          },
+          "tripsReady" : {
+            "$ref" : "#/components/schemas/Metric"
+          }
+        },
+        "type" : "object"
+      },
+      "DistrictTravel" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "depotToDistrictKm" : {
+            "type" : "number"
+          },
+          "depotToDistrictMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "freeFlowKmh" : {
+            "type" : "number"
+          },
+          "interStopKm" : {
+            "type" : "number"
+          },
+          "interStopMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "roadClass" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FleetVehicle" : {
+        "properties" : {
+          "availabilityNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "availabilityRecorded" : {
+            "type" : "boolean"
+          },
+          "availabilityStatus" : {
+            "type" : [ "string", "null" ]
+          },
+          "availabilityVersion" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "fuelType" : {
+            "type" : "string"
+          },
+          "kmPerL" : {
+            "type" : "number"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeCapM3" : {
+            "type" : "number"
+          },
+          "weeklyFuelQuotaL" : {
+            "type" : "number"
+          },
+          "weightCapKg" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "vehicleId" ],
+        "type" : "object"
+      },
+      "FuelBalance" : {
+        "properties" : {
+          "actualLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "committedLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "isoWeek" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "isoYear" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "quotaLitres" : {
+            "type" : "number"
+          },
+          "recorded" : {
+            "type" : "boolean"
+          },
+          "remainingLitres" : {
+            "type" : [ "number", "null" ]
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "LoginRequest" : {
+        "properties" : {
+          "password" : {
+            "maxLength" : 72,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "rememberMe" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "password", "username" ],
+        "type" : "object"
+      },
+      "Metric" : {
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "availableFromPhase" : {
+            "type" : [ "string", "null" ]
+          },
+          "value" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "OrderPage" : {
+        "properties" : {
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/CustomerOrder"
+            },
+            "type" : "array"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Outlet" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "effectiveWindowClose" : {
+            "type" : "string"
+          },
+          "effectiveWindowOpen" : {
+            "type" : "string"
+          },
+          "mallWindowClose" : {
+            "type" : [ "string", "null" ]
+          },
+          "mallWindowOpen" : {
+            "type" : [ "string", "null" ]
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "parkingConstraint" : {
+            "type" : "string"
+          },
+          "windowClose" : {
+            "type" : "string"
+          },
+          "windowOpen" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "outletId" ],
+        "type" : "object"
+      },
+      "PlaceOrderRequest" : {
+        "properties" : {
+          "expectedDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "tempRequirement" : {
+            "minLength" : 1,
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "maximum" : 100000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "maximum" : 9999999.999,
+            "minimum" : 0.001,
+            "type" : "number"
+          },
+          "weightKg" : {
+            "maximum" : 9.999999999E7,
+            "minimum" : 0.01,
+            "type" : "number"
+          }
+        },
+        "required" : [ "tempRequirement", "units", "volumeM3", "weightKg" ],
+        "type" : "object"
+      },
+      "PlanningProgress" : {
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "availableFromPhase" : {
+            "type" : [ "string", "null" ]
+          },
+          "planned" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "total" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "PlanningSnapshot" : {
+        "properties" : {
+          "constraints" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "contentHash" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "fleet" : {
+            "items" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "inputs" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "orderCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orderIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "referenceVersion" : {
+            "type" : "string"
+          },
+          "selectionMode" : {
+            "type" : "string"
+          },
+          "takenAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "takenBy" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "id", "orderCount" ],
+        "type" : "object"
+      },
       "ReferenceSummary" : {
         "properties" : {
           "calendarDays" : {
@@ -30,6 +583,21 @@
         },
         "type" : "object"
       },
+      "ServiceAllowance" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "minutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "SystemHealth" : {
         "properties" : {
           "intelligence" : {
@@ -43,6 +611,104 @@
           }
         },
         "type" : "object"
+      },
+      "UserResponse" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "role" : {
+            "enum" : [ "DISPATCHER", "STORE_MANAGER", "LOADER", "DRIVER" ],
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Vehicle" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "fuelType" : {
+            "type" : "string"
+          },
+          "kmPerL" : {
+            "type" : "number"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeCapM3" : {
+            "type" : "number"
+          },
+          "weeklyFuelQuotaL" : {
+            "type" : "number"
+          },
+          "weightCapKg" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "vehicleId" ],
+        "type" : "object"
+      },
+      "VehicleAvailability" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "recorded" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "updatedBy" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "session" : {
+        "in" : "cookie",
+        "name" : "WP_SESSION",
+        "type" : "apiKey"
       }
     }
   },
@@ -52,6 +718,730 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/v1/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/auth/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/dashboard" : {
+      "get" : {
+        "operationId" : "dashboard",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardSnapshot"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/fleet" : {
+      "get" : {
+        "operationId" : "fleet",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/FleetVehicle"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-read-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/fleet/{vehicleId}" : {
+      "get" : {
+        "operationId" : "vehicle_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "vehicleId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FleetVehicle"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-read-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/orders" : {
+      "get" : {
+        "operationId" : "orders_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "brand",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "tempRequirement",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "default" : "ref",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "asc",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/orders/{id}" : {
+      "get" : {
+        "operationId" : "order_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerOrder"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/planning/snapshots" : {
+      "get" : {
+        "operationId" : "latest",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanningSnapshot"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "planning-snapshot-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateSnapshotRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanningSnapshot"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "planning-snapshot-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/planning/snapshots/{id}" : {
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanningSnapshot"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "planning-snapshot-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/planning/snapshots/{id}/compare" : {
+      "get" : {
+        "operationId" : "compare",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "planning-snapshot-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/vehicles/{id}/availability" : {
+      "get" : {
+        "operationId" : "availability",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VehicleAvailability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      },
+      "patch" : {
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AvailabilityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VehicleAvailability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/vehicles/{id}/fuel" : {
+      "get" : {
+        "operationId" : "fuel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FuelBalance"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/reference/calendar" : {
+      "get" : {
+        "operationId" : "calendar",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "from",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "to",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/CalendarDay"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/depots" : {
+      "get" : {
+        "operationId" : "depots",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/districts" : {
+      "get" : {
+        "operationId" : "districts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DistrictTravel"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/outlets" : {
+      "get" : {
+        "operationId" : "outlets",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "brand",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "district",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Outlet"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/outlets/{id}" : {
+      "get" : {
+        "operationId" : "outlet",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Outlet"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/service-allowances" : {
+      "get" : {
+        "operationId" : "allowances",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServiceAllowance"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
     "/api/v1/reference/summary" : {
       "get" : {
         "operationId" : "summary",
@@ -67,7 +1457,221 @@
             "description" : "OK"
           }
         },
+        "security" : [ {
+          "session" : [ ]
+        } ],
         "tags" : [ "reference-controller" ]
+      }
+    },
+    "/api/v1/reference/vehicles" : {
+      "get" : {
+        "operationId" : "vehicles",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/Vehicle"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/vehicles/{id}" : {
+      "get" : {
+        "operationId" : "vehicle",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Vehicle"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/store/cutoff" : {
+      "get" : {
+        "operationId" : "cutoff",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CutoffInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-order-controller" ]
+      }
+    },
+    "/api/v1/store/orders" : {
+      "get" : {
+        "operationId" : "orders",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "default" : "orderDate",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "asc",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrderPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-order-controller" ]
+      },
+      "post" : {
+        "operationId" : "place",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlaceOrderRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerOrder"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-order-controller" ]
+      }
+    },
+    "/api/v1/store/orders/{id}" : {
+      "get" : {
+        "operationId" : "order",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerOrder"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-order-controller" ]
       }
     },
     "/api/v1/system/health" : {

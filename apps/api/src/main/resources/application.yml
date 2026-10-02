@@ -35,7 +35,37 @@ logging:
 
 app:
   intelligence-base-url: ${INTELLIGENCE_BASE_URL:http://localhost:8000}
-  web-origins: ${WEB_ORIGINS:http://localhost:5173}
+  security:
+    session-ttl: ${SESSION_TTL:PT16H}
+    cookie-name: WP_SESSION
+    # Must be true behind HTTPS. Set COOKIE_SECURE=false only for plain-http local development.
+    cookie-secure: ${COOKIE_SECURE:true}
+    bcrypt-cost: ${BCRYPT_COST:12}
+    allowed-origins: ${WEB_ORIGINS:http://localhost:5173}
+    login-max-failures: ${LOGIN_MAX_FAILURES:5}
+    login-window: ${LOGIN_WINDOW:PT15M}
+    seed:
+      enabled: ${SEED_ACCOUNTS_ENABLED:true}
+      # Passwords have NO default: they come from the environment (.env). The API refuses to start
+      # while seeding is enabled and an account does not exist yet and has no password.
+      dispatcher:
+        username: ${SEED_DISPATCHER_USERNAME:DSP-001}
+        display-name: ${SEED_DISPATCHER_NAME:Dispatcher}
+        password: ${SEED_DISPATCHER_PASSWORD:}
+      store-manager:
+        username: ${SEED_STORE_MANAGER_USERNAME:STM-001}
+        display-name: ${SEED_STORE_MANAGER_NAME:Store manager}
+        password: ${SEED_STORE_MANAGER_PASSWORD:}
+        outlet-id: ${SEED_STORE_MANAGER_OUTLET:OUT001}
+      loader:
+        username: ${SEED_LOADER_USERNAME:LDR-001}
+        display-name: ${SEED_LOADER_NAME:Loader}
+        password: ${SEED_LOADER_PASSWORD:}
+        depot: ${SEED_LOADER_DEPOT:Peliyagoda}
+      driver:
+        username: ${SEED_DRIVER_USERNAME:DRV-001}
+        display-name: ${SEED_DRIVER_NAME:Driver}
+        password: ${SEED_DRIVER_PASSWORD:}
   reference:
     data-dir: ${REFERENCE_DATA_DIR:../../dataset/data/General Data}
     seed-on-startup: ${REFERENCE_SEED_ON_STARTUP:true}
@@ -48,3 +78,11 @@ app:
       calendar-days: ${EXPECTED_CALENDAR_DAYS:910}
       districts: ${EXPECTED_DISTRICTS:12}
       service-allowances: ${EXPECTED_SERVICE_ALLOWANCES:9}
+  demo:
+    # Explicit local walkthrough clock. Empty means real wall-clock; never backdate silently.
+    clock-instant: ${DEMO_CLOCK_INSTANT:}
+    seed-on-startup: ${DEMO_SEED_ON_STARTUP:true}
+    # Local peak-day CSVs (never committed). Compose mounts this read-only.
+    data-dir: ${DEMO_DATA_DIR:../../dataset/data/Test Data}
+    expected-orders: ${EXPECTED_DEMO_ORDERS:85}
+    expected-fleet-rows: ${EXPECTED_DEMO_FLEET:38}
