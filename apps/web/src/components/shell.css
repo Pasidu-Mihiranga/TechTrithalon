@@ -59,3 +59,5 @@
   .topbar { padding: 0 var(--space-16); }
   .shell-main { padding: var(--space-20) var(--space-16); }
 }
+
+.brand-logo { width: var(--layout-brand-logo-width); height: var(--layout-brand-logo-height); object-fit: contain; align-self: center; }

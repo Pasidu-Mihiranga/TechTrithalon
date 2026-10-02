@@ -81,5 +81,8 @@ export const layout = {
   "authSceneTop": -42,
   "authSceneWidth": 1308,
   "authSceneLeft": -4,
-  "authScrimHeight": 650
+  "authScrimHeight": 650,
+  "brandLogoWidth": 171,
+  "brandLogoHeight": 62,
+  "splitPanelMinWidth": 448
 } as const

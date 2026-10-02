@@ -86,3 +86,9 @@ th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }
 .page-title { margin: 0; }
 .page-subtitle { margin: var(--space-4) 0 0; color: var(--color-text-secondary); }
 .page-actions { display: flex; gap: var(--space-8); }
+
+/* Composed page sections share the existing token spacing and responsive grid. */
+.split-view { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--layout-split-panel-min-width)), 1fr)); gap: var(--space-16); }
+.panel-stack { display: flex; flex-direction: column; gap: var(--space-16); }
+
+.planning-stages { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-bottom: var(--space-24); }

@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../../lib/apiClient'
+import { api, apiReadError } from '../../lib/apiClient'
 
 export function useDispatcherDashboard(date?: string) {
   return useQuery({
     queryKey: ['dispatcher', 'dashboard', date ?? 'demo'],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/dispatcher/dashboard', {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/dashboard', {
         params: { query: date ? { date } : {} },
       })
-      if (error || !data) throw new Error('Dashboard data could not be loaded')
+      if (error || !data) throw apiReadError(response, 'Dashboard data could not be loaded')
       return data
     },
     retry: false,
@@ -17,6 +17,7 @@ export function useDispatcherDashboard(date?: string) {
 
 export function useDispatcherOrders(query: {
   date?: string
+  depot?: string
   brand?: string
   tempRequirement?: string
   status?: string
@@ -29,10 +30,11 @@ export function useDispatcherOrders(query: {
   return useQuery({
     queryKey: ['dispatcher', 'orders', query],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/dispatcher/orders', {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/orders', {
         params: {
           query: {
             date: query.date,
+            depot: query.depot,
             brand: query.brand || undefined,
             tempRequirement: query.tempRequirement || undefined,
             status: query.status || undefined,
@@ -44,7 +46,7 @@ export function useDispatcherOrders(query: {
           },
         },
       })
-      if (error || !data) throw new Error('Orders could not be loaded')
+      if (error || !data) throw apiReadError(response, 'Orders could not be loaded')
       return data
     },
     retry: false,
@@ -56,10 +58,10 @@ export function useDispatcherOrder(id: number) {
     queryKey: ['dispatcher', 'orders', id],
     enabled: Number.isFinite(id) && id > 0,
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/dispatcher/orders/{id}', {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/{id}', {
         params: { path: { id } },
       })
-      if (error || !data) throw new Error('Order could not be loaded')
+      if (error || !data) throw apiReadError(response, 'Order could not be loaded')
       return data
     },
     retry: false,
@@ -70,8 +72,8 @@ export function useStoreCutoff() {
   return useQuery({
     queryKey: ['store', 'cutoff'],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/store/cutoff')
-      if (error || !data) throw new Error('Cutoff could not be loaded')
+      const { data, error, response } = await api.GET('/api/v1/store/cutoff')
+      if (error || !data) throw apiReadError(response, 'Cutoff could not be loaded')
       return data
     },
     retry: false,
@@ -91,7 +93,7 @@ export function useStoreOrders(query: {
   return useQuery({
     queryKey: ['store', 'orders', query],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/store/orders', {
+      const { data, error, response } = await api.GET('/api/v1/store/orders', {
         params: {
           query: {
             date: query.date,
@@ -104,7 +106,7 @@ export function useStoreOrders(query: {
           },
         },
       })
-      if (error || !data) throw new Error('Your orders could not be loaded')
+      if (error || !data) throw apiReadError(response, 'Your orders could not be loaded')
       return data
     },
     retry: false,
@@ -116,10 +118,10 @@ export function useStoreOrder(id: number) {
     queryKey: ['store', 'orders', id],
     enabled: Number.isFinite(id) && id > 0,
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/v1/store/orders/{id}', {
+      const { data, error, response } = await api.GET('/api/v1/store/orders/{id}', {
         params: { path: { id } },
       })
-      if (error || !data) throw new Error('Order could not be loaded')
+      if (error || !data) throw apiReadError(response, 'Order could not be loaded')
       return data
     },
     retry: false,

@@ -79,6 +79,8 @@ app:
       districts: ${EXPECTED_DISTRICTS:12}
       service-allowances: ${EXPECTED_SERVICE_ALLOWANCES:9}
   demo:
+    # Explicit local walkthrough clock. Empty means real wall-clock; never backdate silently.
+    clock-instant: ${DEMO_CLOCK_INSTANT:}
     seed-on-startup: ${DEMO_SEED_ON_STARTUP:true}
     # Local peak-day CSVs (never committed). Compose mounts this read-only.
     data-dir: ${DEMO_DATA_DIR:../../dataset/data/Test Data}

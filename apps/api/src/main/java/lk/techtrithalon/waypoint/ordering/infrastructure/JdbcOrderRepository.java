@@ -17,6 +17,8 @@ import lk.techtrithalon.waypoint.ordering.application.OrderRepository;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 import lk.techtrithalon.waypoint.ordering.domain.OrderStateMachine;
+import lk.techtrithalon.waypoint.shared.error.ApiException;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -155,18 +157,22 @@ class JdbcOrderRepository implements OrderRepository {
     ) {
         String status = OrderStateMachine.newConfirmed().value();
         String tempRef = "TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        Long id = db.queryForObject("""
+        List<Long> insertedIds = db.query("""
             INSERT INTO customer_order (
               ref, outlet_id, brand, depot, district, order_date, placed_at, confirmed_at,
               temp_requirement, units, weight_kg, volume_m3, status, iso_year, iso_week,
               placed_by, version, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-            RETURNING id
-            """, Long.class,
+            ON CONFLICT (outlet_id, order_date, temp_requirement) WHERE status <> 'cancelled'
+            DO NOTHING RETURNING id
+            """, (rs, i) -> rs.getLong("id"),
             tempRef, outletId, brand, depot, district, Date.valueOf(orderDate),
             Timestamp.from(placedAt), Timestamp.from(placedAt), tempRequirement, units, weightKg, volumeM3,
             status, isoYear, isoWeek, placedBy, Timestamp.from(placedAt));
-        if (id == null) throw new IllegalStateException("Order insert returned no id");
+        if (insertedIds.isEmpty()) throw new ApiException(
+            HttpStatus.CONFLICT, "DUPLICATE_TEMP_ORDER",
+            "An active order already exists for this outlet, date and temperature");
+        Long id = insertedIds.getFirst();
         String ref = "ORD-" + String.format("%06d", id);
         db.update("UPDATE customer_order SET ref=? WHERE id=?", ref, id);
         return findById(id).orElseThrow();

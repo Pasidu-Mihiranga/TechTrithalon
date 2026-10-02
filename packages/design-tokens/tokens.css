@@ -167,6 +167,9 @@
   --layout-auth-scene-width: 1308px;
   --layout-auth-scene-left: -4px;
   --layout-auth-scrim-height: 650px;
+  --layout-brand-logo-width: 171px;
+  --layout-brand-logo-height: 62px;
+  --layout-split-panel-min-width: 448px;
 }
 
 .text-display-l {

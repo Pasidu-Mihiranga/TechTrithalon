@@ -10,9 +10,9 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
-- [x] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
-- [x] Phase 4 — Store Manager Order Flow
-- [x] Phase 5 — Dispatcher Confirmed Orders
+- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; corrections awaiting visual/runtime verification)**
+- [ ] Phase 4 — Store Manager Order Flow **(corrections awaiting PostgreSQL/curl/browser verification)**
+- [ ] Phase 5 — Dispatcher Confirmed Orders **(corrections awaiting PostgreSQL/curl/browser verification)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine
 - [ ] Phase 7 — Manual Planning First
 - [ ] Phase 8 — Deferral & Fairness
@@ -31,6 +31,8 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 20 — Advanced Decision Support
 - [ ] Phase 21 — System Hardening
 - [ ] Phase 22 — Full-System Verification
+
+**Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
 
 ## 1. How to Use This Plan
 
@@ -512,7 +514,7 @@ After this phase, the system can capture real confirmed demand from stores.
 ### Order lifecycle and cutoff (implemented)
 
 - Place + confirm is one server step: `POST /api/v1/store/orders` creates `status=confirmed` via `OrderStateMachine` and writes `audit_event` type `order.confirmed`.
-- Cutoff is 16:00 Asia/Colombo (`DeliveryDateService`). Before cutoff → first operating day after today; at/after cutoff → first operating day after tomorrow. Sundays/holidays skip via `calendar_day.is_operating`. When wall-clock is past the seeded calendar, delivery date falls back to `DEMO_OPERATING_DATE`.
+- Cutoff is 16:00 Asia/Colombo (`DeliveryDateService`). Before cutoff → first operating day after today; at/after cutoff → first operating day after tomorrow. Sundays/holidays skip via `calendar_day.is_operating`. When no future operating date exists, return `422 NO_OPERATING_DAY`; an explicitly configured local demo clock supports walkthroughs without backdating orders. Review-date drift returns `409 DELIVERY_DATE_CHANGED`.
 - Fresh outlets may place ambient and chilled for the same delivery day; Style/other brands cannot place chilled (`CHILLED_FRESH_ONLY`). One active (non-cancelled) order per outlet/day/temp (`DUPLICATE_TEMP_ORDER`).
 
 ### Evidence (local, verified — 2026-10-02)
@@ -579,11 +581,11 @@ After this phase, the system can freeze the inputs of a planning run.
 
 ### Snapshot fields and reconciliation (implemented)
 
-`planning_snapshot` row: `plan_date`, `depot`, `taken_at`, `order_ids` (sorted), `fleet_json` (per-vehicle caps, availability, weekly fuel remaining), `constraints_json` (operating flags, cutoff, `ruleVersion`), `reference_version`, `content_hash` (SHA-256 of those inputs), `taken_by`.
+`planning_snapshot` row: `plan_date`, `depot`, `taken_at`, `order_ids` (sorted), `fleet_json` (per-vehicle caps, availability, weekly fuel remaining), `constraints_json` (operating flags, cutoff, `ruleVersion`), `reference_version` (content-derived), `content_hash` (SHA-256 of the complete input payload), `taken_by`, `selection_mode`, `inputs_json`. The payload includes complete order rows, outlet windows/access, district travel, service allowances, vehicle fuel efficiency, calendar and rule parameters. Legacy rows without the payload require regeneration.
 
-- Create: `POST /api/v1/dispatcher/planning/snapshots` (optional `orderIds`; omit = all confirmed for date+depot). Insert-only — no updates.
+- Create: `POST /api/v1/dispatcher/planning/snapshots` (optional `orderIds`; omit = all confirmed for date+depot). Insert-only — database updates are rejected by a trigger. Creation requires the preceding day’s 16:00 Asia/Colombo cutoff and records an actor-linked audit event.
 - Read: `GET .../snapshots/{id}`, `GET .../snapshots?date&depot` (latest).
-- Drift: `GET .../snapshots/{id}/compare` recomputes the current hash; `unchanged=false` when orders or fleet inputs moved. UI should offer regenerate (re-create) when drift is detected.
+- Drift: `GET .../snapshots/{id}/compare` recomputes the current hash; `unchanged=false` when any frozen planning input changes. Selected snapshots compare their selected IDs; all-order snapshots compare the complete eligible set. The UI checks drift, offers regeneration, and can reload the latest snapshot.
 
 ### Evidence (local, verified — 2026-10-02)
 

@@ -1,6 +1,8 @@
 package lk.techtrithalon.waypoint.shared.time;
 
 import java.time.Clock;
+import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import java.time.ZoneId;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +13,8 @@ public class TimeConfiguration {
     public static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Colombo");
 
     @Bean
-    public Clock businessClock() {
-        return Clock.system(BUSINESS_ZONE);
+    public Clock businessClock(@Value("${app.demo.clock-instant:}") String demoInstant) {
+        return demoInstant.isBlank() ? Clock.system(BUSINESS_ZONE)
+            : Clock.fixed(Instant.parse(demoInstant), BUSINESS_ZONE);
     }
 }

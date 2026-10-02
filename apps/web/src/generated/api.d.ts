@@ -588,6 +588,8 @@ export interface components {
             windowOpen?: string;
         };
         PlaceOrderRequest: {
+            /** Format: date */
+            expectedDeliveryDate?: string;
             tempRequirement: string;
             /** Format: int32 */
             units: number;
@@ -613,10 +615,16 @@ export interface components {
             }[];
             /** Format: int64 */
             id: number;
+            inputs?: {
+                [key: string]: unknown;
+            };
+            /** Format: int32 */
+            orderCount: number;
             orderIds?: number[];
             /** Format: date */
             planDate?: string;
             referenceVersion?: string;
+            selectionMode?: string;
             /** Format: date-time */
             takenAt?: string;
             /** Format: int64 */
@@ -825,6 +833,7 @@ export interface operations {
         parameters: {
             query?: {
                 date?: string;
+                depot?: string;
                 brand?: string;
                 tempRequirement?: string;
                 status?: string;

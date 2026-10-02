@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Phases 1–3A are implemented and verified locally: design system, authentication, reference data, demo-day orders/fleet seed, and Dispatcher/Store Manager screens on live APIs. Phase 0 GitHub CI verification remains pending; order submission and planning follow in Phases 4+.
+> **Status:** Code through Phase 5 includes store confirmation and complete planning snapshots. The completion corrections require fresh PostgreSQL, curl and browser verification before their phase gates close. Phase 0 GitHub CI remains pending. See [current verification](docs/PHASE0_5_COMPLETION_VERIFICATION.md).
 
 ---
 
@@ -177,6 +177,12 @@ docker compose up --build
 | PostgreSQL | localhost:5432 |
 
 The **demo operating date** is `2026-06-26` (a Friday). The API checks at startup that it is an operating day in the calendar. To change it, set `DEMO_OPERATING_DATE`.
+
+For a local walkthrough after the supplied calendar ends, explicitly set `DEMO_CLOCK_INSTANT=2026-06-25T11:00:00Z` (16:30 Asia/Colombo) and rebuild the API. This fixes the injected business clock for the walkthrough, including sessions and audit timestamps; leave it empty for normal operation. Orders never silently fall back to an old delivery date. With real time and no future calendar records, ordering returns `422 NO_OPERATING_DAY` until the calendar is extended. Do not use a fixed clock for deployment.
+
+Order review sends `expectedDeliveryDate`; crossing cutoff returns `409 DELIVERY_DATE_CHANGED` so the manager can review again. The persisted response supplies the confirmation date. PostgreSQL enforces one active order per outlet/date/temperature even for concurrent requests.
+
+Planning snapshots freeze complete order rows, vehicle capabilities and fuel state, outlet windows/access, travel, service allowances, calendar and rule parameters. Their reference version is content-derived. Selected snapshots compare the same selection; all-order snapshots also detect new confirmed orders. Legacy snapshots remain readable but require regeneration. The additive migration deliberately does not backfill historical inputs or delete duplicate orders: if existing active duplicates are present, resolve them with owner approval before applying the unique index.
 
 > **Port already in use?** If another project holds 8080 (or 5173/5432/8000), change `API_PORT` (and `WEB_PORT`, etc.) in `.env`, and set `VITE_API_BASE_URL` to match, for example `http://localhost:8081`. Then rebuild: `docker compose up --build`.
 

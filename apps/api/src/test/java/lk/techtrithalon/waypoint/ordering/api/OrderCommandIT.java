@@ -132,6 +132,48 @@ class OrderCommandIT extends ReferenceApiTestSupport {
             .andExpect(jsonPath("$.orderDate").value("2026-06-29"));
     }
 
+    @Test
+    void concurrentConfirmationsPersistExactlyOneOrderAndAudit() throws Exception {
+        Cookie store = login("STM-001", "synthetic-store-password");
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var calls = java.util.stream.IntStream.range(0, 2).mapToObj(i -> pool.submit(() -> {
+                start.await();
+                return mvc.perform(post("/api/v1/store/orders").cookie(store)
+                    .header("X-Requested-With", "Waypoint").contentType("application/json")
+                    .content("{\"tempRequirement\":\"ambient\",\"units\":2,\"weightKg\":10,\"volumeM3\":0.1}"))
+                    .andReturn();
+            })).toList();
+            start.countDown();
+            var responses = new java.util.ArrayList<MvcResult>();
+            for (var call : calls) responses.add(call.get(15, java.util.concurrent.TimeUnit.SECONDS));
+            assertThat(responses.stream().map(r -> r.getResponse().getStatus())).containsExactlyInAnyOrder(201, 409);
+            for (var response : responses) if (response.getResponse().getStatus() == 409)
+                failure(response, 409, "DUPLICATE_TEMP_ORDER");
+            assertThat(db.queryForObject("SELECT count(*) FROM customer_order WHERE outlet_id='OUT901' AND order_date='2026-06-26' AND temp_requirement='ambient'", Integer.class)).isEqualTo(1);
+            assertThat(db.queryForObject("SELECT count(*) FROM audit_event WHERE type='order.confirmed'", Integer.class)).isEqualTo(1);
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test
+    void refusesAChangedReviewedDateAndAnExhaustedCalendar() throws Exception {
+        Cookie store = login("STM-001", "synthetic-store-password");
+        clock.instant = Instant.parse("2026-06-25T10:30:00Z");
+        failure(mvc.perform(post("/api/v1/store/orders").cookie(store)
+            .header("X-Requested-With", "Waypoint").contentType("application/json")
+            .content("{\"tempRequirement\":\"ambient\",\"units\":2,\"weightKg\":10,\"volumeM3\":0.1,\"expectedDeliveryDate\":\"2026-06-26\"}"))
+            .andReturn(), 409, "DELIVERY_DATE_CHANGED");
+        assertThat(db.queryForObject("SELECT count(*) FROM audit_event WHERE type='order.confirmed'", Integer.class)).isZero();
+        clock.instant = Instant.parse("2026-10-02T04:00:00Z");
+        // Restore a live session at the new time rather than testing session expiry here.
+        store = login("STM-001", "synthetic-store-password");
+        failure(mvc.perform(post("/api/v1/store/orders").cookie(store)
+            .header("X-Requested-With", "Waypoint").contentType("application/json")
+            .content("{\"tempRequirement\":\"ambient\",\"units\":2,\"weightKg\":10,\"volumeM3\":0.1}"))
+            .andReturn(), 422, "NO_OPERATING_DAY");
+    }
+
     static class MutableClock extends Clock {
         Instant instant = Instant.parse("2026-06-25T04:30:00Z");
         @Override public ZoneId getZone() { return ZoneId.of("Asia/Colombo"); }

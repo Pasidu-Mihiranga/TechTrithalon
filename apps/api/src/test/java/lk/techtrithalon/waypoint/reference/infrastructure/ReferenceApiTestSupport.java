@@ -23,6 +23,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Testcontainers
 @SpringBootTest(properties = {
+    "app.demo.clock-instant=2026-06-25T11:00:00Z",
     "app.security.bcrypt-cost=4", "app.security.cookie-secure=true",
     "app.security.seed.dispatcher.password=synthetic-dispatcher-password",
     "app.security.seed.store-manager.password=synthetic-store-password",

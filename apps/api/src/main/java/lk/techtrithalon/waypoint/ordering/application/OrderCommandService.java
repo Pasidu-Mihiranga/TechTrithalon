@@ -42,7 +42,7 @@ public class OrderCommandService {
     @Transactional
     @PreAuthorize("hasRole('STORE_MANAGER')")
     public CustomerOrder placeConfirmed(
-        CurrentUser user, String tempRequirement, int units, BigDecimal weightKg, BigDecimal volumeM3
+        CurrentUser user, String tempRequirement, int units, BigDecimal weightKg, BigDecimal volumeM3, LocalDate expectedDeliveryDate
     ) {
         if (user.outletId() == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
@@ -61,6 +61,10 @@ public class OrderCommandService {
         weight = weight.setScale(2, RoundingMode.HALF_UP);
 
         LocalDate orderDate = deliveryDates.deliveryDateNow();
+        if (expectedDeliveryDate != null && !expectedDeliveryDate.equals(orderDate)) {
+            throw new ApiException(HttpStatus.CONFLICT, "DELIVERY_DATE_CHANGED",
+                "The delivery date changed; review the updated date before confirming");
+        }
         CalendarDay day = reference.calendar(orderDate, orderDate).stream().findFirst()
             .orElseThrow(() -> new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "NO_OPERATING_DAY",
                 "Delivery date is not in the calendar"));

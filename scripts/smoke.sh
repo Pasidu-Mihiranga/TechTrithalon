@@ -41,7 +41,9 @@ echo "4/5 authenticated reference data is seeded"
 [[ -n "${SEED_DISPATCHER_PASSWORD:-}" ]] || fail "set SEED_DISPATCHER_PASSWORD in .env"
 cookies=$(mktemp)
 login_body=$(mktemp)
-trap 'rm -f -- "${cookies:?}" "${login_body:?}"' EXIT
+error_headers=$(mktemp)
+error_body=$(mktemp)
+trap 'rm -f -- "${cookies:?}" "${login_body:?}" "${error_headers:?}" "${error_body:?}"' EXIT
 python3 -c 'import os,json; print(json.dumps({"username":os.environ.get("SEED_DISPATCHER_USERNAME", "DSP-001"),"password":os.environ["SEED_DISPATCHER_PASSWORD"]}))' > "$login_body"
 curl -fsS -c "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' --data-binary "@$login_body" "$API/api/v1/auth/login" > /dev/null
 summary=$(curl -fsS -b "$cookies" "$API/api/v1/reference/summary")
@@ -65,8 +67,26 @@ for path in availability fuel; do
 done
 [[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/outlets/UNKNOWN")" == "404" ]] || fail "unknown outlet did not return 404"
 
+assert_failure() { # expected status, code, then curl arguments
+  local expected_status="$1" expected_code="$2"
+  shift 2
+  local actual_status
+  actual_status=$(curl -sS -D "$error_headers" -o "$error_body" -w '%{http_code}' "$@")
+  [[ "$actual_status" == "$expected_status" ]] || fail "expected $expected_status, got $actual_status"
+  EXPECTED_ERROR_CODE="$expected_code" python3 - "$error_headers" "$error_body" <<'PYCODE'
+import json, os, re, sys
+from pathlib import Path
+headers = Path(sys.argv[1]).read_text()
+body = json.loads(Path(sys.argv[2]).read_text())
+trace = re.search(r'^x-request-id:\s*(.+)$', headers, re.I | re.M)
+assert body['code'] == os.environ['EXPECTED_ERROR_CODE'], body
+assert trace and body['traceId'] == trace.group(1).strip(), body
+assert not any(value in str(body) for value in ['SQLException', 'java.lang', 'stackTrace']), body
+PYCODE
+}
+
 echo "Phase 5: planning snapshot freeze"
-depot=$(curl -fsS -b "$cookies" "$API/api/v1/reference/depots" | json_field "[0]")
+depot=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&size=1" | json_field "['items'][0]['depot']")
 [[ -n "$depot" && "$depot" != "None" ]] || fail "no depot from reference"
 snap=$(curl -fsS -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
   -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\"}" \
@@ -82,6 +102,12 @@ curl -fsS -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id" > /
 [[ "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
   -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\"}" \
   "$API/api/v1/dispatcher/planning/snapshots")" == "401" ]] || fail "unauthenticated snapshot did not return 401"
+[[ "$(echo "$snap" | json_field "['inputs']['schemaVersion']")" == "1" ]] || fail "complete snapshot inputs missing"
+expected_count=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&depot=$depot&status=confirmed&size=1" | json_field "['total']")
+[[ "$(echo "$snap" | json_field "['orderCount']")" == "$expected_count" ]] || fail "snapshot membership count mismatch"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/999999999"
+assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\",\"orderIds\":[-1]}" "$API/api/v1/dispatcher/planning/snapshots"
 echo "Phase 5 snapshot ok id=$snap_id hash=${snap_hash:0:12}"
 
 echo "Phase 3A: demo-day orders, dashboard and fleet reads"
@@ -98,6 +124,10 @@ fleet=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet?date=$demo_date")
 fleet_len=$(echo "$fleet" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 (( fleet_len > 0 )) || fail "fleet list empty"
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet/$(echo "$fleet" | json_field "[0]['vehicleId']")?date=$demo_date" > /dev/null
+
+assert_failure 403 FORBIDDEN -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d '{"tempRequirement":"ambient","units":1,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/orders/999999999"
 
 echo "5/5 requests carry a trace id"
 curl -fsS -D - -o /dev/null "$API/api/v1/system/health" | tr -d '\r' | grep -qi '^x-request-id' || fail "missing X-Request-Id header"
@@ -117,6 +147,9 @@ for role in STORE_MANAGER LOADER DRIVER; do
   if [[ "$role" == "STORE_MANAGER" ]]; then
     curl -fsS -b "$cookies" "$API/api/v1/store/cutoff" > /dev/null || fail "store cutoff failed"
     curl -fsS -b "$cookies" "$API/api/v1/store/orders" > /dev/null || fail "store orders failed"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id"
+    assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+      -d '{"tempRequirement":"ambient","units":0,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
     echo "Phase 4: store place-order (accept create or demo-day duplicate)"
     place_code=$(curl -sS -o /tmp/smoke-place.json -w '%{http_code}' -b "$cookies" \
       -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \

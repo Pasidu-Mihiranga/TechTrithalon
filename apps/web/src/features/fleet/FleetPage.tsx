@@ -38,7 +38,7 @@ export function FleetPage() {
     <>
       <PageHeader title="Fleet" subtitle="Vehicles and workshop status for the demo delivery day." />
       {fleet.isPending && <LoadingState rows={4} label="Loading fleet" />}
-      {fleet.isError && <ErrorState message="Fleet data could not be loaded." onRetry={() => void fleet.refetch()} />}
+      {fleet.isError && <ErrorState error={fleet.error} message="Fleet data could not be loaded." onRetry={() => void fleet.refetch()} />}
       {fleet.data && fleet.data.length === 0 && (
         <EmptyState title="No vehicles" description="No vehicles are in scope for your depot." />
       )}

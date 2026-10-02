@@ -82,6 +82,8 @@
               "format" : "int64",
               "type" : "integer"
             },
+            "maxItems" : 100000,
+            "minItems" : 0,
             "type" : "array"
           },
           "planDate" : {
@@ -445,6 +447,10 @@
       },
       "PlaceOrderRequest" : {
         "properties" : {
+          "expectedDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
           "tempRequirement" : {
             "minLength" : 1,
             "type" : "string"
@@ -456,10 +462,12 @@
             "type" : "integer"
           },
           "volumeM3" : {
+            "maximum" : 9999999.999,
             "minimum" : 0.001,
             "type" : "number"
           },
           "weightKg" : {
+            "maximum" : 9.999999999E7,
             "minimum" : 0.01,
             "type" : "number"
           }
@@ -509,6 +517,14 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "inputs" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "orderCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "orderIds" : {
             "items" : {
               "format" : "int64",
@@ -523,6 +539,9 @@
           "referenceVersion" : {
             "type" : "string"
           },
+          "selectionMode" : {
+            "type" : "string"
+          },
           "takenAt" : {
             "format" : "date-time",
             "type" : "string"
@@ -532,7 +551,7 @@
             "type" : "integer"
           }
         },
-        "required" : [ "id" ],
+        "required" : [ "id", "orderCount" ],
         "type" : "object"
       },
       "ReferenceSummary" : {
@@ -871,6 +890,13 @@
           "required" : false,
           "schema" : {
             "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
             "type" : "string"
           }
         }, {

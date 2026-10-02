@@ -32,7 +32,7 @@ function OrderDetailView({
         actions={<Link className="btn btn-secondary btn-md" to={backTo}>{backLabel}</Link>}
       />
       {order.isPending && <LoadingState rows={3} label="Loading order" />}
-      {order.isError && <ErrorState message="Order could not be loaded." onRetry={() => void order.refetch()} />}
+      {order.isError && <ErrorState error={order.error} message="Order could not be loaded." onRetry={() => void order.refetch()} />}
       {order.data && (
         <Card>
           <dl className="detail-grid">
@@ -45,6 +45,14 @@ function OrderDetailView({
             <div><dt>Volume</dt><dd>{formatVolume(order.data.volumeM3 ?? 0)}</dd></div>
             <div><dt>Confirmed</dt><dd>{order.data.confirmedAt ? new Date(order.data.confirmedAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' }) : '—'}</dd></div>
           </dl>
+          <section aria-label="Order timeline">
+            <h2 className="text-heading-s">Status timeline</h2>
+            <ol>
+              {order.data.placedAt && <li>Placed · {new Date(order.data.placedAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}</li>}
+              {order.data.confirmedAt && <li>Confirmed · {new Date(order.data.confirmedAt).toLocaleString('en-LK', { timeZone: 'Asia/Colombo' })}</li>}
+            </ol>
+            {order.data.status !== 'confirmed' && <p>Current status: {order.data.status}. Later event timestamps are not available yet.</p>}
+          </section>
         </Card>
       )}
     </>

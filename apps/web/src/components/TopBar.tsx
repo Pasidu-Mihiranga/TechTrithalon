@@ -9,17 +9,18 @@ interface TopBarProps {
   searchPlaceholder?: string
   /** True once search is implemented. Until then the field is shown disabled rather than pretending to work. */
   searchEnabled?: boolean
+  onSearch?: (query: string) => void
 }
 
-export function TopBar({ leading, user, searchPlaceholder = 'Search', searchEnabled = false }: TopBarProps) {
+export function TopBar({ leading, user, searchPlaceholder = 'Search', searchEnabled = false, onSearch }: TopBarProps) {
   return (
     <div className="topbar">
       {leading}
-      <label className="topbar-search">
+      <form className="topbar-search" role="search" onSubmit={(event) => { event.preventDefault(); onSearch?.(String(new FormData(event.currentTarget).get("q") ?? "")) }}>
         <Search size={16} aria-hidden="true" />
         <span className="visually-hidden">{searchPlaceholder}</span>
-        <input type="search" placeholder={searchPlaceholder} disabled={!searchEnabled} title={searchEnabled ? undefined : 'Search is not available yet'} />
-      </label>
+        <input aria-label={searchPlaceholder} name="q" type="search" placeholder={searchPlaceholder} disabled={!searchEnabled} title={searchEnabled ? undefined : 'Search is not available yet'} />
+      </form>
       <div className="topbar-user">{user}</div>
     </div>
   )

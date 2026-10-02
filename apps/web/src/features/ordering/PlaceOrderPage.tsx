@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, EmptyState, ErrorState, Input, LoadingState, PageHeader, Select, TypeBadge } from '../../components'
 import { useAuth } from '../auth/auth'
@@ -9,6 +10,7 @@ import { api } from '../../lib/apiClient'
 type Step = 'form' | 'review' | 'done'
 
 export function PlaceOrderPage() {
+  const client = useQueryClient()
   const auth = useAuth()
   const navigate = useNavigate()
   const cutoff = useStoreCutoff()
@@ -21,6 +23,7 @@ export function PlaceOrderPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [createdId, setCreatedId] = useState<number | null>(null)
+  const [createdDate, setCreatedDate] = useState<string | null>(null)
   const [createdRef, setCreatedRef] = useState<string | null>(null)
 
   function validate(): { units: number; weightKg: number; volumeM3: number } | null {
@@ -53,34 +56,45 @@ export function PlaceOrderPage() {
     }
     setSubmitting(true)
     setSubmitError(null)
-    const { data, error } = await api.POST('/api/v1/store/orders', {
-      body: {
-        tempRequirement: temp,
-        units: values.units,
-        weightKg: values.weightKg,
-        volumeM3: values.volumeM3,
-      },
-    })
-    setSubmitting(false)
-    if (!data) {
-      const code = error && typeof error === 'object' && 'code' in error
-        ? String((error as { code?: string }).code)
-        : undefined
-      setSubmitError(code === 'DUPLICATE_TEMP_ORDER'
-        ? 'You already have an active order of this temperature for that delivery day.'
-        : code === 'CHILLED_FRESH_ONLY'
-          ? 'Only Fresh outlets may place chilled orders.'
-          : 'The order could not be confirmed. Check the values and try again.')
+    try {
+      const { data, error } = await api.POST('/api/v1/store/orders', {
+        body: {
+          expectedDeliveryDate: cutoff.data?.nextDeliveryDate,
+          tempRequirement: temp,
+          units: values.units,
+          weightKg: values.weightKg,
+          volumeM3: values.volumeM3,
+        },
+      })
+      if (!data) {
+        const code = error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: string }).code)
+          : undefined
+        if (code === 'DELIVERY_DATE_CHANGED') await cutoff.refetch()
+        setSubmitError(code === 'DELIVERY_DATE_CHANGED' ? 'The delivery date changed. Review the updated date and confirm again.'
+          : code === 'DUPLICATE_TEMP_ORDER'
+          ? 'You already have an active order of this temperature for that delivery day.'
+          : code === 'CHILLED_FRESH_ONLY'
+            ? 'Only Fresh outlets may place chilled orders.'
+            : code === 'NO_OPERATING_DAY'
+              ? 'The delivery calendar needs to be extended before an order can be placed.'
+              : 'The order could not be confirmed. Check the values and try again.')
+        setStep('form')
+        return
+      }
+      void client.invalidateQueries({ queryKey: ['store', 'orders'] })
+      setCreatedDate(data.orderDate ?? null)
+      setCreatedId(data.id ?? null)
+      setCreatedRef(data.ref ?? null)
+      setStep('done')
+    } catch {
+      setSubmitError('The order could not be confirmed. Check your connection and try again.')
       setStep('form')
-      return
-    }
-    setCreatedId(data.id ?? null)
-    setCreatedRef(data.ref ?? null)
-    setStep('done')
+    } finally { setSubmitting(false) }
   }
 
   if (cutoff.isPending) return <LoadingState rows={2} label="Loading cutoff" />
-  if (cutoff.isError) return <ErrorState message="Cutoff could not be loaded." onRetry={() => void cutoff.refetch()} />
+  if (cutoff.isError) return <ErrorState error={cutoff.error} message="Cutoff could not be loaded." onRetry={() => void cutoff.refetch()} />
 
   return (
     <>
@@ -137,7 +151,7 @@ export function PlaceOrderPage() {
         <EmptyState
           title="Order confirmed"
           description={createdRef
-            ? `${createdRef} is confirmed for ${cutoff.data?.nextDeliveryDate}.`
+            ? `${createdRef} is confirmed for ${createdDate}.`
             : 'Your order is confirmed.'}
           action={
             <div className="toolbar-row">

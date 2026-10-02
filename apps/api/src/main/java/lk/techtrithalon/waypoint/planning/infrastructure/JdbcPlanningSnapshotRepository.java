@@ -46,7 +46,11 @@ class JdbcPlanningSnapshotRepository implements PlanningSnapshotRepository {
                     constraints,
                     rs.getString("reference_version"),
                     rs.getString("content_hash"),
-                    rs.getObject("taken_by") == null ? null : rs.getLong("taken_by")
+                    rs.getObject("taken_by") == null ? null : rs.getLong("taken_by"),
+                    rs.getString("inputs_json") == null ? null : mapper.readValue(
+                        rs.getString("inputs_json"), new TypeReference<Map<String, Object>>() {}),
+                    rs.getString("selection_mode"),
+                    ids.length
                 );
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to map planning_snapshot row", e);
@@ -57,15 +61,16 @@ class JdbcPlanningSnapshotRepository implements PlanningSnapshotRepository {
     @Override
     public PlanningSnapshot insert(
         LocalDate planDate, String depot, Instant takenAt, List<Long> orderIds,
-        String fleetJson, String constraintsJson, String referenceVersion, String contentHash, long takenBy
+        String fleetJson, String constraintsJson, String referenceVersion, String contentHash, long takenBy,
+        String inputsJson, String selectionMode
     ) {
         GeneratedKeyHolder keys = new GeneratedKeyHolder();
         db.update(con -> {
             PreparedStatement ps = con.prepareStatement("""
                 INSERT INTO planning_snapshot (
                   plan_date, depot, taken_at, order_ids, fleet_json, constraints_json,
-                  reference_version, content_hash, taken_by
-                ) VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
+                  reference_version, content_hash, taken_by, inputs_json, selection_mode
+                ) VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?::jsonb, ?)
                 """, new String[] {"id"});
             ps.setDate(1, Date.valueOf(planDate));
             ps.setString(2, depot);
@@ -76,6 +81,8 @@ class JdbcPlanningSnapshotRepository implements PlanningSnapshotRepository {
             ps.setString(7, referenceVersion);
             ps.setString(8, contentHash);
             ps.setLong(9, takenBy);
+            ps.setString(10, inputsJson);
+            ps.setString(11, selectionMode);
             return ps;
         }, keys);
         Number id = keys.getKey();

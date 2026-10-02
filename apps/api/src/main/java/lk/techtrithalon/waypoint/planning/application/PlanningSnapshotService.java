@@ -7,6 +7,10 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import lk.techtrithalon.waypoint.audit.application.AuditService;
+import org.springframework.transaction.annotation.Isolation;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -40,6 +44,7 @@ public class PlanningSnapshotService {
     private final ReferenceProperties referenceProperties;
     private final Clock clock;
     private final ObjectMapper canonical;
+    private final AuditService audit;
 
     public PlanningSnapshotService(
         PlanningSnapshotRepository snapshots,
@@ -48,7 +53,8 @@ public class PlanningSnapshotService {
         ReferenceService reference,
         ReferenceProperties referenceProperties,
         Clock clock,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        AuditService audit
     ) {
         this.snapshots = snapshots;
         this.orders = orders;
@@ -56,10 +62,11 @@ public class PlanningSnapshotService {
         this.reference = reference;
         this.referenceProperties = referenceProperties;
         this.clock = clock;
+        this.audit = audit;
         this.canonical = mapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public PlanningSnapshot create(CurrentUser user, LocalDate planDate, String depot, List<Long> orderIds) {
         LocalDate day = planDate == null ? referenceProperties.demoOperatingDate() : planDate;
         String resolvedDepot = resolveDepot(user, depot);
@@ -69,21 +76,26 @@ public class PlanningSnapshotService {
                 "Planning snapshots require an operating day");
         }
 
+        Instant cutoff = day.minusDays(1).atTime(LocalTime.of(16, 0))
+            .atZone(ZoneId.of("Asia/Colombo")).toInstant();
+        if (clock.instant().isBefore(cutoff)) {
+            throw new ApiException(HttpStatus.CONFLICT, "ORDERS_NOT_CLOSED",
+                "Orders are not closed until 16:00 Asia/Colombo on the day before delivery");
+        }
         List<CustomerOrder> selected = selectOrders(user, day, resolvedDepot, orderIds);
+        String mode = orderIds == null || orderIds.isEmpty() ? "all" : "selected";
+        Map<String, Object> inputs = freezeInputs(user, day, resolvedDepot, selected);
         List<Long> sortedIds = selected.stream().map(CustomerOrder::id).sorted().toList();
-
-        List<Map<String, Object>> fleetPayload = freezeFleet(user, day, resolvedDepot);
-        Map<String, Object> constraints = freezeConstraints(calendarDay);
-        String referenceVersion = "demo-" + referenceProperties.demoOperatingDate();
-        String fleetJson = writeJson(fleetPayload);
-        String constraintsJson = writeJson(constraints);
-        String contentHash = hash(day, resolvedDepot, sortedIds, fleetJson, constraintsJson, referenceVersion);
-        Instant takenAt = clock.instant();
-
-        return snapshots.insert(
-            day, resolvedDepot, takenAt, sortedIds, fleetJson, constraintsJson,
-            referenceVersion, contentHash, user.id()
+        String referenceVersion = hash(writeJson(inputs.get("reference")));
+        PlanningSnapshot snapshot = snapshots.insert(
+            day, resolvedDepot, clock.instant(), sortedIds,
+            writeJson(inputs.get("fleet")), writeJson(inputs.get("constraints")),
+            referenceVersion, hash(writeJson(inputs)), user.id(), writeJson(inputs), mode
         );
+        audit.record("planning.snapshot.created", user, "planning_snapshot",
+            String.valueOf(snapshot.id()), null, Map.of("contentHash", snapshot.contentHash(),
+                "orderIds", sortedIds, "selectionMode", mode), null);
+        return snapshot;
     }
 
     public PlanningSnapshot get(CurrentUser user, long id) {
@@ -103,27 +115,49 @@ public class PlanningSnapshotService {
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found"));
     }
 
-    /** Recompute current input hash for the same date/depot/order set to detect drift. */
+    /** Compare the same selection policy against a consistent current input set. */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Map<String, Object> compare(CurrentUser user, long id) {
         PlanningSnapshot snapshot = get(user, id);
-        List<CustomerOrder> currentOrders = orders.confirmedForPlanning(user, snapshot.planDate(), snapshot.depot());
-        List<Long> currentIds = currentOrders.stream().map(CustomerOrder::id).sorted().toList();
-        List<Map<String, Object>> fleetPayload = freezeFleet(user, snapshot.planDate(), snapshot.depot());
-        Map<String, Object> constraints = freezeConstraints(reference.day(snapshot.planDate()));
-        String fleetJson = writeJson(fleetPayload);
-        String constraintsJson = writeJson(constraints);
-        String currentHash = hash(
-            snapshot.planDate(), snapshot.depot(), currentIds, fleetJson, constraintsJson, snapshot.referenceVersion()
-        );
-        boolean unchanged = currentHash.equals(snapshot.contentHash());
+        List<CustomerOrder> eligible = orders.confirmedForPlanning(user, snapshot.planDate(), snapshot.depot());
+        List<CustomerOrder> current = "selected".equals(snapshot.selectionMode())
+            ? eligible.stream().filter(o -> snapshot.orderIds().contains(o.id())).toList() : eligible;
+        String currentHash = hash(writeJson(freezeInputs(user, snapshot.planDate(), snapshot.depot(), current)));
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("snapshotId", snapshot.id());
         result.put("snapshotHash", snapshot.contentHash());
         result.put("currentHash", currentHash);
-        result.put("unchanged", unchanged);
+        result.put("unchanged", snapshot.inputs() != null && currentHash.equals(snapshot.contentHash()));
+        result.put("requiresRegeneration", snapshot.inputs() == null);
         result.put("snapshotOrderCount", snapshot.orderIds().size());
-        result.put("currentOrderCount", currentIds.size());
+        result.put("currentOrderCount", current.size());
+        result.put("newEligibleOrderIds", eligible.stream().map(CustomerOrder::id)
+            .filter(orderId -> !snapshot.orderIds().contains(orderId)).toList());
         return result;
+    }
+
+    private Map<String, Object> freezeInputs(CurrentUser user, LocalDate day, String depot,
+                                             List<CustomerOrder> selected) {
+        Map<String, Object> referenceInputs = new TreeMap<>();
+        referenceInputs.put("outlets", reference.outlets(user, null, null).stream()
+            .filter(o -> depot.equals(o.depot())).sorted(java.util.Comparator.comparing(
+                lk.techtrithalon.waypoint.reference.domain.Outlet::outletId)).toList());
+        referenceInputs.put("districtTravel", reference.districts(user).stream()
+            .filter(d -> depot.equals(d.depot())).sorted(java.util.Comparator.comparing(
+                lk.techtrithalon.waypoint.reference.domain.DistrictTravel::district)).toList());
+        referenceInputs.put("serviceAllowances", reference.allowances(user).stream()
+            .sorted(java.util.Comparator.comparing(lk.techtrithalon.waypoint.reference.domain.ServiceAllowance::brand)
+                .thenComparing(lk.techtrithalon.waypoint.reference.domain.ServiceAllowance::dockType)).toList());
+        referenceInputs.put("calendar", reference.day(day));
+        Map<String, Object> inputs = new TreeMap<>();
+        inputs.put("schemaVersion", 1);
+        inputs.put("planDate", day);
+        inputs.put("depot", depot);
+        inputs.put("orders", selected.stream().sorted(java.util.Comparator.comparingLong(CustomerOrder::id)).toList());
+        inputs.put("fleet", freezeFleet(user, day, depot));
+        inputs.put("constraints", freezeConstraints(reference.day(day)));
+        inputs.put("reference", referenceInputs);
+        return inputs;
     }
 
     private List<CustomerOrder> selectOrders(
@@ -166,6 +200,8 @@ public class PlanningSnapshotService {
             row.put("weightCapKg", v.weightCapKg());
             row.put("volumeCapM3", v.volumeCapM3());
             row.put("depot", v.depot());
+            row.put("kmPerL", v.kmPerL());
+            row.put("fuelType", v.fuelType());
             row.put("availabilityStatus", v.availabilityStatus());
             row.put("availabilityRecorded", v.availabilityRecorded());
             row.put("weeklyFuelQuotaL", fuel.quotaLitres());
@@ -183,7 +219,12 @@ public class PlanningSnapshotService {
         constraints.put("isoWeek", day.isoWeek());
         constraints.put("cutoffLocalTime", "16:00:00");
         constraints.put("timeZone", "Asia/Colombo");
-        constraints.put("ruleVersion", "phase-5");
+        constraints.put("ruleVersion", "booklet-v1");
+        constraints.put("freshBudgetStart", "03:30:00");
+        constraints.put("freshBudgetEnd", "08:00:00");
+        constraints.put("otherBudgetStart", "08:00:00");
+        constraints.put("otherBudgetEnd", "16:00:00");
+        constraints.put("maxTripsPerVehicleDay", 2);
         return constraints;
     }
 
@@ -201,6 +242,9 @@ public class PlanningSnapshotService {
         if (!user.canAccessDepot(depot)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
         }
+        if (!reference.depots(user).contains(depot)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
+        }
         return depot;
     }
 
@@ -212,16 +256,10 @@ public class PlanningSnapshotService {
         }
     }
 
-    private String hash(
-        LocalDate day, String depot, List<Long> orderIds,
-        String fleetJson, String constraintsJson, String referenceVersion
-    ) {
+    private String hash(String payload) {
         try {
-            String payload = day + "|" + depot + "|" + orderIds + "|" + fleetJson + "|"
-                + constraintsJson + "|" + referenceVersion;
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest(payload.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(bytes);
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(payload.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new IllegalStateException("Failed to hash snapshot", e);
         }

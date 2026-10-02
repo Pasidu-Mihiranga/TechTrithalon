@@ -14,7 +14,7 @@ export function FleetDetailPage() {
         actions={<Link className="btn btn-secondary btn-md" to="/dispatcher/fleet">Back to fleet</Link>}
       />
       {vehicle.isPending && <LoadingState rows={3} label="Loading vehicle" />}
-      {vehicle.isError && <ErrorState message="Vehicle could not be loaded." onRetry={() => void vehicle.refetch()} />}
+      {vehicle.isError && <ErrorState error={vehicle.error} message="Vehicle could not be loaded." onRetry={() => void vehicle.refetch()} />}
       {vehicle.data && (
         <Card>
           <dl className="detail-grid">

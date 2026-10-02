@@ -7,7 +7,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import lk.techtrithalon.waypoint.ordering.domain.CutoffInfo;
-import lk.techtrithalon.waypoint.reference.ReferenceProperties;
 import lk.techtrithalon.waypoint.reference.application.ReferenceService;
 import lk.techtrithalon.waypoint.reference.domain.CalendarDay;
 import lk.techtrithalon.waypoint.shared.error.ApiException;
@@ -21,12 +20,10 @@ public class DeliveryDateService {
     public static final LocalTime CUTOFF = LocalTime.of(16, 0);
 
     private final ReferenceService reference;
-    private final ReferenceProperties referenceProperties;
     private final Clock clock;
 
-    public DeliveryDateService(ReferenceService reference, ReferenceProperties referenceProperties, Clock clock) {
+    public DeliveryDateService(ReferenceService reference, Clock clock) {
         this.reference = reference;
-        this.referenceProperties = referenceProperties;
         this.clock = clock;
     }
 
@@ -64,18 +61,8 @@ public class DeliveryDateService {
             .filter(CalendarDay::operating)
             .map(CalendarDay::date)
             .findFirst()
-            .orElseGet(() -> fallbackDemoDate(exclusiveStart));
+            .orElseThrow(() -> new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "NO_OPERATING_DAY",
+                "No operating day is available after " + exclusiveStart + "; extend the calendar"));
     }
 
-    /**
-     * The supplied calendar ends mid-2026. When wall-clock is past that range (local walkthrough),
-     * fall back to the configured demo operating date so store ordering remains usable.
-     */
-    private LocalDate fallbackDemoDate(LocalDate exclusiveStart) {
-        LocalDate demo = referenceProperties.demoOperatingDate();
-        boolean operating = reference.calendar(demo, demo).stream().anyMatch(CalendarDay::operating);
-        if (operating) return demo;
-        throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "NO_OPERATING_DAY",
-            "No operating day is available after " + exclusiveStart);
-    }
 }

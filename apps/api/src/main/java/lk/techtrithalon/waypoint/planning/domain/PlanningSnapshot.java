@@ -17,5 +17,8 @@ public record PlanningSnapshot(
     Map<String, Object> constraints,
     String referenceVersion,
     String contentHash,
-    Long takenBy
+    Long takenBy,
+    Map<String, Object> inputs,
+    String selectionMode,
+    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int orderCount
 ) {}

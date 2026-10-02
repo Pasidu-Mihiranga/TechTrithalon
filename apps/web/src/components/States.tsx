@@ -16,10 +16,11 @@ function StateBox({ title, description, action, tone }: StateProps & { tone: 'ne
 /** Nothing to show. Say what is missing and, where useful, which phase delivers it. Never fill with sample data. */
 export function EmptyState(props: StateProps) { return <div role="status"><StateBox {...props} tone="neutral" /></div> }
 
-interface ErrorStateProps { title?: string; message?: string; traceId?: string | null; onRetry?: () => void }
+interface ErrorStateProps { error?: unknown; title?: string; message?: string; traceId?: string | null; onRetry?: () => void }
 
 /** A request failed. Shows the trace id so the failure can be matched to a server log line. */
-export function ErrorState({ title = 'Something went wrong', message = 'The request could not be completed.', traceId, onRetry }: ErrorStateProps) {
+export function ErrorState({ error, title = 'Something went wrong', message = 'The request could not be completed.', traceId, onRetry }: ErrorStateProps) {
+  if (error && typeof error === 'object' && 'status' in error && error.status === 403) return <ForbiddenState />
   return (
     <div role="alert">
       <StateBox

@@ -41,8 +41,8 @@ describe('authenticated role shells', () => {
     signedIn()
     renderAt('/dispatcher/forecast')
     expect(await screen.findByRole('heading', { name: 'Capacity forecast' })).toBeInTheDocument()
-    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Not available yet')
-    expect(within(screen.getByRole('main')).getByRole('status')).toHaveTextContent('Phase 17')
+    expect(within(screen.getByRole('main')).getAllByRole('status')[0]).toHaveTextContent('Not available yet')
+    expect(within(screen.getByRole('main')).getAllByRole('status')[0]).toHaveTextContent('Phases 17')
   })
   it('shows dashboard metrics returned by the API', async () => {
     signedIn('DISPATCHER', async (url) => {

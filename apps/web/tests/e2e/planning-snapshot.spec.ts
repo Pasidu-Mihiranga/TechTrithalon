@@ -15,4 +15,8 @@ test('dispatcher freezes a planning snapshot from confirmed orders', async ({ pa
   await expect(page.getByLabel('Depot')).toBeVisible({ timeout: 15_000 })
   await page.getByRole('button', { name: 'Snapshot all confirmed' }).click()
   await expect(page.getByText(/Snapshot #\d+ frozen/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Frozen inputs are unchanged.')).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Load latest snapshot' }).click()
+  await expect(page.getByText(/Snapshot #\d+ frozen/)).toBeVisible()
 })

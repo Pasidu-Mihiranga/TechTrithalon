@@ -16,7 +16,9 @@ public interface PlanningSnapshotRepository {
         String constraintsJson,
         String referenceVersion,
         String contentHash,
-        long takenBy
+        long takenBy,
+        String inputsJson,
+        String selectionMode
     );
 
     Optional<PlanningSnapshot> findById(long id);

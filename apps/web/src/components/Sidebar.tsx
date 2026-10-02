@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import logo from './waypoint-logo.png'
 import { NavLink } from 'react-router-dom'
 
 export interface NavEntry {
@@ -33,8 +34,7 @@ export function Sidebar({ roleLabel, items, footerItems, status }: SidebarProps)
   return (
     <aside className="sidebar" aria-label={`${roleLabel} navigation`}>
       <div className="brand">
-        <span className="brand-name">WAYPOINT</span>
-        <span className="brand-sub">Operations</span>
+        <img className="brand-logo" src={logo} alt="Waypoint Operations" />
       </div>
       <nav className="nav" aria-label={roleLabel}>
         <span className="text-overline nav-section">Workspace</span>

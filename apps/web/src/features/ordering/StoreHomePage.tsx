@@ -11,7 +11,7 @@ export function StoreHomePage() {
     <>
       <PageHeader title="Home" subtitle="Cutoff and recent orders for your outlet." />
       {cutoff.isPending && <LoadingState rows={1} label="Loading cutoff" />}
-      {cutoff.isError && <ErrorState message="Cutoff could not be loaded." onRetry={() => void cutoff.refetch()} />}
+      {cutoff.isError && <ErrorState error={cutoff.error} message="Cutoff could not be loaded." onRetry={() => void cutoff.refetch()} />}
       {cutoff.data && (
         <section aria-label="Cutoff" className="grid-metrics">
           <MetricCard
@@ -32,7 +32,7 @@ export function StoreHomePage() {
           <Link className="btn btn-secondary btn-md" to="/store/orders">View all</Link>
         </div>
         {orders.isPending && <LoadingState rows={2} label="Loading orders" />}
-        {orders.isError && <ErrorState message="Orders could not be loaded." onRetry={() => void orders.refetch()} />}
+        {orders.isError && <ErrorState error={orders.error} message="Orders could not be loaded." onRetry={() => void orders.refetch()} />}
         {orders.data && (orders.data.items?.length ?? 0) === 0 && (
           <EmptyState title="No orders yet" description="Confirmed orders for your outlet will appear here." />
         )}

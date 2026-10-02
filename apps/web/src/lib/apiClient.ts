@@ -21,3 +21,8 @@ export function createApiClient(baseUrl: string, fetchImpl: typeof fetch = lateF
 
 /** The one HTTP client the app uses. */
 export const api = createApiClient(apiBaseUrl)
+
+/** Preserve HTTP status so screens can distinguish forbidden access from outages. */
+export function apiReadError(response: Response, message: string) {
+  return Object.assign(new Error(message), { status: response.status })
+}

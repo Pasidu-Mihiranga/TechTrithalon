@@ -2,6 +2,9 @@ package lk.techtrithalon.waypoint.planning.api;
 
 import java.time.LocalDate;
 import java.util.List;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 /**
  * @param planDate delivery day to freeze; defaults to the configured demo operating date
@@ -11,5 +14,5 @@ import java.util.List;
 public record CreateSnapshotRequest(
     LocalDate planDate,
     String depot,
-    List<Long> orderIds
+    @Size(max = 100000) List<@NotNull @Positive Long> orderIds
 ) {}

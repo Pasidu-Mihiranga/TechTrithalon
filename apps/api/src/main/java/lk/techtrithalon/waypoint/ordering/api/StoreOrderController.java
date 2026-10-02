@@ -63,7 +63,7 @@ class StoreOrderController {
         @Valid @RequestBody PlaceOrderRequest request
     ) {
         return commands.placeConfirmed(
-            user, request.tempRequirement(), request.units(), request.weightKg(), request.volumeM3()
+            user, request.tempRequirement(), request.units(), request.weightKg(), request.volumeM3(), request.expectedDeliveryDate()
         );
     }
 }

@@ -1,6 +1,7 @@
 package lk.techtrithalon.waypoint.planning.api;
 
 import java.time.LocalDate;
+import jakarta.validation.Valid;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
@@ -31,7 +32,7 @@ class PlanningSnapshotController {
     @ResponseStatus(HttpStatus.CREATED)
     PlanningSnapshot create(
         @AuthenticationPrincipal CurrentUser user,
-        @RequestBody(required = false) CreateSnapshotRequest body
+        @Valid @RequestBody(required = false) CreateSnapshotRequest body
     ) {
         CreateSnapshotRequest req = body == null ? new CreateSnapshotRequest(null, null, null) : body;
         return service.create(user, req.planDate(), req.depot(), req.orderIds());

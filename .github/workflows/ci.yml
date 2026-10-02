@@ -77,7 +77,11 @@ jobs:
       REFERENCE_DATA_HOST_DIR: ./apps/api/src/test/resources/reference-fixture
       EXPECTED_OUTLETS: '3'
       EXPECTED_VEHICLES: '2'
-      EXPECTED_CALENDAR_DAYS: '3'
+      EXPECTED_CALENDAR_DAYS: '5'
+      DEMO_DATA_HOST_DIR: ./apps/api/src/test/resources/demo-fixture
+      EXPECTED_DEMO_ORDERS: '2'
+      EXPECTED_DEMO_FLEET: '1'
+      DEMO_CLOCK_INSTANT: '2026-06-25T11:00:00Z'
       EXPECTED_DISTRICTS: '2'
       EXPECTED_SERVICE_ALLOWANCES: '9'
       SEED_STORE_MANAGER_OUTLET: OUT901

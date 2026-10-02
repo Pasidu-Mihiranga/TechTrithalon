@@ -57,13 +57,15 @@ public class OrderQueryService {
 
     @PreAuthorize("hasRole('DISPATCHER')")
     public OrderPage dispatcherOrders(
-        CurrentUser user, LocalDate date, String brand, String tempRequirement, String status,
+        CurrentUser user, LocalDate date, String depot, String brand, String tempRequirement, String status,
         String query, String sort, boolean ascending, int page, int size
     ) {
         LocalDate day = date == null ? referenceProperties.demoOperatingDate() : date;
         reference.day(day);
+        if (depot != null && !user.canAccessDepot(depot)) throw missing();
+        String selectedDepot = depot == null || depot.isBlank() ? user.depot() : depot;
         return orders.search(
-            day, user.depot(), null, brand, tempRequirement, status, query, sort, ascending, page, size
+            day, selectedDepot, null, brand, tempRequirement, status, query, sort, ascending, page, size
         );
     }
 

@@ -1,6 +1,10 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { Button, ErrorState, ForbiddenState, LoadingState } from '../components'
 import { DispatcherHome } from './DispatcherHome'
+import { DeferredOrdersPage, ExceptionsPage } from '../features/planning/PlanningPendingPages'
+import { LiveOperationsPage } from '../features/live-ops/LiveOperationsPage'
+import { CapacityForecastPage, CapacityDecisionPage } from '../features/forecast/CapacityPages'
+import { DispatcherProfilePage } from '../features/auth/DispatcherProfilePage'
 import { PlaceholderPage } from './PlaceholderPage'
 import { RoleShell } from './RoleShell'
 import { roles } from './roles'
@@ -25,6 +29,14 @@ function pageElement(role: RoleConfig, page: RolePage) {
   if (role.key === 'store' && page.end && page.to === '/store') return <StoreHomePage />
   if (role.key === 'store' && page.to === '/store/orders') return <StoreOrdersPage />
   if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderPage />
+  if (role.key === 'dispatcher') {
+    if (page.to === '/dispatcher/deferred-orders') return <DeferredOrdersPage />
+    if (page.to === '/dispatcher/exceptions') return <ExceptionsPage />
+    if (page.to === '/dispatcher/live-operations') return <LiveOperationsPage />
+    if (page.to === '/dispatcher/forecast') return <CapacityForecastPage />
+    if (page.to === '/dispatcher/capacity-decision') return <CapacityDecisionPage />
+    if (page.to === '/dispatcher/settings') return <DispatcherProfilePage />
+  }
   return <PlaceholderPage page={page} />
 }
 
@@ -40,6 +52,7 @@ function roleRoutes(role: RoleConfig) {
       })}
       {role.key === 'dispatcher' ? (
         <>
+          <Route path="capacity-decision" element={<CapacityDecisionPage />} />
           <Route path="orders/:id" element={<DispatcherOrderDetailPage />} />
           <Route path="fleet/:vehicleId" element={<FleetDetailPage />} />
         </>

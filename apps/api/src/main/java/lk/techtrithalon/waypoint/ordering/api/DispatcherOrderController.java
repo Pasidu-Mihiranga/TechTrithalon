@@ -34,6 +34,7 @@ class DispatcherOrderController {
     OrderPage orders(
         @AuthenticationPrincipal CurrentUser user,
         @RequestParam(required = false) LocalDate date,
+        @RequestParam(required = false) String depot,
         @RequestParam(required = false) String brand,
         @RequestParam(required = false) String tempRequirement,
         @RequestParam(required = false) String status,
@@ -43,7 +44,7 @@ class DispatcherOrderController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "50") int size
     ) {
-        return service.dispatcherOrders(user, date, brand, tempRequirement, status, q, sort, asc, page, size);
+        return service.dispatcherOrders(user, date, depot, brand, tempRequirement, status, q, sort, asc, page, size);
     }
 
     @GetMapping("/orders/{id}")

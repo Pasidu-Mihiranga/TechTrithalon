@@ -39,6 +39,5 @@ test('store manager places, reviews and confirms an order', async ({ page }) => 
   }
 
   const me = await page.request.get(`${apiBase}/api/v1/auth/me`)
-  // Cross-origin API call may be unauthenticated; UI confirmation is the exit-gate proof.
-  expect([200, 401]).toContain(me.status())
+  expect(me.status()).toBe(200)
 })
