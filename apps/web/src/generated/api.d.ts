@@ -132,6 +132,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/planning/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["latest"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/planning/snapshots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/planning/snapshots/{id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["compare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/vehicles/{id}/availability": {
         parameters: {
             query?: never;
@@ -402,6 +450,12 @@ export interface components {
             operating?: boolean;
             payday?: boolean;
         };
+        CreateSnapshotRequest: {
+            depot?: string;
+            orderIds?: number[];
+            /** Format: date */
+            planDate?: string;
+        };
         CustomerOrder: {
             brand?: string;
             /** Format: date-time */
@@ -547,6 +601,26 @@ export interface components {
             planned?: number | null;
             /** Format: int32 */
             total?: number | null;
+        };
+        PlanningSnapshot: {
+            constraints?: {
+                [key: string]: unknown;
+            };
+            contentHash?: string;
+            depot?: string;
+            fleet?: {
+                [key: string]: unknown;
+            }[];
+            /** Format: int64 */
+            id: number;
+            orderIds?: number[];
+            /** Format: date */
+            planDate?: string;
+            referenceVersion?: string;
+            /** Format: date-time */
+            takenAt?: string;
+            /** Format: int64 */
+            takenBy?: number;
         };
         ReferenceSummary: {
             /** Format: int32 */
@@ -795,6 +869,99 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CustomerOrder"];
+                };
+            };
+        };
+    };
+    latest: {
+        parameters: {
+            query?: {
+                date?: string;
+                depot?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanningSnapshot"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateSnapshotRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanningSnapshot"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanningSnapshot"];
+                };
+            };
+        };
+    };
+    compare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

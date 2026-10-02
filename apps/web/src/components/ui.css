@@ -51,6 +51,7 @@
 .table tbody tr:last-child td { border-bottom: 0; }
 .table tbody tr:hover { background: var(--color-bg-subtle); }
 .align-end { text-align: end !important; }
+.table-select { width: 2.5rem; text-align: center; }
 .th-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; border-radius: var(--radius-xs); }
 th[aria-sort='ascending'] .th-sort::after { content: ' ↑'; }
 th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }

@@ -6,6 +6,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -106,6 +108,25 @@ class JdbcOrderRepository implements OrderRepository {
     @Override
     public Optional<CustomerOrder> findByRef(String ref) {
         return db.query("SELECT * FROM customer_order WHERE ref=?", ROW, ref).stream().findFirst();
+    }
+
+    @Override
+    public List<CustomerOrder> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        return db.query(
+            "SELECT * FROM customer_order WHERE id IN (" + placeholders + ") ORDER BY id ASC",
+            ROW, ids.toArray()
+        );
+    }
+
+    @Override
+    public List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot) {
+        return db.query("""
+            SELECT * FROM customer_order
+            WHERE order_date=? AND depot=? AND status='confirmed'
+            ORDER BY id ASC
+            """, ROW, Date.valueOf(date), depot);
     }
 
     @Override

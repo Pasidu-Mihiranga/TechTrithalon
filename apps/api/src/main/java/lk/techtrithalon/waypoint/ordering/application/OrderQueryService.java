@@ -74,6 +74,25 @@ public class OrderQueryService {
         return order;
     }
 
+    /**
+     * Published for planning: confirmed orders eligible for a date+depot snapshot.
+     * Callers must already have enforced dispatcher role and depot access.
+     */
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<CustomerOrder> confirmedForPlanning(CurrentUser user, LocalDate date, String depot) {
+        if (!user.canAccessDepot(depot)) throw missing();
+        reference.day(date);
+        return orders.findConfirmedForDateDepot(date, depot);
+    }
+
+    /** Published for planning: load specific orders by id (membership checks stay in planning). */
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<CustomerOrder> ordersByIds(CurrentUser user, List<Long> ids) {
+        return orders.findByIds(ids).stream()
+            .filter(o -> user.canAccessDepot(o.depot()))
+            .toList();
+    }
+
     @PreAuthorize("hasRole('STORE_MANAGER')")
     public OrderPage storeOrders(
         CurrentUser user, LocalDate date, String status, String query, String sort,

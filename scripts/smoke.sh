@@ -65,6 +65,25 @@ for path in availability fuel; do
 done
 [[ "$(curl -sS -o /dev/null -w '%{http_code}' -b "$cookies" "$API/api/v1/reference/outlets/UNKNOWN")" == "404" ]] || fail "unknown outlet did not return 404"
 
+echo "Phase 5: planning snapshot freeze"
+depot=$(curl -fsS -b "$cookies" "$API/api/v1/reference/depots" | json_field "[0]")
+[[ -n "$depot" && "$depot" != "None" ]] || fail "no depot from reference"
+snap=$(curl -fsS -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\"}" \
+  "$API/api/v1/dispatcher/planning/snapshots")
+snap_id=$(echo "$snap" | json_field "['id']")
+snap_hash=$(echo "$snap" | json_field "['contentHash']")
+[[ -n "$snap_id" && "$snap_id" != "None" ]] || fail "snapshot id missing: $snap"
+[[ "$(echo "$snap" | json_field "['depot']")" == "$depot" ]] || fail "snapshot depot mismatch"
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id" > /dev/null || fail "snapshot get failed"
+[[ "$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id/compare" | json_field "['unchanged']")" == "True" \
+  || "$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id/compare" | json_field "['unchanged']")" == "true" ]] \
+  || fail "snapshot compare should be unchanged"
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\"}" \
+  "$API/api/v1/dispatcher/planning/snapshots")" == "401" ]] || fail "unauthenticated snapshot did not return 401"
+echo "Phase 5 snapshot ok id=$snap_id hash=${snap_hash:0:12}"
+
 echo "Phase 3A: demo-day orders, dashboard and fleet reads"
 dashboard=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/dashboard?date=$demo_date")
 [[ "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "True" || "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "true" ]] || fail "ordersToPlan unavailable: $dashboard"

@@ -9,14 +9,22 @@ type OrderRow = NonNullable<NonNullable<ReturnType<typeof useDispatcherOrders>['
 export function DispatcherOrdersPage({
   title = 'Orders',
   subtitle = 'Confirmed orders for the planning day.',
+  selectable = false,
+  selectedKeys,
+  onSelectedKeysChange,
+  statusFilter = 'confirmed',
 }: {
   title?: string
   subtitle?: string
+  selectable?: boolean
+  selectedKeys?: Set<string>
+  onSelectedKeysChange?: (next: Set<string>) => void
+  statusFilter?: string
 } = {}) {
   const [q, setQ] = useState('')
   const [brand, setBrand] = useState('')
   const [tempRequirement, setTemp] = useState('')
-  const [status, setStatus] = useState('confirmed')
+  const [status, setStatus] = useState(statusFilter)
   const [sort, setSort] = useState<SortState>({ key: 'ref', direction: 'asc' })
   const orders = useDispatcherOrders({
     q: q || undefined,
@@ -82,6 +90,8 @@ export function DispatcherOrdersPage({
             rowKey={(row) => String(row.id)}
             sort={sort}
             onSortChange={setSort}
+            selectedKeys={selectable ? selectedKeys : undefined}
+            onSelectedKeysChange={selectable ? onSelectedKeysChange : undefined}
           />
         </>
       )}

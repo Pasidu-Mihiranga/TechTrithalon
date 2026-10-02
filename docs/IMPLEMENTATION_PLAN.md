@@ -12,7 +12,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [x] Phase 3 — Reference Data Foundation
 - [x] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority)**
 - [x] Phase 4 — Store Manager Order Flow
-- [ ] Phase 5 — Dispatcher Confirmed Orders
+- [x] Phase 5 — Dispatcher Confirmed Orders
 - [ ] Phase 6 — Trip-Time & Constraint Engine
 - [ ] Phase 7 — Manual Planning First
 - [ ] Phase 8 — Deferral & Fairness
@@ -539,16 +539,16 @@ A dispatcher needs a precise and stable planning input set.
 
 #### Backend
 
-- [ ] Add date/depot-scoped confirmed-order query, pagination, search, sorting, and selection rules.
-- [ ] Create immutable planning snapshots with order IDs, fleet, weekly fuel, calendar, rule version, and content hash.
+- [x] Add date/depot-scoped confirmed-order query, pagination, search, sorting, and selection rules.
+- [x] Create immutable planning snapshots with order IDs, fleet, weekly fuel, calendar, rule version, and content hash.
 
 #### Frontend
 
-- [ ] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
+- [x] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
 
 #### Database
 
-- [ ] Add planning snapshot table and appropriate order query indexes.
+- [x] Add planning snapshot table and appropriate order query indexes.
 
 #### Python / Intelligence
 
@@ -556,12 +556,12 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
-- [ ] Playwright queue and snapshot creation.
+- [x] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
+- [x] Playwright queue and snapshot creation.
 
 #### Documentation
 
-- [ ] Document snapshot fields and reconciliation when inputs change.
+- [x] Document snapshot fields and reconciliation when inputs change.
 
 ### Parallel Work for 9 Members
 
@@ -569,13 +569,27 @@ Queue UI and snapshot service can advance in parallel on agreed read models; int
 
 ### Exit Gate
 
-- [ ] Dispatcher can inspect the exact closed order set.
-- [ ] A snapshot freezes all inputs needed for a planning attempt.
-- [ ] Repeated reads reproduce the same snapshot.
+- [x] Dispatcher can inspect the exact closed order set.
+- [x] A snapshot freezes all inputs needed for a planning attempt.
+- [x] Repeated reads reproduce the same snapshot.
 
 ### Result
 
 After this phase, the system can freeze the inputs of a planning run.
+
+### Snapshot fields and reconciliation (implemented)
+
+`planning_snapshot` row: `plan_date`, `depot`, `taken_at`, `order_ids` (sorted), `fleet_json` (per-vehicle caps, availability, weekly fuel remaining), `constraints_json` (operating flags, cutoff, `ruleVersion`), `reference_version`, `content_hash` (SHA-256 of those inputs), `taken_by`.
+
+- Create: `POST /api/v1/dispatcher/planning/snapshots` (optional `orderIds`; omit = all confirmed for date+depot). Insert-only — no updates.
+- Read: `GET .../snapshots/{id}`, `GET .../snapshots?date&depot` (latest).
+- Drift: `GET .../snapshots/{id}/compare` recomputes the current hash; `unchanged=false` when orders or fleet inputs moved. UI should offer regenerate (re-create) when drift is detected.
+
+### Evidence (local, verified — 2026-10-02)
+
+- Flyway `V20261002_1200__planning_snapshot.sql`; full `./gradlew test` green including `PlanningSnapshotIT`.
+- Curl on Compose (`API_PORT=8081`): `POST .../planning/snapshots` → **201** with 85 `orderIds`, fleet JSON, `contentHash`; `GET` + `compare` → `unchanged=true`; **401** / **403** for anonymous / store; row in `planning_snapshot`.
+- Web: selection + snapshot on Planning Step 1; OpenAPI client regenerated; 40 Vitest/build pass; Playwright `planning-snapshot.spec.ts`; `scripts/smoke.sh` Phase 5 step OK.
 
 ## Phase 6 — Trip-Time & Constraint Engine
 

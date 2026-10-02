@@ -3,9 +3,12 @@ package lk.techtrithalon.waypoint.ordering.application;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
+
 
 public interface OrderRepository {
     OrderPage search(
@@ -25,6 +28,10 @@ public interface OrderRepository {
     Optional<CustomerOrder> findById(long id);
 
     Optional<CustomerOrder> findByRef(String ref);
+
+    List<CustomerOrder> findByIds(Collection<Long> ids);
+
+    List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot);
 
     long countByDateDepotStatus(LocalDate date, String depot, String status);
 
