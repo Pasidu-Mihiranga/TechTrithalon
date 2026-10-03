@@ -4,16 +4,16 @@ This is the daily build plan for a **nine-member team**. It answers what to buil
 
 ## Master Progress
 
-All boxes start unchecked. Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The next required phase is **Phase 0**, unless the team records verified implementation evidence here.
+Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The current foundation and manual path have implementation evidence, but open gates below must be closed before advancing the release. See the [Round 2 requirements audit](./ROUND2_REQUIREMENTS_AUDIT.md).
 
-- [ ] Phase 0 — Repository & Development Foundation
+- [ ] Phase 0 — Repository & Development Foundation **(local stack verified; hosted CI pending and current web lint fails)**
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
-- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; corrections awaiting visual/runtime verification)**
-- [ ] Phase 4 — Store Manager Order Flow **(corrections awaiting PostgreSQL/curl/browser verification)**
-- [ ] Phase 5 — Dispatcher Confirmed Orders **(corrections awaiting PostgreSQL/curl/browser verification)**
-- [ ] Phase 6 — Trip-Time & Constraint Engine
+- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; current truthfulness/server-metric regressions and visual sign-off remain)**
+- [x] Phase 4 — Store Manager Order Flow **(functional gate: recorded curl/browser evidence and fresh PostgreSQL tests; release design review remains)**
+- [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
+- [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; 56 domain tests pass; remaining boundary/input/cross-trip checks keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
 - [ ] Phase 8 — Deferral & Fairness
 - [ ] Phase 9 — Automatic Planning
@@ -33,6 +33,8 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 22 — Full-System Verification
 
 **Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
+
+**Evidence reconciliation, 2026-10-03:** the completion record later includes PostgreSQL, curl and browser evidence for the ordering corrections, so Phase 4's functional gate is restored. Fresh checks passed 110 API tests, 66 web tests, typecheck, build and three Python tests; full web lint failed with three errors. Current five-step UI inspection found hard-coded operational copy, client-computed totals, ineffective van-only filtering and exclusions not used by snapshot creation. Phase 3A/5 therefore stay open. Phase 6 code and timing fixtures exist, but full boundary/input/cross-trip evidence is incomplete. Phase 7 retains its verified functional-board status; operational loading/driver handoff remains Phase 11+. See [the full audit and execution order](./ROUND2_REQUIREMENTS_AUDIT.md). No new mutation/browser verification or Figma visual sign-off is claimed by this audit.
 
 ## 1. How to Use This Plan
 
@@ -391,7 +393,7 @@ The dispatcher experience is the most fully designed part of the product (21 Fig
 
 - [x] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
 - [x] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
-- [x] All counts and KPIs computed server-side; the UI never derives business numbers.
+- [ ] All counts and KPIs computed server-side; the UI never derives business numbers. *(Reopened 2026-10-03: current planning queue and confirmation screens calculate totals/category counts locally; server summaries must cover the exact scope.)*
 
 #### Frontend — Dispatcher (Figma, class A)
 
@@ -430,9 +432,9 @@ Not required in this phase.
 
 ### Exit Gate
 
-- [x] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
+- [ ] Every Dispatcher Figma screen renders from real API data or a truthful empty state. *(Reopened 2026-10-03: planning copy/progress/maps still imply unsupported operational facts; fresh visual verification remains pending.)*
 - [x] Store manager can see their own real orders and the live cutoff.
-- [x] No mock data or hard-coded business values in the web app.
+- [ ] No mock data or hard-coded business values in the web app. *(Reopened 2026-10-03: hard-coded late-order copy, generated map positions and fallback volume remain in current planning screens; see Round 2 audit.)*
 
 ### Evidence (local, verified — 2026-10-02)
 
@@ -546,7 +548,7 @@ A dispatcher needs a precise and stable planning input set.
 
 #### Frontend
 
-- [x] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
+- [ ] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger. *(Backend and initial queue exist; latest integration must repair van-only filtering, exclusion membership, scope invalidation and server-owned summaries.)*
 
 #### Database
 
@@ -559,7 +561,7 @@ Not required in this phase.
 #### Testing
 
 - [x] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
-- [x] Playwright queue and snapshot creation.
+- [ ] Playwright queue and snapshot creation. *(Earlier journey passed; rerun after current filter/exclusion/scope corrections and add assertions for their real persisted effects.)*
 
 #### Documentation
 
@@ -571,7 +573,7 @@ Queue UI and snapshot service can advance in parallel on agreed read models; int
 
 ### Exit Gate
 
-- [x] Dispatcher can inspect the exact closed order set.
+- [ ] Dispatcher can inspect the exact closed order set. *(Backend is verified; current filter/exclusion controls must agree with queried/snapshotted membership before closing the latest UI gate.)*
 - [x] A snapshot freezes all inputs needed for a planning attempt.
 - [x] Repeated reads reproduce the same snapshot.
 
@@ -611,16 +613,16 @@ Correct feasibility rules must exist before assignments or optimization.
 
 #### Backend
 
-- [ ] Implement trip-time, distance/fuel, effective mall window, waiting, and named R1–R12 rule predicates.
-- [ ] Return structured violations with actual, allowed, and remediation evidence; build independent whole-plan validator.
+- [x] Implement trip-time, distance/fuel, effective mall window, waiting, and named R1–R12 rule predicates. *(Code exists and fixtures pass; cross-trip waiting/input follow-up remains in the exit gate.)*
+- [x] Return structured violations with actual, allowed, and remediation evidence; build independent whole-plan validator. *(Used by manual-plan edits/publication; independent cross-trip scheduling needs additional verification.)*
 
 #### Frontend
 
-- [ ] Add reusable constraint and utilisation display components for later planning screens.
+- [x] Add reusable constraint and utilisation display components for later planning screens. *(Shared components and nine component tests pass in the fresh web suite.)*
 
 #### Database
 
-- [ ] Add only the persistence needed for rule evidence and weekly fuel state; use precise decimal quantities.
+- [x] Add only the persistence needed for rule evidence and weekly fuel state; use precise decimal quantities. *(Existing fleet ledger, snapshots and manual-plan/audit persistence provide this foundation; PostgreSQL integration tests pass.)*
 
 #### Python / Intelligence
 
@@ -630,10 +632,11 @@ Not required in this phase.
 
 - [ ] JUnit/AssertJ tests for every rule, positive and negative cases; 101/112/213 fixtures.
 - [ ] Use Testcontainers for database constraints; run S1 rule/shortage diagnostics without asserting an unproven optimum.
+- [x] Verify the implemented timing examples and named-rule suite. *(2026-10-03: 56 planning-domain tests pass, including 101/112/213; the complete 110-test API suite passes. This does not close missing boundary/full-S1 checks.)*
 
 #### Documentation
 
-- [ ] Link rule codes and trip-time formula to [Technical Reference — Constraint Engine](./TECHNICAL_REFERENCE.md#16-constraint-engine).
+- [x] Link rule codes and trip-time formula to [Technical Reference — Constraint Engine](./TECHNICAL_REFERENCE.md#16-constraint-engine). *(See also manual verification and Round 2 audit for implementation limits.)*
 
 ### Parallel Work
 
@@ -642,8 +645,8 @@ Rule predicates can be split by scope while one owner protects shared rule inter
 ### Exit Gate
 
 - [ ] Every hard rule has boundary tests.
-- [ ] Booklet trip-time fixtures pass.
-- [ ] Validator names why hand-built invalid plans fail.
+- [x] Booklet trip-time fixtures pass. *(Fresh 2026-10-03 test run: 101, 112 and combined 213 minutes.)*
+- [x] Validator names why hand-built invalid plans fail. *(Named-rule domain and manual-plan rejection tests pass in the fresh 110-test suite; missing edge coverage remains open above.)*
 
 ### Result
 
@@ -1602,9 +1605,12 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 
 | Phase | Verification evidence | Date / owner |
 |---|---|---|
-| 0–22 | Pending | — |
+| 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
+| 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
+| 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
+| 8–22 | Pending; optional/conditional phases retain their scope labels | — |
 
-- The accessible Figma file contains Dispatcher frames. Confirm whether Store Manager, Loader, and Driver frames exist elsewhere; use current rationale in the meantime.
+- Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.
 - Treat S1's ~17.2 m³ refrigerated shortfall as a lower bound. Record a feasible whole-order allocation before claiming an exact optimum.
 - The technical reference identifies candidate-version uniqueness and audit transaction issues in the former schema narrative; use its corrected invariants in migrations.
