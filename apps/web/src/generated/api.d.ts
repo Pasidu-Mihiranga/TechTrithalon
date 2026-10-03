@@ -139,7 +139,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -157,7 +157,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["resolve"];
+        post: operations["resolve_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -436,6 +436,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/receipt-discrepancies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/receipt-discrepancies/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/vehicles/{id}/availability": {
         parameters: {
             query?: never;
@@ -491,7 +523,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["deliveries"];
+        get: operations["deliveries_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -699,7 +731,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["issues"];
+        get: operations["issues_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -974,6 +1006,86 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/deliveries/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["delivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/deliveries/{orderId}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/deliveries/{orderId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["issues"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2185,6 +2297,138 @@ export interface components {
             tripMinutes?: number;
             vehicleId?: string;
         };
+        ReceiptDecisionRequest: {
+            decision: string;
+            /** Format: int32 */
+            expectedVersion: number;
+            note: string;
+        };
+        ReceiptDeliveryDetail: {
+            /** @description Why the receipt cannot be recorded yet */
+            blocker?: string | null;
+            brand?: string;
+            canConfirm?: boolean;
+            discrepancy?: components["schemas"]["ReceiptDiscrepancy"];
+            district?: string;
+            dockType?: string;
+            /** @description The driver's reason when the order was not delivered in full */
+            issueKind?: string | null;
+            /** Format: int32 */
+            loadedUnits?: number;
+            outletId?: string;
+            parkingConstraint?: string | null;
+            /** Format: int32 */
+            photos?: number;
+            receiptRecord?: components["schemas"]["ReceiptRecord"];
+            recipientName?: string | null;
+            row?: components["schemas"]["ReceiptDeliveryRow"];
+            /** Format: int32 */
+            signatures?: number;
+            /** @description Order status */
+            status?: string;
+            timeline?: components["schemas"]["ReceiptEvent"][];
+        };
+        ReceiptDeliveryList: {
+            outletId?: string;
+            rows?: components["schemas"]["ReceiptDeliveryRow"][];
+        };
+        ReceiptDeliveryRow: {
+            /** Format: date-time */
+            deliveredAt?: string | null;
+            /** Format: int32 */
+            deliveredUnits?: number | null;
+            driverName?: string | null;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            /** @description DELIVERED, PARTIAL or FAILED, once recorded */
+            outcome?: string | null;
+            /** @description PENDING (planned or loading), IN_DELIVERY or DELIVERED (the driver recorded an outcome) */
+            phase?: string;
+            /** Format: date */
+            planDate?: string;
+            plannedArrival?: string | null;
+            /** @description NONE, CONFIRMED, DISPUTED (open) or RESOLVED */
+            receipt?: string;
+            tempRequirement?: string;
+            /** Format: int32 */
+            tripIndex?: number | null;
+            /** Format: int32 */
+            units?: number;
+            vehicleId?: string | null;
+            windowClose?: string | null;
+            windowOpen?: string | null;
+        };
+        ReceiptDiscrepancy: {
+            /** Format: int32 */
+            affectedUnits?: number;
+            /** @description CREDIT, REPLACEMENT or NO_ACTION */
+            decision?: string | null;
+            decisionNote?: string | null;
+            /** Format: date-time */
+            deliveredAt?: string | null;
+            /** Format: int32 */
+            deliveredUnits?: number;
+            depot?: string;
+            driverName?: string | null;
+            /** Format: int64 */
+            id?: number;
+            kind?: string;
+            note?: string | null;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outletId?: string;
+            /** Format: int64 */
+            receiptId?: number;
+            /** Format: date-time */
+            reportedAt?: string;
+            reportedByName?: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            resolvedByName?: string | null;
+            /** @description OPEN or RESOLVED */
+            status?: string;
+            vehicleId?: string | null;
+            /** Format: int32 */
+            version?: number;
+        };
+        ReceiptDisputeRequest: {
+            /**
+             * Format: int32
+             * @description Units that did not arrive right, 1 to the units delivered
+             */
+            affectedUnits: number;
+            kind: string;
+            /** @description Required for OTHER */
+            note?: string;
+        };
+        ReceiptEvent: {
+            /** Format: date-time */
+            at?: string;
+            label?: string;
+        };
+        ReceiptRecord: {
+            /** Format: int32 */
+            affectedUnits?: number | null;
+            /** Format: date-time */
+            confirmedAt?: string;
+            confirmedByName?: string;
+            /** Format: int32 */
+            deliveredUnits?: number;
+            /** Format: int64 */
+            deliveryRecordId?: number;
+            /** Format: int64 */
+            id?: number;
+            /** @description SHORT, DAMAGED, WRONG_ITEM or OTHER */
+            kind?: string | null;
+            note?: string | null;
+            /** Format: int64 */
+            orderId?: number;
+            /** @description CONFIRMED or DISPUTED */
+            outcome?: string;
+            outletId?: string;
+        };
         ReferenceSummary: {
             /** Format: int32 */
             calendarDays?: number;
@@ -2570,7 +2814,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query: {
                 date: string;
@@ -2594,7 +2838,7 @@ export interface operations {
             };
         };
     };
-    resolve: {
+    resolve_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3120,6 +3364,55 @@ export interface operations {
             };
         };
     };
+    list_1: {
+        parameters: {
+            query?: {
+                depot?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDiscrepancy"][];
+                };
+            };
+        };
+    };
+    resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDiscrepancy"];
+                };
+            };
+        };
+    };
     availability: {
         parameters: {
             query: {
@@ -3214,7 +3507,7 @@ export interface operations {
             };
         };
     };
-    deliveries: {
+    deliveries_1: {
         parameters: {
             query?: {
                 date?: string;
@@ -3551,7 +3844,7 @@ export interface operations {
             };
         };
     };
-    issues: {
+    issues_1: {
         parameters: {
             query?: {
                 date?: string;
@@ -3950,6 +4243,120 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DeferralRecord"];
+                };
+            };
+        };
+    };
+    deliveries: {
+        parameters: {
+            query?: {
+                phase?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDeliveryList"];
+                };
+            };
+        };
+    };
+    delivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDeliveryDetail"];
+                };
+            };
+        };
+    };
+    dispute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDeliveryDetail"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDeliveryDetail"];
+                };
+            };
+        };
+    };
+    issues: {
+        parameters: {
+            query?: {
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReceiptDiscrepancy"][];
                 };
             };
         };
