@@ -166,3 +166,11 @@ Server-owned planning metrics: the manual-plan response now carries `availableVe
 | SQL reconciliation | Snapshot 85 orders, 409.864 m³, 28 available vehicles; the API metrics agree |
 
 Still open for this gate: Figma visual comparison, date-switch/error/forbidden browser journeys, input-integrity checks for absent fuel/inputs, full S1 acceptance and hosted CI. The isolated stack was removed afterwards; the main stack was rebuilt.
+
+## Step 2 follow-up: durable deferral and fairness, 2026-10-03
+
+- Publication now refuses any order that is neither assigned nor explicitly deferred (`ORDER_NOT_DEFERRED`). This resolves the "explicit deferral versus mere backlog" part of finding 8.
+- Deferrals are append-only history with reason code, rule, evidence and decider. Orders carry forward to the next run through `planning_date`.
+- Fairness is derived from that history and the imported scenario facts. Stores see and acknowledge their notices.
+- Evidence: [Deferral verification](./DEFERRAL_VERIFICATION.md).
+- Still open: operational publication (load tasks, driver assignment, supersession; finding 8's remaining part), a browser and Figma review of the new screens, and the Step 4 local fallback path flagged in that document.

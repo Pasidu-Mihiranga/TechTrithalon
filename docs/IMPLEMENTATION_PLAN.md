@@ -15,7 +15,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; waiting and timing boundaries verified; input integrity/full acceptance keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
-- [ ] Phase 8 — Deferral & Fairness
+- [ ] Phase 8 — Deferral & Fairness **(functional gate verified by tests, curl and SQL; browser journey and Figma review pending)**
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [ ] Phase 11 — Plan Publication & Versioning
@@ -735,16 +735,16 @@ Capacity shortfalls need durable reasons and repeat-skip protection.
 
 #### Backend
 
-- [ ] Record reasons, rule evidence, previous operating-day deferral, days since last served, protect-next-run, and notifications.
-- [ ] Require explicit reason and record who decided.
+- [x] Record reasons, rule evidence, previous operating-day deferral, days since last served, protect-next-run, and notifications. *(Store notices with acknowledgement; days since last served comes from imported scenario data until delivery records exist.)*
+- [x] Require explicit reason and record who decided.
 
 #### Frontend
 
-- [ ] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice.
+- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests pass; browser journey and Figma visual review pending.)*
 
 #### Database
 
-- [ ] Add append-only deferral and notification records with indexes for outlet history.
+- [x] Add append-only deferral and notification records with indexes for outlet history.
 
 #### Python / Intelligence
 
@@ -752,11 +752,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test two consecutive operating days, protected carry-forward, missing reason, store visibility, and audit history.
+- [x] Test two consecutive operating days, protected carry-forward, missing reason, store visibility, and audit history.
 
 #### Documentation
 
-- [ ] Document deferral policy and reason-code mapping to Figma.
+- [x] Document deferral policy and reason-code mapping to Figma. *([Deferral verification](./DEFERRAL_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -764,9 +764,13 @@ Deferral history service, notification display, and UI dialog can proceed in par
 
 ### Exit Gate
 
-- [ ] A repeated skip is visible and justified.
-- [ ] Protected orders carry forward.
-- [ ] Store manager sees a clear deferral notice.
+- [x] A repeated skip is visible and justified.
+- [x] Protected orders carry forward.
+- [x] Store manager sees a clear deferral notice.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). Browser and Figma checks are still pending.
 
 ### Result
 
@@ -1613,7 +1617,8 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
 | 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
-| 8–22 | Pending; optional/conditional phases retain their scope labels | — |
+| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl and SQL; browser/Figma pending | 2026-10-03 |
+| 9–22 | Pending; optional/conditional phases retain their scope labels | — |
 
 - Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.

@@ -383,3 +383,12 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Regenerated the OpenAPI contract and TypeScript client. Extended `ManualPlanIT` with assertions for the new fields.
 - Verification: 115 API tests, 73 web tests, typecheck and lint all pass. Curl on an isolated stack matched PostgreSQL (85 orders, 409.864 m³, 28 available vehicles), with 401/403/404/422 failure checks. The isolated stack was removed and the main stack rebuilt.
 - Marked the server-side metrics checkbox done in the plan. Hosted CI, Figma visual sign-off and date/error/forbidden journeys stay open, so the phase gates are not closed.
+
+## 2026-10-03 — Step 2: durable deferrals, carry-forward and store notices
+
+- Added append-only `deferral` and `deferral_acknowledgement` tables. Added `customer_order.planning_date` (the run an order belongs to), imported fairness facts from the scenario CSV, and reason code, flags and decider on candidate dispositions. The migration is additive.
+- Publication now records each deferral with its evidence, moves the order to the next operating run, and refuses unexplained backlog. Queue, snapshot and dashboard read carried orders. Fairness (previous-day skip, consecutive streak, protected carry-forward) is derived per order and returned with the plan.
+- New endpoints: dispatcher run history with server totals; store notices and acknowledgement. Contract and client regenerated.
+- Web: a shared defer form (five Figma reason codes, protect and notify toggles, consequence text from server evidence) used in Step 1, Step 4 and the manual board. The Deferred Orders page now shows live data. Store home and order detail show notices. Step 5 blocks Send while orders are undecided.
+- Found and fixed my own streak bug: the imported skip now extends history when the history reaches the requested date. A regression test covers it.
+- Verification: 119 API tests (new `DeferralIT`), 76 web tests, typecheck and lint pass. Curl and SQL on an isolated real-data stack match (see `docs/DEFERRAL_VERIFICATION.md`). Smoke passes on the main stack. A browser journey and Figma review were not done; Figma MCP was not connected.
