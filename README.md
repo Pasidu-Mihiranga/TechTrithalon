@@ -189,6 +189,10 @@ Planning snapshots freeze complete order rows, vehicle capabilities and fuel sta
 
 **Verify the stack:** `make smoke` (or `./scripts/smoke.sh`) checks the web app, Spring, Spring → Python, CORS and the seeded data. **Start from scratch:** `make reset` wipes the database volume and re-seeds.
 
+**Populate role workflows on an existing published demo day:** run `python3 scripts/seed-operating-day.py --enrich-existing`. It uses the seeded role accounts and real API actions to leave an open loader shortfall, an active driver trip, a store delivery awaiting receipt and an open dispatcher exception. Repeating it keeps those records without duplicating them. Run `python3 scripts/seed-operating-day.py --verify-only` to check the persisted day and role views. The script's separate `--reset` option clears all operational records and restores every order to confirmed; review its impact before using it.
+
+**Seed a driver sync example:** after the second trip has started and its earlier stop is complete, run `python3 scripts/seed-operating-day.py --seed-offline-arrival`. It sends the next stop arrival through `/api/v1/driver/sync`, checks an identical retry is deduplicated, and leaves that stop's order for the driver. Repeating it adds nothing.
+
 ### Sign in and account configuration
 
 Open `/login` in the web app. The server chooses your workspace from the account's role; changing the URL does not grant access.

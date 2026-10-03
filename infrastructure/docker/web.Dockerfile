@@ -7,9 +7,11 @@ RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/design-tokens/package.json packages/design-tokens/package.json
+COPY packages/field-core/package.json packages/field-core/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 COPY packages/design-tokens/ packages/design-tokens/
+COPY packages/field-core/ packages/field-core/
 COPY apps/web/ apps/web/
 ARG VITE_API_BASE_URL=http://localhost:8080
 ARG VITE_SEED_DISPATCHER_USERNAME=DSP-001

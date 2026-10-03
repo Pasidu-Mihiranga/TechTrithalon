@@ -481,3 +481,43 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Departures: schematic instead of a map; polling instead of SSE; no suggested fix yet (Steps 10–11).
 - Decision recorded: the dispatcher may undo a deferral while the plan is still a candidate (restore), and normal constraints are revalidated at publish. This already exists, so nothing new was built.
 
+## 2026-10-04 — Four-role operating-day flow and persisted demo state
+
+- Continued the interrupted real-data flow run. The existing PostgreSQL day has one published plan with 23 trips, 68 planned stops, 23 load tasks, 17 recorded deferrals, five driver delivery records, and a store dispute resolved by the dispatcher. One order is receipt confirmed; the second trip remains available to the loader and driver, and the store has an actionable delivery.
+- Kept `scripts/seed-operating-day.py` under `scripts/` as the repeatable planning → loading → delivery → receipt helper. It uses the actual reference and order data already in PostgreSQL, proposes trips through the dispatcher API, and lets Spring validate and publish them. The script now requires explicit `--reset` before clearing operational rows; `--verify-only` checks the existing state without changing business records. Reset runs inside one transaction, and deferrals use `OTHER` when no single binding rule has been proven.
+- Verification: `python3 scripts/seed-operating-day.py --verify-only` passed PostgreSQL order accounting and cross-role API reads for the dispatcher plan, loader and driver second trip, and store deliveries. This confirms the current persisted state; a fresh reset-and-reseed run and browser journey against this real-data stack were not repeated.
+- Files touched: `scripts/seed-operating-day.py`, `docs/WORK_LOG.md`. Rationale: preserve and verify the useful mixed-state day left by the earlier run while making future reruns explicit and reviewable.
+
+## 2026-10-04 — Fresh four-role browser verification and fixture repair
+
+- Ran focused PostgreSQL integration tests for manual planning, publication, loading, delivery, receipt, exceptions and live operations: all passed. Ran the browser lifecycle on a separate synthetic Compose project so the real-data operating day was untouched.
+- The first browser run failed at trip creation with HTTP 422: `OUT901` is `van_only`, while its assigned test vehicle `VEH901` was a truck. Corrected the synthetic vehicle fixture to a reefer van; changed the loader browser test's deferral explanation to `OTHER` because it no longer represents a van-access failure. The hard vehicle-access rule was not changed.
+- The corrected `lifecycle.spec.ts` passed on a fresh synthetic stack. PostgreSQL then showed one published plan, one loaded task, one completed delivery trip, one resolved receipt dispute, one receipt-confirmed order and one deferred order. The full API suite passed after the fixture change (`./gradlew test`).
+- Files touched: `apps/api/src/test/resources/reference-fixture/vehicles.csv`, `apps/web/tests/e2e/loader.spec.ts`, `docs/WORK_LOG.md`. Rationale: make the browser journey use a vehicle that can legally serve its test outlet and prove the connected flow from an empty database.
+
+## 2026-10-04 — Follow-up correctness check
+
+- Rechecked the fixture and its dependent browser journeys. The loader shortfall and handover journey passed on a fresh isolated synthetic stack. Earlier in the same day, the full PostgreSQL API suite and the four-role lifecycle journey passed after the fixture correction.
+- Strengthened `scripts/seed-operating-day.py` so missing store orders, an unavailable seeded driver vehicle, failed handover, absent delivery, or a dispute missing from the dispatcher queue fail the run. Verification now requires the loaded → completed → receipt-resolved stages when a full day is requested.
+- Marked the vehicle responses in `docs/PHASE3_VERIFICATION.md` as historical captures, because that document still shows `VEH901` before the synthetic fixture changed from truck to van.
+- Files touched: `scripts/seed-operating-day.py`, `docs/PHASE3_VERIFICATION.md`, `docs/WORK_LOG.md`. Rationale: prevent a partial seed from reporting success and keep historical evidence distinct from current fixture values.
+
+## 2026-10-04 — Seed actionable data for each operational role
+
+- Added an idempotent `--enrich-existing` mode to `scripts/seed-operating-day.py`. It acts through the authenticated loader and driver APIs on the existing published day: records a one-unit held loading shortfall on a non-driver task, loads VEH036 trip 2, starts that trip, arrives at the store's first stop and records its delivery. It leaves the trip in progress and the store receipt unconfirmed, so loader, driver, store manager and dispatcher each have actionable data.
+- Verified persisted state after the run: 23 trips; load tasks 20 pending, one loading and two loaded; delivery trips one completed and one in progress; one OPEN loading issue; one previously resolved receipt dispute; store order 2 delivered and awaiting receipt. The dispatcher Exceptions queue and Live Operations board both reflect the new states. Repeating `--enrich-existing` skipped existing actions and preserved counts.
+- `python3 scripts/seed-operating-day.py --verify-only` passed the database accounting and role API reads. Added the command to `README.md`. No operational rows were cleared and the published plan was retained.
+- Files touched: `scripts/seed-operating-day.py`, `README.md`, `docs/WORK_LOG.md`. Rationale: provide meaningful work for each seeded account while preserving the current day and making the setup repeatable.
+
+## 2026-10-04 — Rebuild and refresh local application containers
+
+- Ran `docker compose up --build -d api web intelligence` to build new images and recreate the three application containers. PostgreSQL remained running with its existing volume.
+- Verified after restart: API `/actuator/health` returned HTTP 200 and `UP`; web root returned HTTP 200; intelligence `/health` returned HTTP 200 and `ok`. `python3 scripts/seed-operating-day.py --verify-only` passed, confirming the published 23-trip day and role-visible workflow data survived.
+- Files touched: `docs/WORK_LOG.md`. Rationale: deploy the current local code and Dockerfile changes without resetting operational data.
+
+## 2026-10-04 — Driver offline recheck and sync seed
+
+- Traced the driver IndexedDB outbox, shared sync engine and Spring replay service. Fixed proof upload handling so HTTP 503 keeps the upload queued for retry; added focused tests for 503 and a final 422 rejection.
+- Added `--seed-offline-arrival` to the operating-day helper. It uses the driver sync API to arrive at the next stop, checks retry deduplication and leaves that stop's order open. Ran it on the existing trip 2: OUT004 is arrived; the previous OUT001 departure and this arrival are the two `APPLIED` sync rows. Rerunning the seed made no new row. Both have clock-skew flags because the demo API clock is fixed in June and the live device timestamps are in October.
+- Verification: `SyncIT` 3 passed, full web suite 151 passed (including the 3 focused retry and Sync Status tests), web typecheck passed, and the full driver offline Playwright journey passed on a fresh isolated synthetic stack. Removed that stack and rebuilt the local web container; web and API returned HTTP 200, and `--verify-only` passed after restart. Details in `docs/OFFLINE_SYNC_VERIFICATION.md`.
+- Files touched: `apps/web/src/lib/syncTransport.ts`, `apps/web/src/lib/syncTransport.test.ts`, `scripts/seed-operating-day.py`, `README.md`, `docs/OFFLINE_SYNC_VERIFICATION.md`, `docs/WORK_LOG.md`. Rationale: keep temporary upload outages retriable and provide a repeatable, actionable offline-sync example in the live demo data.

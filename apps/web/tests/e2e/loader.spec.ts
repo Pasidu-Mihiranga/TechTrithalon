@@ -23,7 +23,7 @@ async function api<T>(page: Page, method: 'get' | 'post', path: string, data?: u
 }
 
 test('the loader counts a published trip, reports a held shortfall, and hands over after the dispatcher decides', async ({ page, browser }, testInfo) => {
-  // Dispatcher publishes one Style trip and defers the van-only order.
+  // Dispatcher publishes one Style trip and leaves the Fresh order for another journey.
   await signIn(page, process.env.SEED_DISPATCHER_USERNAME ?? 'DSP-001', process.env.SEED_DISPATCHER_PASSWORD)
   const { demoOperatingDate: date } = await api<{ demoOperatingDate: string }>(page, 'get', '/api/v1/reference/summary')
   const snapshot = await api<{ id: number }>(page, 'post', '/api/v1/dispatcher/planning/snapshots', { planDate: date, depot: 'Peliyagoda' }, 201)
@@ -36,7 +36,7 @@ test('the loader counts a published trip, reports a held shortfall, and hands ov
   await api(page, 'post', `/api/v1/dispatcher/plans/${plan}/trips`, { expectedVersion: version++, reason: 'Assign',
     trip: { vehicleId: 'VEH901', tripIndex: 2, brand: 'Style', district: 'Alpha', orderIds: [style.id] } })
   for (const order of others) await api(page, 'post', `/api/v1/dispatcher/plans/${plan}/orders/${order.id}/defer`,
-    { expectedVersion: version++, reason: 'Van-only outlet, no van', reasonCode: 'VAN_ACCESS' })
+    { expectedVersion: version++, reason: 'Not in this journey', reasonCode: 'OTHER' })
   await api(page, 'post', `/api/v1/dispatcher/plans/${plan}/publish`, { expectedVersion: version, reason: 'Publish for loading' })
 
   // Loader: Home shows the trip; count it with a shortfall that holds the vehicle.
