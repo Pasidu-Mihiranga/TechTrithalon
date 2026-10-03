@@ -6,5 +6,5 @@ export default defineConfig({
   envDir: '../../',
   envPrefix: ['VITE_', 'SEED_'],
   server: { port: 5173 },
-  test: { exclude: [...configDefaults.exclude, 'tests/e2e/**'], environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], css: false },
+  test: { include: ['src/**/*.test.{ts,tsx}', '../../packages/field-core/src/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/e2e/**'], environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], css: false },
 })

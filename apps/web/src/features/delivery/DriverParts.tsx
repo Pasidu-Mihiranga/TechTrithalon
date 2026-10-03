@@ -1,14 +1,25 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, CircleAlert, CircleCheck } from 'lucide-react'
 import { ErrorState, LoadingState } from '../../components'
-import { DriverRequestError, useOnline } from './driverQueries'
+import { DriverRequestError, OfflineError, useOnline } from './driverQueries'
+import { useFieldSync } from '../offline/useFieldSync'
 import type { DriverTripCard } from './driverQueries'
 
-/** Online / offline pill (Figma "Net Status"). Writes need a connection until offline sync lands. */
+/**
+ * Connection and outbox state (Figma "Net Status"): Online, Offline · N saved, Syncing d/t, or a review
+ * badge. It opens the Sync Status screen.
+ */
 export function NetPill() {
   const online = useOnline()
-  return <span className={`dv-net ${online ? 'dv-net-online' : 'dv-net-offline'}`} role="status">{online ? 'Online' : 'Offline'}</span>
+  const { status } = useFieldSync()
+  let label = 'Online'
+  let tone = 'online'
+  if (!online || status.blocked === 'offline') { label = status.pending > 0 ? `Offline · ${status.pending}` : 'Offline'; tone = 'offline' }
+  else if (status.syncing) { label = `Syncing ${status.done}/${status.total}`; tone = 'syncing' }
+  else if (status.needsReview > 0) { label = `Review · ${status.needsReview}`; tone = 'review' }
+  else if (status.pending > 0) { label = `Saved · ${status.pending}`; tone = 'offline' }
+  return <Link to="/driver/sync" className={`dv-net dv-net-${tone}`} aria-label={`Sync status: ${label}`}>{label}</Link>
 }
 
 /** Light page header (Figma 112 px header minus the device status bar): back, title, subtitle, pills. */
@@ -25,10 +36,16 @@ export function DriverHeader({ back, title, sub, children }: { back?: string; ti
   )
 }
 
-export function OfflineNotice() {
+/** Figma offline banner: what happens to the driver's records while there is no connection. */
+export function OfflineNotice({ fromCache = false }: { fromCache?: boolean }) {
   const online = useOnline()
-  if (online) return null
-  return <div className="dv-info dv-info-warn" role="status">You are offline. Recording needs a connection; saving on the phone and syncing later comes with offline mode.</div>
+  const { status } = useFieldSync()
+  if (status.blocked === 'signed-out')
+    return <div className="dv-info dv-info-bad" role="status"><CircleAlert size={16} aria-hidden="true" />Sign in again to sync {status.pending} saved {status.pending === 1 ? 'action' : 'actions'}.</div>
+  if (!online || status.blocked === 'offline')
+    return <div className="dv-info dv-info-warn" role="status"><CircleCheck size={16} aria-hidden="true" />Offline — saved on this phone, will sync automatically</div>
+  if (fromCache) return <div className="dv-info dv-info-warn" role="status">Showing the last copy saved on this phone.</div>
+  return null
 }
 
 export function Loading({ label }: { label: string }) {
@@ -37,6 +54,14 @@ export function Loading({ label }: { label: string }) {
 
 export function Failure({ error, message, onRetry, back }: { error: unknown; message: string; onRetry?: () => void; back?: string }) {
   const notFound = error instanceof DriverRequestError && error.status === 404
+  if (error instanceof OfflineError) {
+    return (
+      <div className="dv-page">
+        <DriverHeader back={back} title="Offline" />
+        <div className="dv-body"><ErrorState title="Not saved on this phone yet" message="Open this screen once while online; after that it works without a connection." onRetry={onRetry} /></div>
+      </div>
+    )
+  }
   return (
     <div className="dv-page">
       <DriverHeader back={back} title={notFound ? 'Not found' : 'Something went wrong'} />

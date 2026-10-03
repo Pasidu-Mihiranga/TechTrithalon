@@ -548,6 +548,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/driver/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/driver/trips/{tripIndex}": {
         parameters: {
             query?: never;
@@ -1434,6 +1450,8 @@ export interface components {
             orders?: number;
             /** Format: int32 */
             ordersDone?: number;
+            /** Format: date */
+            planDate?: string;
             /** Format: int32 */
             planVersion?: number;
             plannedDepart?: string;
@@ -2212,6 +2230,65 @@ export interface components {
             tripsRemoved?: number;
             /** Format: int32 */
             unchanged?: number;
+        };
+        SyncAction: {
+            actionType: string;
+            /** Format: uuid */
+            clientActionId: string;
+            /** Format: int32 */
+            deliveredUnits?: number | null;
+            issueKind?: string | null;
+            notes?: string | null;
+            /**
+             * Format: date-time
+             * @description Device time of the action
+             */
+            occurredAt: string;
+            /**
+             * Format: int64
+             * @description ORDER_OUTCOME
+             */
+            orderId?: number | null;
+            outcome?: string | null;
+            /** @description STOP_ARRIVE and STOP_DEPART */
+            outletId?: string | null;
+            /** Format: date */
+            planDate: string;
+            /**
+             * Format: int32
+             * @description Plan version the phone showed when the action was taken
+             */
+            planVersion?: number | null;
+            /** @description Client ids of proof files uploaded for this order */
+            proofUploadIds?: string[] | null;
+            recipientName?: string | null;
+            /** Format: int32 */
+            tripIndex: number;
+        };
+        SyncRequest: {
+            actions: components["schemas"]["SyncAction"][];
+        };
+        SyncResponse: {
+            results?: components["schemas"]["SyncResult"][];
+            /** Format: date-time */
+            syncedAt?: string;
+        };
+        SyncResult: {
+            /** Format: uuid */
+            clientActionId?: string;
+            /** @description The device time is implausibly far from the server's; it is kept as reported */
+            clockSkew?: boolean;
+            /** @description Server code: ALREADY_APPLIED, or the rule that stopped the action */
+            code?: string | null;
+            /** @description Facts for the conflict screen (for example both records) */
+            detail?: {
+                [key: string]: unknown;
+            } | null;
+            message?: string | null;
+            /** @description APPLIED, DUPLICATE, CONFLICT or REJECTED */
+            result?: string;
+            /** @description Applied, but the dispatcher reviews it: ORDER_NOT_ON_TRIP, STOP_NOT_ON_TRIP, PROOF_MISSING */
+            review?: string | null;
         };
         SystemHealth: {
             intelligence?: string;
@@ -3227,6 +3304,30 @@ export interface operations {
             };
         };
     };
+    sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SyncResponse"];
+                };
+            };
+        };
+    };
     trip: {
         parameters: {
             query?: {
@@ -3313,6 +3414,7 @@ export interface operations {
             query: {
                 date?: string;
                 kind: string;
+                clientUploadId?: string;
             };
             header?: never;
             path: {

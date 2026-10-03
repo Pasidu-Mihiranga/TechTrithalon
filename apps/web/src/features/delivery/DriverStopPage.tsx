@@ -28,7 +28,7 @@ export function DriverStopPage() {
 
 function StopDetails({ detail, stop, base }: { detail: DriverTripDetail; stop: DriverStop; base: string }) {
   const navigate = useNavigate()
-  const action = useDriverAction(detail.card.tripIndex, detail.version)
+  const action = useDriverAction(detail.card)
   const running = detail.card.state === 'IN_PROGRESS'
   const isCurrent = stop.seq === detail.currentStopSeq
   const nextOrder = stop.orders.find(o => !o.outcome)
@@ -100,18 +100,19 @@ function StopDetails({ detail, stop, base }: { detail: DriverTripDetail; stop: D
 
 function DepartButton({ detail, stop }: { detail: DriverTripDetail; stop: DriverStop }) {
   const navigate = useNavigate()
-  const action = useDriverAction(detail.card.tripIndex, detail.version)
+  const action = useDriverAction(detail.card)
   const base = `/driver/trips/${detail.card.tripIndex}`
   const next = detail.stops.find(s => s.status === 'PENDING' && s.seq !== stop.seq)
   return (
     <>
       <button type="button" className="dv-btn dv-btn-primary" disabled={action.isPending}
-        onClick={() => action.mutate({ kind: 'depart', outletId: stop.outletId }, {
-          onSuccess: (after) => {
-            const upcoming = after.stops.find(s => s.seq === after.currentStopSeq)
+        onClick={() => {
+          // mutateAsync: saving offline updates the screen at once and may unmount this button first.
+          action.mutateAsync({ kind: 'depart', outletId: stop.outletId }).then((after) => {
+            const upcoming = after.detail.stops.find(s => s.seq === after.detail.currentStopSeq)
             navigate(upcoming ? `${base}/route` : `${base}/complete`)
-          },
-        })}>
+          }, () => undefined)
+        }}>
         <Navigation size={20} aria-hidden="true" />{action.isPending ? 'Saving…' : next ? 'Next Stop' : 'Finish Stops'}
       </button>
       <ActionError error={action.error} />

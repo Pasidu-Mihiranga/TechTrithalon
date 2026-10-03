@@ -8,7 +8,7 @@ import type { DriverOrder, DriverStop, DriverTripDetail, IssueKind, OutcomeBody 
 import './driver.css'
 
 type Outcome = OutcomeBody['outcome']
-type Proof = { id: number; kind: 'PHOTO' | 'SIGNATURE'; preview: string }
+type Proof = { id: string; kind: 'PHOTO' | 'SIGNATURE'; preview: string }
 const ISSUE_ORDER: IssueKind[] = ['CUSTOMER_UNAVAILABLE', 'MISSING', 'DAMAGED', 'WRONG_ITEM', 'REFUSED', 'OTHER']
 /** Nothing was handed over for these: the whole order fails. */
 const WHOLE_ORDER: IssueKind[] = ['CUSTOMER_UNAVAILABLE', 'REFUSED']
@@ -36,7 +36,7 @@ function RecordForm({ mode, detail, stop, order }: { mode: 'confirm' | 'issue'; 
   const tripIndex = detail.card.tripIndex
   const base = `/driver/trips/${tripIndex}`
   const capabilities = useDriverCapabilities()
-  const action = useDriverAction(tripIndex, detail.version)
+  const action = useDriverAction(detail.card)
   const proofsEnabled = capabilities.data?.proofUploads === true
   const initial = (search.get('outcome') as Outcome | null) ?? 'DELIVERED'
   const [outcome, setOutcome] = useState<Outcome>(mode === 'issue' ? 'PARTIAL' : initial)
@@ -60,7 +60,8 @@ function RecordForm({ mode, detail, stop, order }: { mode: 'confirm' | 'issue'; 
   const nextOrder = stop.orders.find(o => !o.outcome && o.orderId !== order.orderId)
   const after = nextOrder ? `${base}/orders/${nextOrder.orderId}` : `${base}/stops/${stop.seq}`
 
-  if (order.outcome && !recordedAt) {
+  // The local projection shows the outcome as soon as it is saved; only an outcome recorded before this screen opened blocks it.
+  if (order.outcome && !recordedAt && !action.isPending && !action.isSuccess) {
     return <Failure error={{ status: 409 }} back={`${base}/orders/${order.orderId}`} message="This order's outcome is already recorded." />
   }
   if (recordedAt && mode === 'issue') {
@@ -96,15 +97,13 @@ function RecordForm({ mode, detail, stop, order }: { mode: 'confirm' | 'issue'; 
       ...(effectiveOutcome !== 'DELIVERED' && issueKind ? { issueKind } : {}),
       ...(handedOver ? { recipientName: recipient.trim() } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
-      proofIds: proofs.map(p => p.id),
+      proofUploadIds: proofs.map(p => p.id),
     }
-    action.mutate({ kind: 'outcome', orderId: order.orderId, body }, {
-      onSuccess: (result) => {
-        const saved = findOrder(result, order.orderId)?.order.outcome
-        if (mode === 'issue') setRecordedAt(saved?.recordedAt ?? new Date().toISOString())
-        else navigate(after)
-      },
-    })
+    action.mutateAsync({ kind: 'outcome', orderId: order.orderId, body }).then((result) => {
+      const saved = findOrder(result.detail, order.orderId)?.order.outcome
+      if (mode === 'issue') setRecordedAt(saved?.recordedAt ?? new Date().toISOString())
+      else navigate(after)
+    }, () => undefined)
   }
 
   const title = mode === 'issue' ? 'Report Delivery Issue' : order.orderRef
@@ -159,7 +158,7 @@ function RecordForm({ mode, detail, stop, order }: { mode: 'confirm' | 'issue'; 
         ) : null}
 
         {handedOver ? (
-          <ProofCapture tripIndex={tripIndex} orderId={order.orderId} enabled={proofsEnabled} loading={capabilities.isPending} proofs={proofs} onChange={edit(setProofs)} />
+          <ProofCapture card={detail.card} orderId={order.orderId} orderRef={order.orderRef} enabled={proofsEnabled} loading={capabilities.isPending} proofs={proofs} onChange={edit(setProofs)} />
         ) : null}
 
         {handedOver ? (
@@ -183,10 +182,10 @@ function RecordForm({ mode, detail, stop, order }: { mode: 'confirm' | 'issue'; 
 }
 
 /** Photo (camera, compressed on the phone) and signature (drawn) proofs, uploaded as soon as they are captured. */
-function ProofCapture({ tripIndex, orderId, enabled, loading, proofs, onChange }: {
-  tripIndex: number; orderId: number; enabled: boolean; loading: boolean; proofs: Proof[]; onChange: (next: Proof[]) => void
+function ProofCapture({ card, orderId, orderRef, enabled, loading, proofs, onChange }: {
+  card: DriverTripDetail['card']; orderId: number; orderRef: string; enabled: boolean; loading: boolean; proofs: Proof[]; onChange: (next: Proof[]) => void
 }) {
-  const upload = useUploadProof(tripIndex, orderId)
+  const upload = useUploadProof(card, orderId, orderRef)
   const [signing, setSigning] = useState(false)
   const photo = proofs.find(p => p.kind === 'PHOTO')
   const signature = proofs.find(p => p.kind === 'SIGNATURE')
@@ -194,7 +193,7 @@ function ProofCapture({ tripIndex, orderId, enabled, loading, proofs, onChange }
   async function store(kind: 'PHOTO' | 'SIGNATURE', file: Blob) {
     const blob = kind === 'PHOTO' ? await compressPhoto(file) : file
     upload.mutate({ kind, file: blob }, {
-      onSuccess: (saved) => onChange([...proofs.filter(p => p.kind !== kind), { id: saved.id, kind, preview: URL.createObjectURL(blob) }]),
+      onSuccess: (saved) => onChange([...proofs.filter(p => p.kind !== kind), { id: saved.clientUploadId, kind, preview: URL.createObjectURL(blob) }]),
     })
   }
 

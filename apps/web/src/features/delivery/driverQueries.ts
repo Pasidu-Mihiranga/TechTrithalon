@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { projectHome, projectRows, projectTrip } from '@techtrithalon/field-core'
+import type { ActionInput, Outcome, SyncEngine } from '@techtrithalon/field-core'
 import { api } from '../../lib/apiClient'
+import { useFieldSync } from '../offline/useFieldSync'
 import type { components } from '../../generated/api'
 
 type Schema = components['schemas']
+// Driver hooks use networkMode 'always': offline, reads fall back to the copy saved on the phone and
+// writes go to the outbox, instead of TanStack Query pausing them until the connection returns.
+
 /** The driver API serialises every field (null when absent); springdoc marks record fields optional. */
 type Present<T> = T extends (infer U)[] ? Present<U>[]
   : T extends object ? { [K in keyof T]-?: Present<NonNullable<T[K]>> | Extract<T[K], null> } : T
@@ -18,7 +24,7 @@ export type DriverDeliveryRow = Present<Schema['DriverDeliveryRow']>
 export type DriverPastTrip = Present<Schema['DriverPastTrip']>
 export type DriverOrderDetail = Present<Schema['DriverOrderDetail']>
 export type DriverCapabilities = Present<Schema['DriverCapabilities']>
-export type OutcomeBody = Omit<Schema['DriverOutcomeRequest'], 'expectedVersion'>
+export type OutcomeBody = Omit<Schema['DriverOutcomeRequest'], 'expectedVersion' | 'proofIds'> & { proofUploadIds?: string[] }
 export type IssueKind = NonNullable<OutcomeBody['issueKind']>
 
 /** Keeps the server's code, trace id and recovery facts (current plan version, pending orders). */
@@ -39,135 +45,213 @@ export class DriverRequestError extends Error {
   }
 }
 
+/** Saved copy of the last server answer, so the driver's screens open without a connection. */
+type Snapshotted<T> = T & { readonly __fromCache?: boolean }
+
+async function withSnapshot<T>(engine: SyncEngine | null, key: string, fetcher: () => Promise<T>): Promise<Snapshotted<T>> {
+  try {
+    const data = await fetcher()
+    if (engine) void engine.saveSnapshot(key, data)
+    return data as Snapshotted<T>
+  } catch (error) {
+    if (!(error instanceof OfflineError) || !engine) throw error
+    const saved = await engine.loadSnapshot<T>(key)
+    if (saved === undefined) throw error
+    return { ...saved, __fromCache: true }
+  }
+}
+
+/** Raised when the request never reached the server (no connection). */
+export class OfflineError extends Error {
+  readonly status = 0
+  constructor() { super('You are offline and this screen has not been opened online yet.') }
+}
+
+/** Runs an API read; a failed fetch (no connection) becomes OfflineError, an HTTP error a DriverRequestError. */
+async function read<T>(request: () => Promise<{ data?: unknown; error?: unknown; response: Response }>, fallback: string): Promise<T> {
+  let result
+  try { result = await request() } catch { throw new OfflineError() }
+  if (!result.data) throw new DriverRequestError(result.response, result.error, fallback)
+  return result.data as T
+}
+
+const tripKey = (tripIndex: number | undefined) => ['driver', 'trip', tripIndex] as const
+
+function fetchTrip(engine: SyncEngine | null, tripIndex: number) {
+  return withSnapshot(engine, `trip:${tripIndex}`, () => read<DriverTripDetail>(
+    () => api.GET('/api/v1/driver/trips/{tripIndex}', { params: { path: { tripIndex } } }), 'The trip could not be loaded.'))
+}
+
+function pendingView(engine: SyncEngine | null) {
+  return { actions: engine?.pendingActions() ?? [], uploads: engine?.pendingUploads() ?? [] }
+}
+
 export function useDriverHome() {
-  return useQuery({
+  const { engine, status } = useFieldSync()
+  const cache = useQueryClient()
+  const query = useQuery({
     queryKey: ['driver', 'home'],
-    retry: false,
+    retry: false, networkMode: 'always',
     refetchInterval: 30_000,
     queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/home')
-      if (!data) throw new DriverRequestError(response, error, "Today's trips could not be loaded.")
-      return data as DriverHome
+      const home = await withSnapshot(engine, 'home', () => read<DriverHome>(() => api.GET('/api/v1/driver/home'), "Today's trips could not be loaded."))
+      // Keep every trip of the day on the phone, so it can be worked on without a connection.
+      if (!(home as Snapshotted<DriverHome>).__fromCache)
+        await Promise.all(home.trips.map(t => cache.fetchQuery({ queryKey: tripKey(t.tripIndex), queryFn: () => fetchTrip(engine, t.tripIndex), networkMode: 'always' }).catch(() => undefined)))
+      return home
     },
   })
+  const tripData = useQueries({ queries: (query.data?.trips ?? []).map(t => ({ queryKey: tripKey(t.tripIndex), queryFn: () => fetchTrip(engine, t.tripIndex), retry: false, networkMode: 'always' as const })),
+    combine: results => results.map(r => r.data) })
+  const data = useMemo(() => {
+    if (!query.data) return undefined
+    const { actions, uploads } = pendingView(engine)
+    const projected: Record<number, DriverTripDetail> = {}
+    for (const trip of tripData) if (trip) projected[trip.card.tripIndex] = projectTrip(trip, actions, uploads)
+    return projectHome(query.data, actions, projected)
+    // status.version: recompute when the outbox changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, engine, status.version, tripData])
+  return { ...query, data, fromCache: Boolean((query.data as Snapshotted<DriverHome> | undefined)?.__fromCache) } as typeof query & { fromCache: boolean }
 }
 
 export function useDriverTrip(tripIndex: number | undefined) {
-  return useQuery({
-    queryKey: ['driver', 'trip', tripIndex],
+  const { engine, status } = useFieldSync()
+  const query = useQuery({
+    queryKey: tripKey(tripIndex),
     enabled: tripIndex !== undefined && tripIndex > 0,
-    retry: false,
+    retry: false, networkMode: 'always',
     refetchInterval: 30_000,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/trips/{tripIndex}', { params: { path: { tripIndex: tripIndex! } } })
-      if (!data) throw new DriverRequestError(response, error, 'The trip could not be loaded.')
-      return data as DriverTripDetail
-    },
+    queryFn: () => fetchTrip(engine, tripIndex!),
   })
+  const data = useMemo(() => {
+    if (!query.data) return undefined
+    const { actions, uploads } = pendingView(engine)
+    return projectTrip(query.data, actions, uploads)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, engine, status.version])
+  return { ...query, data, fromCache: Boolean((query.data as Snapshotted<DriverTripDetail> | undefined)?.__fromCache) } as typeof query & { fromCache: boolean }
 }
 
 export function useDriverDeliveries() {
-  return useQuery({
+  const { engine, status } = useFieldSync()
+  const query = useQuery({
     queryKey: ['driver', 'deliveries'],
-    retry: false,
+    retry: false, networkMode: 'always',
     refetchInterval: 30_000,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/deliveries')
-      if (!data) throw new DriverRequestError(response, error, "Today's deliveries could not be loaded.")
-      return data as DriverDeliveries
-    },
+    queryFn: () => withSnapshot(engine, 'deliveries', () => read<DriverDeliveries>(() => api.GET('/api/v1/driver/deliveries'), "Today's deliveries could not be loaded.")),
   })
+  const indexes = [...new Set((query.data?.rows ?? []).map(r => r.tripIndex))]
+  const tripData = useQueries({ queries: indexes.map(i => ({ queryKey: tripKey(i), queryFn: () => fetchTrip(engine, i), retry: false, networkMode: 'always' as const })),
+    combine: results => results.map(r => r.data) })
+  const data = useMemo(() => {
+    if (!query.data) return undefined
+    const { actions, uploads } = pendingView(engine)
+    const projected: Record<number, DriverTripDetail> = {}
+    for (const trip of tripData) if (trip) projected[trip.card.tripIndex] = projectTrip(trip, actions, uploads)
+    return { ...query.data, rows: projectRows(query.data.rows, projected) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.data, engine, status.version, tripData])
+  return { ...query, data } as typeof query
 }
 
 export function usePastTrips(enabled: boolean) {
+  const { engine } = useFieldSync()
   return useQuery({
     queryKey: ['driver', 'past-trips'],
     enabled,
-    retry: false,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/past-trips')
-      if (!data) throw new DriverRequestError(response, error, 'Past trips could not be loaded.')
-      return data as DriverPastTrip[]
-    },
+    retry: false, networkMode: 'always',
+    queryFn: () => withSnapshot(engine, 'past-trips', () => read<DriverPastTrip[]>(() => api.GET('/api/v1/driver/past-trips'), 'Past trips could not be loaded.')),
   })
 }
 
 export function useDriverOrder(orderId: number | undefined) {
+  const { engine } = useFieldSync()
   return useQuery({
     queryKey: ['driver', 'order', orderId],
     enabled: orderId !== undefined && orderId > 0,
-    retry: false,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/orders/{orderId}', { params: { path: { orderId: orderId! } } })
-      if (!data) throw new DriverRequestError(response, error, 'The delivery record could not be loaded.')
-      return data as DriverOrderDetail
-    },
+    retry: false, networkMode: 'always',
+    queryFn: () => withSnapshot(engine, `order:${orderId}`, () => read<DriverOrderDetail>(
+      () => api.GET('/api/v1/driver/orders/{orderId}', { params: { path: { orderId: orderId! } } }), 'The delivery record could not be loaded.')),
   })
 }
 
 export function useDriverCapabilities() {
+  const { engine } = useFieldSync()
   return useQuery({
     queryKey: ['driver', 'capabilities'],
-    retry: false,
+    retry: false, networkMode: 'always',
     staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { data, error, response } = await api.GET('/api/v1/driver/capabilities')
-      if (!data) throw new DriverRequestError(response, error)
-      return data as DriverCapabilities
-    },
+    queryFn: () => withSnapshot(engine, 'capabilities', () => read<DriverCapabilities>(() => api.GET('/api/v1/driver/capabilities'), 'Capabilities could not be loaded.')),
   })
 }
 
 export type DriverAction =
-  | { kind: 'start'; planVersion: number }
-  | { kind: 'arrive'; outletId: string }
-  | { kind: 'outcome'; orderId: number; body: OutcomeBody }
-  | { kind: 'depart'; outletId: string }
-  | { kind: 'complete' }
+  | { kind: 'start'; label?: string }
+  | { kind: 'arrive'; outletId: string; label?: string }
+  | { kind: 'outcome'; orderId: number; body: OutcomeBody; label?: string }
+  | { kind: 'depart'; outletId: string; label?: string }
+  | { kind: 'complete'; label?: string }
 
-/** Every action after the start sends the displayed trip version; a 409 is shown and the trip reloaded, never retried. */
-export function useDriverAction(tripIndex: number, version: number | null | undefined) {
+/** A field action the server refused when it was synced (shown under the button, kept on the sync screen). */
+export class FieldActionError extends Error {
+  readonly code?: string | null
+  constructor(message: string, code?: string | null) { super(message); this.code = code }
+}
+
+/**
+ * Every driver action is saved in the phone's outbox first, then synced. Online, the server's answer
+ * arrives within the same call (a refusal is shown); offline, the action is kept and the screen shows
+ * it at once through the local projection. Resolves with the trip as the driver now sees it.
+ */
+export function useDriverAction(card: Pick<DriverTripCard, 'tripIndex' | 'planDate' | 'planVersion'> | undefined) {
   const cache = useQueryClient()
+  const { engine } = useFieldSync()
   return useMutation({
-    retry: false,
+    retry: false, networkMode: 'always',
     mutationFn: async (action: DriverAction) => {
-      const trip = { tripIndex }
-      if (action.kind !== 'start' && (version === undefined || version === null)) throw new Error('The trip has not started yet.')
-      const expectedVersion = version ?? 0
-      let result
-      switch (action.kind) {
-        case 'start':
-          result = await api.POST('/api/v1/driver/trips/{tripIndex}/start', { params: { path: trip }, body: { planVersion: action.planVersion } }); break
-        case 'arrive':
-          result = await api.POST('/api/v1/driver/trips/{tripIndex}/stops/{outletId}/arrive',
-            { params: { path: { ...trip, outletId: action.outletId } }, body: { expectedVersion } }); break
-        case 'outcome':
-          result = await api.POST('/api/v1/driver/trips/{tripIndex}/orders/{orderId}/outcome',
-            { params: { path: { ...trip, orderId: action.orderId } }, body: { ...action.body, expectedVersion } }); break
-        case 'depart':
-          result = await api.POST('/api/v1/driver/trips/{tripIndex}/stops/{outletId}/depart',
-            { params: { path: { ...trip, outletId: action.outletId } }, body: { expectedVersion } }); break
-        case 'complete':
-          result = await api.POST('/api/v1/driver/trips/{tripIndex}/complete', { params: { path: trip }, body: { expectedVersion } }); break
-      }
-      if (!result.data) throw new DriverRequestError(result.response, result.error)
-      return result.data as DriverTripDetail
+      if (!engine || !card) throw new Error('The trip has not loaded yet.')
+      const base = { planDate: card.planDate, tripIndex: card.tripIndex, planVersion: card.planVersion }
+      const b = action.kind === 'outcome' ? action.body : undefined
+      const input: ActionInput = action.kind === 'start' ? { ...base, actionType: 'TRIP_START' }
+        : action.kind === 'arrive' ? { ...base, actionType: 'STOP_ARRIVE', outletId: action.outletId }
+        : action.kind === 'outcome' && b ? { ...base, actionType: 'ORDER_OUTCOME', orderId: action.orderId, outcome: b.outcome as Outcome,
+            deliveredUnits: b.deliveredUnits, issueKind: b.issueKind, recipientName: b.recipientName, notes: b.notes, proofUploadIds: b.proofUploadIds }
+        : action.kind === 'depart' ? { ...base, actionType: 'STOP_DEPART', outletId: action.outletId }
+        : { ...base, actionType: 'TRIP_COMPLETE' }
+      const label = action.label ?? defaultLabel(action, card.tripIndex)
+      const { report } = await engine.enqueueAction(input, label, { awaitResult: true })
+      const answer = await report
+      if (answer.state === 'settled' && (answer.result === 'CONFLICT' || answer.result === 'REJECTED'))
+        throw new FieldActionError(answer.message || 'The server did not accept this action.', answer.code)
+      // Applied on the server: refresh the server copy. Queued: the projection already shows it.
+      const raw = answer.state === 'settled'
+        ? await cache.fetchQuery({ queryKey: tripKey(card.tripIndex), queryFn: () => fetchTrip(engine, card.tripIndex), staleTime: 0, networkMode: 'always' })
+        : cache.getQueryData<DriverTripDetail>(tripKey(card.tripIndex))
+      if (!raw) throw new Error('The trip has not loaded yet.')
+      return { detail: projectTrip(raw, engine.pendingActions(), engine.pendingUploads()), queued: answer.state === 'queued', review: answer.state === 'settled' ? answer.review : null }
     },
-    onSuccess: (detail) => {
-      cache.setQueryData(['driver', 'trip', tripIndex], detail)
+    onSettled: () => {
       void cache.invalidateQueries({ queryKey: ['driver', 'home'] })
       void cache.invalidateQueries({ queryKey: ['driver', 'deliveries'] })
       void cache.invalidateQueries({ queryKey: ['driver', 'order'] })
     },
-    onError: (failure) => {
-      if (failure instanceof DriverRequestError && failure.status === 409) void cache.invalidateQueries({ queryKey: ['driver', 'trip', tripIndex] })
-    },
   })
 }
 
+function defaultLabel(action: DriverAction, tripIndex: number) {
+  switch (action.kind) {
+    case 'start': return `Trip ${tripIndex} started`
+    case 'arrive': return `Arrived at ${action.outletId}`
+    case 'outcome': return `Order ${action.orderId}: ${OUTCOME_LABELS[action.body.outcome] ?? action.body.outcome}`
+    case 'depart': return `Left ${action.outletId}`
+    case 'complete': return `Trip ${tripIndex} finished`
+  }
+}
+
 /**
- * Proof photos are compressed on the phone before upload (longest side 1280 px, JPEG quality 0.7),
- * so they travel over a weak connection; signatures stay PNG. The server checks and re-encodes again.
+ * Proof photos are compressed on the phone before they are saved (longest side 1280 px, JPEG quality
+ * 0.7), so they travel over a weak connection; signatures stay PNG. The server checks and re-encodes again.
  */
 export async function compressPhoto(file: Blob, maxSide = 1280, quality = 0.7): Promise<Blob> {
   if (typeof createImageBitmap !== 'function') return file
@@ -183,24 +267,20 @@ export async function compressPhoto(file: Blob, maxSide = 1280, quality = 0.7): 
   return await new Promise<Blob>((resolve) => canvas.toBlob(blob => resolve(blob ?? file), 'image/jpeg', quality))
 }
 
-export function useUploadProof(tripIndex: number, orderId: number) {
+/** Saves a proof file in the outbox (uploaded before the outcome that references it); resolves with its client id. */
+export function useUploadProof(card: Pick<DriverTripCard, 'tripIndex' | 'planDate'>, orderId: number, orderRef: string) {
+  const { engine } = useFieldSync()
   return useMutation({
-    retry: false,
+    retry: false, networkMode: 'always',
     mutationFn: async ({ kind, file }: { kind: 'PHOTO' | 'SIGNATURE'; file: Blob }) => {
-      const form = new FormData()
-      form.append('file', file, kind === 'PHOTO' ? 'proof.jpg' : 'signature.png')
-      const { data, error, response } = await api.POST('/api/v1/driver/trips/{tripIndex}/orders/{orderId}/proofs', {
-        params: { path: { tripIndex, orderId }, query: { kind } },
-        body: form as never,
-        bodySerializer: (body: unknown) => body as FormData,
-      })
-      if (!data) throw new DriverRequestError(response, error, 'The file could not be uploaded.')
-      return data as Present<Schema['DriverPodUpload']>
+      if (!engine) throw new Error('Not signed in.')
+      return engine.enqueueUpload({ planDate: card.planDate, tripIndex: card.tripIndex, orderId, kind, blob: file },
+        `${orderRef} ${kind === 'PHOTO' ? 'photo' : 'signature'}`)
     },
   })
 }
 
-/** Whether the browser currently has a network connection (shown in the header; offline sync is a later step). */
+/** Whether the browser currently has a network connection. */
 export function useOnline() {
   const [online, setOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine)
   useEffect(() => {

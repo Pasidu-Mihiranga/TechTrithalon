@@ -3,7 +3,7 @@ import { ClipboardList, Navigation, Package, Route, Snowflake, Truck } from 'luc
 import { EmptyState } from '../../components'
 import logo from '../../components/waypoint-logo.png'
 import { useAuth } from '../auth/auth'
-import { ActionError, Failure, Loading, NetPill, routeLabel, tripState } from './DriverParts'
+import { ActionError, Failure, Loading, NetPill, OfflineNotice, routeLabel, tripState } from './DriverParts'
 import { dayOf, minutes, num, plural, useDriverAction, useDriverHome } from './driverQueries'
 import type { DriverTripCard } from './driverQueries'
 import './driver.css'
@@ -58,6 +58,7 @@ export function DriverHomePage() {
       </section>
 
       <div className="dv-body">
+        <OfflineNotice fromCache={home.fromCache} />
         {data.trips.length === 0 ? (
           <EmptyState title="No trips assigned yet" description="No plan with your vehicle has been published for today. Trips appear here when the dispatcher sends the plan." />
         ) : (
@@ -105,7 +106,7 @@ export function DriverHomePage() {
 
 function CurrentTrip({ card }: { card: DriverTripCard }) {
   const navigate = useNavigate()
-  const action = useDriverAction(card.tripIndex, null)
+  const action = useDriverAction(card)
   const tripPath = `/driver/trips/${card.tripIndex}`
   return (
     <div className="dv-trip">
@@ -123,7 +124,7 @@ function CurrentTrip({ card }: { card: DriverTripCard }) {
       {card.state === 'READY' ? (
         <>
           <button type="button" className="dv-btn dv-btn-primary" disabled={action.isPending}
-            onClick={() => action.mutate({ kind: 'start', planVersion: card.planVersion }, { onSuccess: () => navigate(tripPath) })}>
+            onClick={() => { action.mutateAsync({ kind: 'start' }).then(() => navigate(tripPath), () => undefined) }}>
             <Navigation size={20} aria-hidden="true" />{action.isPending ? 'Starting…' : 'Start Trip'}
           </button>
           <ActionError error={action.error} />

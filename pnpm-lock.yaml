@@ -25,6 +25,12 @@ importers:
       '@techtrithalon/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@techtrithalon/field-core':
+        specifier: workspace:*
+        version: link:../../packages/field-core
+      dexie:
+        specifier: ^4.4.6
+        version: 4.4.6
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -100,6 +106,8 @@ importers:
         version: 3.2.7(jsdom@26.1.0)
 
   packages/design-tokens: {}
+
+  packages/field-core: {}
 
 packages:
 
@@ -947,6 +955,9 @@ packages:
   dequal@2.0.3:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
+
+  dexie@4.4.6:
+    resolution: {integrity: sha512-hJP/BO6mjB+tX6hToIO1kmxYLNmun90wYbfcoAoLpKEyDYal/k33dg0TAfoUe2TDsbbLoVIzljJ3BN2UbR5EOg==}
 
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
@@ -2456,6 +2467,8 @@ snapshots:
   deep-is@0.1.4: {}
 
   dequal@2.0.3: {}
+
+  dexie@4.4.6: {}
 
   dom-accessibility-api@0.5.16: {}
 

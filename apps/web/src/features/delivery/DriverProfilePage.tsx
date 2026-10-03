@@ -4,6 +4,7 @@ import { useAuth } from '../auth/auth'
 import { DriverHeader, NetPill } from './DriverParts'
 import { initials } from './DriverHomePage'
 import { num, useDriverHome } from './driverQueries'
+import { useFieldSync } from '../offline/useFieldSync'
 import './driver.css'
 
 /** Figma Driver · Profile (61:5602): account, today's numbers from the server, work information, sign-out. */
@@ -12,6 +13,7 @@ export function DriverProfilePage() {
   const home = useDriverHome()
   const context = useOutletContext<{ logout?: () => Promise<void>; logoutPending?: boolean } | undefined>()
   const user = auth.user
+  const { status } = useFieldSync()
   const trips = home.data?.trips ?? []
   const first = trips[0]
   const distance = trips.filter(t => t.state === 'COMPLETED').reduce((sum, t) => sum + Number(t.distanceKm ?? 0), 0)
@@ -44,6 +46,9 @@ export function DriverProfilePage() {
           <div className="dv-kv-row"><span><Bell size={16} aria-hidden="true" />Notifications</span><strong className="dv-meta">Not available yet</strong></div>
           <div className="dv-kv-row"><span><CircleHelp size={16} aria-hidden="true" />Help</span><strong className="dv-meta">Call your dispatcher</strong></div>
         </section>
+        {status.pending > 0 ? (
+          <div className="dv-info dv-info-warn" role="status">{status.pending} saved {status.pending === 1 ? 'action has' : 'actions have'} not synced yet. They stay on this phone and sync when you sign in again.</div>
+        ) : null}
         <button type="button" className="dv-btn dv-logout" disabled={context?.logoutPending} onClick={() => void context?.logout?.()}>
           <LogOut size={18} aria-hidden="true" />{context?.logoutPending ? 'Signing out…' : 'Logout'}
         </button>

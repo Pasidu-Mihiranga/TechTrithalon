@@ -35,6 +35,7 @@ import { DriverTripDonePage } from '../features/delivery/DriverTripDonePage'
 import { DriverDeliveriesPage } from '../features/delivery/DriverDeliveriesPage'
 import { DriverDeliveryDetailPage } from '../features/delivery/DriverDeliveryDetailPage'
 import { DriverProfilePage } from '../features/delivery/DriverProfilePage'
+import { SyncStatusPage } from '../features/offline/SyncStatusPage'
 import type { ReactNode } from 'react'
 import type { RoleConfig, RolePage } from './roles'
 
@@ -102,6 +103,7 @@ function roleRoutes(role: RoleConfig) {
           <Route path="trips/:tripIndex/orders/:orderId/confirm" element={<DriverRecordPage mode="confirm" />} />
           <Route path="trips/:tripIndex/orders/:orderId/issue" element={<DriverRecordPage mode="issue" />} />
           <Route path="deliveries/:orderId" element={<DriverDeliveryDetailPage />} />
+          <Route path="sync" element={<SyncStatusPage />} />
         </>
       ) : null}
     </Route>

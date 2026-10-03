@@ -9,7 +9,7 @@ import './driver.css'
 export function DriverTripDonePage() {
   const tripIndex = Number(useParams().tripIndex)
   const trip = useDriverTrip(tripIndex)
-  const action = useDriverAction(tripIndex, trip.data?.version)
+  const action = useDriverAction(trip.data?.card)
   const [submitted, setSubmitted] = useState(false)
   if (trip.isPending) return <Loading label="Loading the trip" />
   if (trip.isError) return <Failure error={trip.error} back="/driver" message="The trip could not be loaded." onRetry={() => void trip.refetch()} />
@@ -48,7 +48,7 @@ export function DriverTripDonePage() {
           {card.issues > 0 ? <div className="dv-info dv-info-warn"><AlertTriangle size={16} aria-hidden="true" />{plural(card.issues, 'issue')} reported</div> : null}
         </section>
         <button type="button" className="dv-btn dv-btn-primary" disabled={action.isPending}
-          onClick={() => action.mutate({ kind: 'complete' }, { onSuccess: () => setSubmitted(true) })}>{action.isPending ? 'Saving…' : 'Finish Trip'}</button>
+          onClick={() => { action.mutateAsync({ kind: 'complete' }).then(() => setSubmitted(true), () => undefined) }}>{action.isPending ? 'Saving…' : 'Finish Trip'}</button>
         <ActionError error={action.error} />
       </div>
     </div>

@@ -6,6 +6,7 @@ import { ChevronDown, Warehouse } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../lib/apiClient'
 import { useDeviceClass } from '../lib/device'
+import { DriverSync } from '../features/offline/DriverSync'
 import type { RoleConfig } from './roles'
 
 /** Driver screens with the tab bar (Figma): the four destinations and the trip overview. Flow screens hide it. */
@@ -41,6 +42,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
     return (
       <div className={`shell-phone${withNav ? ' shell-phone-nav' : ''}`}>
         <a href="#main" className="skip-link">Skip to content</a>
+        <DriverSync />
         <main id="main" className="shell-main">
           {error && <ErrorState message={error} />}
           <Outlet context={{ logout, logoutPending: pending }} />
