@@ -160,10 +160,15 @@ order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_d
 [[ "$(echo "$order_page" | json_field "['total']")" == "$orders_to_plan" ]] || fail "orders total mismatch: $order_page vs $orders_to_plan"
 first_order_id=$(echo "$order_page" | json_field "['items'][0]['id']")
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/$first_order_id" > /dev/null
-fleet=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet?date=$demo_date")
+fleet=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet?date=$demo_date&depot=$depot")
 fleet_len=$(echo "$fleet" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 (( fleet_len > 0 )) || fail "fleet list empty"
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet/$(echo "$fleet" | json_field "[0]['vehicleId']")?date=$demo_date" > /dev/null
+fleet_overview=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet/overview?date=$demo_date&depot=$depot")
+[[ "$(echo "$fleet_overview" | json_field "['totalVehicles']")" == "$fleet_len" ]] || fail "fleet overview total differs from fleet list"
+echo "$fleet_overview" | python3 -c 'import json,sys; o=json.load(sys.stdin); assert o["totalVehicles"] == sum(o[k] for k in ("onRouteVehicles","idleVehicles","inWorkshopVehicles","unrecordedVehicles")); assert len(o["vehicles"]) == o["totalVehicles"]' || fail "fleet status counts do not reconcile"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/fleet/overview?date=$demo_date&depot=UNKNOWN"
+assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/fleet/overview?date=$demo_date&depot=$depot"
 
 assert_failure 403 FORBIDDEN -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
   -d '{"tempRequirement":"ambient","units":1,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
