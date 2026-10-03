@@ -441,3 +441,10 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Figma Sync Status (offline and back online), the header pill (Offline · N, Syncing d/t, Review · N) and the offline banner. Service worker, manifest and icons in the newly approved `apps/web/public/`; the driver's last confirmed identity lets the app open offline.
 - Tests: `SyncIT` (3), field-core (10), offline web tests, Playwright `driver-offline.spec.ts`; totals API 146, web 123; lint, typecheck and build clean. Curl and SQL on the synthetic stack; service worker checked on a production build (see `docs/OFFLINE_SYNC_VERIFICATION.md`).
 
+## 2026-10-04 — Step 7: store receipt
+
+- Backend `receipt` module: the store lists its deliveries (phase, driver, vehicle, window, planned arrival), checks one against the driver's record and confirms it or reports a discrepancy, once per order. A dispute opens a discrepancy the dispatcher resolves (credit, replacement or no action); confirming or resolving moves the order to `receipt_confirmed`. Migration `V20261004_1200` is additive; load tasks and delivery records are read through new published services.
+- Store screens from Figma: Deliveries, Confirm receipt, Report an issue, Issues, with new nav entries. Dispatcher: a Receipt discrepancies panel on the Exceptions page (Step 8 builds the full queue). Departures (per-order units, no photos shown to the store) are in `docs/RECEIPT_VERIFICATION.md`.
+- Tests: `ReceiptIT` (3), `receipt.test.tsx` (6), Playwright `lifecycle.spec.ts` (plan → load → deliver → receipt across four roles with a dispute and resolution); totals API 149, web 129. One quiet curl script (40 checks, mismatches only) folded into `scripts/smoke.sh`.
+- Verification rules changed (owner decision): integration tests are the main proof, one quiet curl script per step, full suites once at the end, one screenshot per new screen; recorded in AGENTS.md and CLAUDE.md.
+

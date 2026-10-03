@@ -23,7 +23,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [x] Phase 13 — Driver Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; real Cloudinary upload, Docker smoke and real-dataset run pending)**
 - [x] Phase 14 — Offline & Sync **(tests, curl/SQL, Playwright offline journey and service-worker check on synthetic data; real Cloudinary upload and real-dataset run pending)**
 - [ ] Phase 14A — Driver Android App (React Native)
-- [ ] Phase 15 — Receipt Confirmation
+- [x] Phase 15 — Receipt Confirmation **(tests, curl/SQL, Playwright four-role lifecycle on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 16 — Live Operations
 - [ ] Phase 17 — Forecasting Foundation
 - [ ] Phase 18 — Service-Time & Late-Risk ML
@@ -1189,15 +1189,15 @@ The store must verify what actually arrived and report discrepancies.
 
 #### Backend
 
-- [ ] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
+- [x] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
 
 #### Frontend
 
-- [ ] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
+- [x] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
 
 #### Database
 
-- [ ] Add receipt and discrepancy records with actor/time.
+- [x] Add receipt and discrepancy records with actor/time.
 
 #### Python / Intelligence
 
@@ -1205,11 +1205,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E.
+- [x] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 #### Documentation
 
-- [ ] Document receipt resolution and final status semantics.
+- [x] Document receipt resolution and final status semantics. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Parallel Work
 
@@ -1217,9 +1217,9 @@ Receipt backend and store UI can proceed on a delivered-stop read contract; full
 
 ### Exit Gate
 
-- [ ] Store manager confirms or disputes delivered items.
-- [ ] Dispatcher sees discrepancies.
-- [ ] Four-role lifecycle passes end to end.
+- [x] Store manager confirms or disputes delivered items.
+- [x] Dispatcher sees discrepancies.
+- [x] Four-role lifecycle passes end to end. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Result
 

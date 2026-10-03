@@ -117,6 +117,16 @@ curl -i http://localhost:8081/api/v1/orders/999999
 # HTTP/1.1 404  {"code":"NOT_FOUND","traceId":"...", ...}
 ```
 
+### Efficient verification (owner decision 2026-10-03)
+
+Keep every check, but run each one once and keep its output small.
+
+1. **Integration tests (`*IT`) are the main proof.** They assert status codes, error `code` and `traceId`, and database values. Add or extend one for every endpoint.
+2. **Curl once per step, as one quiet script** that prints only mismatches and a one-line pass summary. It proves the running stack behaves like the tests. Don't paste full JSON or run curl by hand per endpoint. Fold the same checks into `scripts/smoke.sh` so CI repeats them.
+3. **While building, run only the affected tests** (`--tests '*XIT'`, one web test file). Run the full API and web suites once at the end of the step, in the background.
+4. **Screenshots only for new screens, once**, compared with Figma. Use component tests and the Playwright journey for the rest.
+5. **Reports stay short.** Put evidence in the verification doc as compact table rows. In chat, give results, deviations and open items only.
+
 ## 7. UI rules
 
 - **Figma is the source of truth for the UI.** Match the existing frames. Don't redesign screens that already exist.

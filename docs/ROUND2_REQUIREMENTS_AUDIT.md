@@ -199,3 +199,8 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - Done: offline outbox with idempotent sync, in device order, with duplicate, conflict and rejection results; driver's record wins (flagged) when the plan changed offline; Sync Status screen and offline states; installable PWA that opens without signal. Evidence: `docs/OFFLINE_SYNC_VERIFICATION.md`.
 - Still open: store receipt (Step 7), dispatcher exceptions and Live Operations, including showing review flags and clock skew (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
 
+## Step 7 follow-up: store receipt, 2026-10-04
+
+- Done: the store manager confirms or disputes each delivered order against the driver's record; disputes reach the dispatcher, who decides them; the order ends as `receipt_confirmed`. The four-role lifecycle passes in the browser. Evidence: `docs/RECEIPT_VERIFICATION.md`.
+- Still open: dispatcher exceptions queue and Live Operations (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
+
