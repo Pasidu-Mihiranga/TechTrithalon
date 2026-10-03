@@ -4,6 +4,13 @@ import type { components } from '../../generated/api'
 
 type Schema = components['schemas']
 export type ManualPlanView = Schema['ManualPlanView']
+export type PlanChanges = Schema['PlanChanges']
+export type PublishedTrip = Schema['PublishedTrip']
+
+/** Published and superseded versions are read-only; only candidates accept edits. */
+export function isLocked(view: ManualPlanView | null | undefined) {
+  return view != null && view.plan.status !== 'candidate'
+}
 
 /** Keep named rule evidence and conflict codes available to the existing board UI. */
 export class ManualPlanRequestError extends Error {
@@ -42,6 +49,20 @@ export function useManualPlans(date: string, depot?: string) {
     enabled: Boolean(date), retry: false,
     queryFn: async () => {
       const { data, error, response } = await api.GET('/api/v1/dispatcher/plans', { params: { query: { date, depot } } })
+      if (!data) throw new ManualPlanRequestError(response, error)
+      return data
+    },
+  })
+}
+
+/** What a version changes against the published version it revises, computed by the server. */
+export function usePlanChanges(id?: number) {
+  return useQuery({
+    queryKey: ['dispatcher', 'manual-plan', id, 'changes'],
+    enabled: id !== undefined && id > 0,
+    retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/plans/{id}/changes', { params: { path: { id: id! } } })
       if (!data) throw new ManualPlanRequestError(response, error)
       return data
     },
@@ -98,7 +119,10 @@ function useSavedPlan() {
   return (view: ManualPlanView) => {
     cache.setQueryData(['dispatcher', 'manual-plan', view.plan.id], view)
     void cache.invalidateQueries({ queryKey: ['dispatcher', 'manual-plans'] })
+    void cache.invalidateQueries({ queryKey: ['dispatcher', 'manual-plan', view.plan.id, 'changes'] })
     if (view.plan.status === 'published') {
+      // The version this one replaced is now superseded.
+      if (view.plan.basedOnPlanId != null) void cache.invalidateQueries({ queryKey: ['dispatcher', 'manual-plan', view.plan.basedOnPlanId] })
       void cache.invalidateQueries({ queryKey: ['dispatcher', 'orders'] })
       void cache.invalidateQueries({ queryKey: ['dispatcher', 'dashboard'] })
       void cache.invalidateQueries({ queryKey: ['store', 'orders'] })

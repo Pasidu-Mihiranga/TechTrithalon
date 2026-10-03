@@ -118,7 +118,7 @@ export function PlanningStep3Allocation({
   const vehiclesQuery = useVehicles()
   const realVehicles = useMemo(() => vehiclesQuery.data ?? [], [vehiclesQuery.data])
 
-  const isLocked = candidateView?.plan.status === 'published'
+  const isLocked = candidateView != null && candidateView.plan.status !== 'candidate'
   const blocked = isLocked || isSubmitting
 
   const displayVehicles = useMemo<VehicleAllocationCard[]>(() => {

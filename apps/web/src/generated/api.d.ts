@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/plans/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["changes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/plans/{id}/moves": {
         parameters: {
             query?: never;
@@ -883,6 +899,11 @@ export interface components {
             username: string;
         };
         ManualPlan: {
+            /**
+             * Format: int64
+             * @description The published plan this candidate revises; null for the first version of a run
+             */
+            basedOnPlanId?: number | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: int64 */
@@ -899,9 +920,18 @@ export interface components {
             publishedAt?: string;
             /** Format: int64 */
             publishedBy?: number;
+            /** @description Rule set the published schedule was validated with */
+            ruleVersion?: string | null;
             /** Format: int64 */
             snapshotId?: number;
             status?: string;
+            /** Format: date-time */
+            supersededAt?: string | null;
+            /**
+             * Format: int64
+             * @description Set when a later version replaced this published plan
+             */
+            supersededByPlanId?: number | null;
             trips?: components["schemas"]["TripAssignment"][];
             /** Format: date-time */
             updatedAt?: string;
@@ -923,6 +953,8 @@ export interface components {
             reason: string;
             /** Format: int64 */
             snapshotId: number;
+            /** @description Only when the run already has a published version: 'published' (default) starts the revision from a copy of its trips, 'empty' starts with every order unassigned */
+            startFrom?: string;
         };
         ManualPlanDeferRequest: {
             /** Format: int32 */
@@ -1006,6 +1038,8 @@ export interface components {
             };
             fleet?: components["schemas"]["PlanVehicle"][];
             plan: components["schemas"]["ManualPlan"];
+            /** @description Published and superseded plans: the schedule, driver and load task frozen at publication. Empty for candidates */
+            published?: components["schemas"]["PublishedTrip"][];
             trips?: components["schemas"]["PlanTrip"][];
             unassignedOrders?: components["schemas"]["UnassignedOrder"][];
             utilisation?: {
@@ -1021,6 +1055,15 @@ export interface components {
             availableFromPhase?: string | null;
             /** Format: int32 */
             value?: number | null;
+        };
+        OrderChange: {
+            after?: components["schemas"]["Placement"];
+            before?: components["schemas"]["Placement"];
+            change?: string;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outletId?: string;
         };
         OrderDisposition: {
             code?: string;
@@ -1096,6 +1139,27 @@ export interface components {
             units: number;
             volumeM3: number;
             weightKg: number;
+        };
+        Placement: {
+            /** Format: int32 */
+            seq?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        PlanChanges: {
+            /** Format: int64 */
+            basePlanId?: number | null;
+            /** Format: int32 */
+            baseVersion?: number | null;
+            firstVersion?: boolean;
+            orders?: components["schemas"]["OrderChange"][];
+            /** Format: int64 */
+            planId?: number;
+            summary?: components["schemas"]["Summary"];
+            trips?: components["schemas"]["TripChange"][];
+            /** Format: int32 */
+            version?: number;
         };
         PlanMetrics: {
             assignedVolumeM3?: number;
@@ -1221,6 +1285,31 @@ export interface components {
             /** Format: int64 */
             takenBy?: number;
         };
+        PublishedTrip: {
+            brand?: string;
+            distanceKm?: number;
+            district?: string;
+            driverName?: string | null;
+            /**
+             * Format: int64
+             * @description Null when no active driver account is linked to the vehicle
+             */
+            driverUserId?: number | null;
+            fuelLitres?: number;
+            /** @description pending, loading, loaded or superseded */
+            loadStatus?: string | null;
+            /** Format: int64 */
+            loadTaskId?: number | null;
+            plannedDepart?: string;
+            stops?: components["schemas"]["Stop"][];
+            /** Format: int64 */
+            tripId?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            tripMinutes?: number;
+            vehicleId?: string;
+        };
         ReferenceSummary: {
             /** Format: int32 */
             calendarDays?: number;
@@ -1241,6 +1330,32 @@ export interface components {
             /** Format: int32 */
             minutes?: number;
         };
+        Stop: {
+            /** Format: int64 */
+            orderId?: number;
+            plannedArrival?: string;
+            /** Format: int32 */
+            seq?: number;
+            serviceStart?: string;
+        };
+        Summary: {
+            /** Format: int32 */
+            added?: number;
+            /** Format: int32 */
+            driversChanged?: number;
+            /** Format: int32 */
+            moved?: number;
+            /** Format: int32 */
+            removed?: number;
+            /** Format: int32 */
+            resequenced?: number;
+            /** Format: int32 */
+            tripsAdded?: number;
+            /** Format: int32 */
+            tripsRemoved?: number;
+            /** Format: int32 */
+            unchanged?: number;
+        };
         SystemHealth: {
             intelligence?: string;
             service?: string;
@@ -1252,6 +1367,14 @@ export interface components {
             /** Format: int64 */
             id?: number;
             orderIds?: number[];
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        TripChange: {
+            change?: string;
+            driverAfter?: string | null;
+            driverBefore?: string | null;
             /** Format: int32 */
             tripIndex?: number;
             vehicleId?: string;
@@ -1774,6 +1897,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    changes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanChanges"];
                 };
             };
         };
