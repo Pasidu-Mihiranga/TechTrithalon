@@ -14,7 +14,9 @@ public record ManualPlanView(@Schema(requiredMode=Schema.RequiredMode.REQUIRED) 
                              Map<Long, OrderFairness> fairness,
                              @Schema(description="Published and superseded plans: the schedule, driver and load task "
                                  + "frozen at publication. Empty for candidates")
-                             List<PublishedTrip> published) {
+                             List<PublishedTrip> published,
+                             @Schema(description="Orders not yet on any trip, counted per district by the server")
+                             Map<String, Integer> unassignedByDistrict) {
     public record UnassignedOrder(PlanOrder order, String disposition, String reason,
                                   java.time.LocalDate nextDeliveryDate,
                                   @Schema(nullable=true) String reasonCode, boolean protectNextRun, boolean notifyStore,

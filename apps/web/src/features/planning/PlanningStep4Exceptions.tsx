@@ -10,8 +10,8 @@ import {
   Sparkles,
   TrendingUp,
   Truck,
-  X,
 } from 'lucide-react'
+import { Button, Dialog } from '../../components'
 import type { Edit, ManualPlanView } from './manualPlanQueries'
 import { ManualPlanRequestError } from './manualPlanQueries'
 import { DeferDecisionFields, EMPTY_DEFER_DECISION, deferDecisionBody, deferDecisionReady, type DeferDecision } from './DeferDecisionFields'
@@ -599,55 +599,28 @@ export function PlanningStep4Exceptions({
         })}
       </div>
 
-      {/* Defer Order Modal */}
-      {deferModalOpen && deferTarget && (
-        <div className="modal-overlay" onClick={() => setDeferModalOpen(false)}>
-          <div className="modal-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h3 className="modal-title">Defer Order to Later Run</h3>
-                <p className="modal-subtitle">
-                  {deferTarget.ref} · {deferTarget.outletName} ({deferTarget.volume})
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setDeferModalOpen(false)}
-                aria-label="Close modal"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <DeferDecisionFields idPrefix="exception-defer" value={deferDecision} onChange={setDeferDecision}
-                fairness={deferTarget.orderId && candidateView?.fairness?.[String(deferTarget.orderId)]
-                  ? [candidateView.fairness[String(deferTarget.orderId)]] : []}
-                orderLabel={() => deferTarget.ref} />
-            </div>
-
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="toolbar-btn"
-                disabled={actionPending}
-                onClick={() => setDeferModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary-yellow"
-                disabled={actionPending || !deferDecisionReady(deferDecision)}
-                onClick={() => void handleConfirmDefer()}
-              >
-                {actionPending ? 'Saving...' : 'Confirm Deferral'}
-              </button>
-            </div>
+      {/* Defer Order Dialog */}
+      <Dialog
+        open={deferModalOpen && deferTarget != null}
+        title="Defer Order to Later Run"
+        onClose={() => setDeferModalOpen(false)}
+        footer={<>
+          <Button variant="secondary" disabled={actionPending} onClick={() => setDeferModalOpen(false)}>Cancel</Button>
+          <Button disabled={actionPending || !deferDecisionReady(deferDecision)} loading={actionPending} onClick={() => void handleConfirmDefer()}>
+            Confirm Deferral
+          </Button>
+        </>}
+      >
+        {deferTarget && (
+          <div className="swap-body">
+            <p className="swap-current">{deferTarget.ref} · {deferTarget.outletName} ({deferTarget.volume})</p>
+            <DeferDecisionFields idPrefix="exception-defer" value={deferDecision} onChange={setDeferDecision}
+              fairness={deferTarget.orderId && candidateView?.fairness?.[String(deferTarget.orderId)]
+                ? [candidateView.fairness[String(deferTarget.orderId)]] : []}
+              orderLabel={() => deferTarget.ref} />
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
 
       {/* Sticky Bottom Bar */}
       <div className="planning-bottom-bar">

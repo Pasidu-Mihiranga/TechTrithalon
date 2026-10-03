@@ -9,6 +9,7 @@ import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.identity.domain.Role;
 import lk.techtrithalon.waypoint.ordering.domain.CutoffInfo;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
+import lk.techtrithalon.waypoint.ordering.domain.DistrictDemand;
 import lk.techtrithalon.waypoint.ordering.domain.DashboardSnapshot;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 import lk.techtrithalon.waypoint.ordering.domain.PlanningQueueSummary;
@@ -119,6 +120,35 @@ public class OrderQueryService {
             volume = volume.add(order.volumeM3());
         }
         return new PlanningQueueSummary(queue.size(), ambient, chilled, van, volume);
+    }
+
+    /** The same queue as {@link #planningQueueSummary}, grouped by district for the planning map. */
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<DistrictDemand> planningQueueByDistrict(CurrentUser user, LocalDate date, String depot) {
+        LocalDate day = date == null ? referenceProperties.demoOperatingDate() : date;
+        reference.day(day);
+        String selectedDepot = depot == null || depot.isBlank() ? user.depot() : depot;
+        if (selectedDepot != null && (!user.canAccessDepot(selectedDepot) || !reference.depots(user).contains(selectedDepot))) {
+            throw missing();
+        }
+        List<String> depots = selectedDepot == null ? reference.depots(user) : List.of(selectedDepot);
+        Set<String> vanOutlets = reference.outlets(user, null, null).stream()
+            .filter(outlet -> "van_only".equals(outlet.parkingConstraint()))
+            .map(outlet -> outlet.outletId()).collect(Collectors.toSet());
+        java.util.Map<String, int[]> counts = new java.util.TreeMap<>();
+        java.util.Map<String, BigDecimal> volumes = new java.util.HashMap<>();
+        for (CustomerOrder order : depots.stream().flatMap(name -> orders.findConfirmedForDateDepot(day, name).stream()).toList()) {
+            int[] c = counts.computeIfAbsent(order.district(), k -> new int[5]);
+            c[0]++;
+            if ("ambient".equals(order.tempRequirement())) c[1]++;
+            if ("chilled".equals(order.tempRequirement())) c[2]++;
+            if (vanOutlets.contains(order.outletId())) c[3]++;
+            if ("deferred".equals(order.status())) c[4]++;
+            volumes.merge(order.district(), order.volumeM3(), BigDecimal::add);
+        }
+        return counts.entrySet().stream()
+            .map(e -> new DistrictDemand(e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2], e.getValue()[3], e.getValue()[4], volumes.get(e.getKey())))
+            .toList();
     }
 
     @PreAuthorize("hasRole('DISPATCHER')")

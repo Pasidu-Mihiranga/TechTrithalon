@@ -4068,3 +4068,110 @@ th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }
 }
 .btn-primary-yellow:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .step5-decision { display: flex; flex-direction: column; gap: var(--space-6); min-width: 220px; }
+
+/* Change Vehicle dialog: a radio list of the depot fleet, with the server's availability status. */
+.swap-current { margin: 0; color: var(--color-text-secondary); font-size: var(--font-body-s-size); }
+.swap-fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-8); }
+.swap-list { display: flex; flex-direction: column; gap: var(--space-8); max-height: 280px; overflow-y: auto; padding-right: var(--space-4); }
+.swap-option { display: grid; grid-template-columns: auto auto auto 1fr auto; align-items: center; gap: var(--space-8) var(--space-12); padding: var(--space-8) var(--space-12); border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); background: var(--color-bg-surface); cursor: pointer; font-size: var(--font-body-s-size); }
+.swap-option.chosen { border-color: var(--color-brand-primary); background: var(--color-brand-primary-soft); }
+.swap-option.unavailable { cursor: not-allowed; color: var(--color-text-tertiary); background: var(--color-bg-subtle); }
+.swap-option input { accent-color: var(--color-brand-primary); }
+.swap-id { font-family: var(--font-family-mono); font-weight: 700; color: var(--color-text-primary); }
+.swap-option.unavailable .swap-id { color: inherit; }
+.swap-kind { padding: var(--space-2) var(--space-8); border-radius: var(--radius-full); background: var(--color-type-fridge-soft); color: var(--color-type-fridge); font-size: var(--font-caption-medium-size); }
+.swap-cap { color: var(--color-text-secondary); }
+.swap-status { justify-self: end; color: var(--color-text-secondary); white-space: nowrap; }
+.plan-failure { display: flex; flex-direction: column; gap: var(--space-8); margin-bottom: var(--space-12); }
+.plan-failure-list { display: flex; flex-direction: column; gap: var(--space-8); }
+@media (max-width: 520px) { .swap-option { grid-template-columns: auto auto 1fr; } .swap-cap { grid-column: 2 / -1; } .swap-status { grid-column: 2 / -1; justify-self: start; } }
+.swap-body { display: flex; flex-direction: column; gap: var(--space-16); }
+.swap-fieldset legend { padding: 0; margin-bottom: var(--space-8); }
+
+/* Step 3 vehicle cards: collapsible header, readable metric tiles. */
+.veh-alloc-card .veh-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); }
+.veh-card-toggle { display: inline-flex; align-items: center; gap: var(--space-6); padding: 0; border: 0; background: none; cursor: pointer; color: var(--color-text-primary); }
+.veh-card-toggle:focus-visible { outline: 2px solid var(--color-brand-primary); outline-offset: 2px; border-radius: var(--radius-sm); }
+.veh-card-chevron { transition: transform 0.15s ease; transform: rotate(-90deg); color: var(--color-text-secondary); }
+.veh-card-chevron.open { transform: rotate(0deg); }
+.veh-alloc-card .veh-card-trips-summary { margin-left: auto; font-size: var(--font-body-s-size); color: var(--color-text-secondary); }
+.veh-alloc-card .veh-card-action-btns { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); margin-top: var(--space-8); }
+.card-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.card-action-btn.primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-text-on-brand); font-weight: 600; }
+.veh-card-hint { font-size: var(--font-caption-size); color: var(--color-text-tertiary); }
+.veh-card-detail { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-12); }
+.veh-alloc-card.collapsed .veh-card-body { padding-bottom: var(--space-12); }
+.metric-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); }
+.metric-tile { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--color-bg-subtle); min-width: 0; }
+.metric-tile-label { font-size: var(--font-caption-size); color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.metric-tile-value { font-size: var(--font-body-m-size); font-weight: 600; color: var(--color-text-primary); }
+.metric-tile-total { font-weight: 400; color: var(--color-text-secondary); font-size: var(--font-body-s-size); }
+.metric-tile-bar { height: 6px; border-radius: var(--radius-full); background: var(--color-border-default); overflow: hidden; }
+.metric-tile-fill { height: 100%; border-radius: var(--radius-full); }
+.metric-tile-fill.blue { background: var(--color-type-fridge); }
+.metric-tile-fill.purple { background: var(--color-type-van); }
+.metric-tile-fill.green { background: var(--color-status-success); }
+.metric-tile-fill.amber { background: var(--color-status-warning); }
+.metric-tile-note { font-size: var(--font-caption-size); color: var(--color-text-tertiary); }
+@media (max-width: 420px) { .metric-tiles { grid-template-columns: 1fr; } }
+
+/* Step 3 route detail: schematic stop sequence (no coordinates exist in the data). */
+.route-panel { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-20); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); background: var(--color-bg-surface); }
+.route-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-12); }
+.route-panel-head h2 { margin: 0; }
+.route-panel-sub { margin: var(--space-4) 0 0; color: var(--color-text-secondary); font-size: var(--font-body-s-size); }
+.route-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--space-8); margin: 0; }
+.route-facts > div { padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--color-bg-subtle); }
+.route-facts dt { font-size: var(--font-caption-size); color: var(--color-text-secondary); }
+.route-facts dd { margin: var(--space-2) 0 0; font-weight: 600; color: var(--color-text-primary); }
+.route-sequence { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.route-node { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: var(--space-12); padding-bottom: var(--space-16); }
+.route-node:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--color-border-default); }
+.route-marker { width: 28px; height: 28px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; font-size: var(--font-caption-medium-size); font-weight: 700; background: var(--color-brand-primary); color: var(--color-text-on-brand); }
+.route-node.depot .route-marker { background: var(--color-bg-muted); color: var(--color-text-primary); }
+.route-meta { display: block; color: var(--color-text-secondary); font-size: var(--font-body-s-size); }
+.route-node strong + .route-meta { display: inline; }
+.route-times { display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-12); margin-top: var(--space-4); font-size: var(--font-body-s-size); color: var(--color-text-primary); }
+.route-tags { display: flex; flex-wrap: wrap; gap: var(--space-6); margin-top: var(--space-6); }
+.route-tag { padding: var(--space-2) var(--space-8); border-radius: var(--radius-full); background: var(--color-bg-muted); font-size: var(--font-caption-size); color: var(--color-text-secondary); text-transform: capitalize; }
+.route-tag.warn { background: var(--color-status-warning-soft); color: var(--color-text-primary); }
+.route-tag.cold { background: var(--color-type-fridge-soft); color: var(--color-type-fridge); }
+.route-panel-empty { display: flex; flex-direction: column; gap: var(--space-12); align-items: flex-start; }
+.route-panel-empty p { margin: 0; }
+.route-panel-note { margin: 0; font-size: var(--font-caption-size); color: var(--color-text-tertiary); }
+.route-node.depot .route-meta { display: block; }
+.metric-tile-fill.blue, .metric-tile-fill.purple, .metric-tile-fill.green, .metric-tile-fill.amber { background: var(--color-brand-primary); }
+
+/* District map (Leaflet): labels, depot pins and controls. Leaflet's own stylesheet is imported by the component. */
+.district-map { position: relative; display: flex; flex-direction: column; gap: var(--space-8); }
+.district-map-canvas { width: 100%; border: 1px solid var(--color-border-default); border-radius: var(--radius-md); background: var(--color-bg-subtle); overflow: hidden; z-index: 0; }
+.district-map-stage { position: relative; }
+.district-map-controls { position: absolute; top: var(--space-12); right: var(--space-12); z-index: 500; display: flex; align-items: center; gap: var(--space-8); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); background: var(--color-bg-surface); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.2)); font-size: var(--font-caption-size); }
+.map-btn { border: 1px solid var(--color-border-default); border-radius: var(--radius-sm); background: var(--color-bg-surface); padding: var(--space-2) var(--space-8); cursor: pointer; font-size: var(--font-caption-size); color: var(--color-text-primary); }
+.map-btn:hover { background: var(--color-bg-subtle); }
+.map-toggle { display: inline-flex; align-items: center; gap: var(--space-4); cursor: pointer; color: var(--color-text-primary); }
+.map-toggle input { accent-color: var(--color-brand-primary); }
+.district-map-legend { position: absolute; left: var(--space-12); bottom: var(--space-12); z-index: 500; display: flex; align-items: center; gap: var(--space-8); padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); background: var(--color-bg-surface); font-size: var(--font-caption-size); color: var(--color-text-secondary); }
+.legend-ramp { width: 56px; height: 8px; border-radius: var(--radius-full); background: linear-gradient(to right, var(--color-brand-primary-soft), var(--color-brand-primary)); }
+.district-map-note, .district-map-credit { margin: 0; font-size: var(--font-caption-size); color: var(--color-text-tertiary); }
+.district-label-wrap, .depot-pin-wrap { background: none; border: 0; }
+.district-label { transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: var(--space-4); white-space: nowrap; padding: var(--space-2) var(--space-6); border-radius: var(--radius-full); background: rgba(255, 255, 255, 0.88); color: var(--color-text-primary); font-size: var(--font-caption-medium-size); font-weight: 600; pointer-events: none; }
+.district-label.selected { background: var(--color-text-primary); color: var(--color-bg-surface); }
+.district-label-badge { padding: 0 var(--space-6); border-radius: var(--radius-full); background: var(--color-brand-primary); color: var(--color-text-on-brand); font-weight: 700; }
+.depot-pin { transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: var(--space-4); white-space: nowrap; padding: var(--space-2) var(--space-8) var(--space-2) var(--space-2); border-radius: var(--radius-full); background: var(--color-text-primary); color: var(--color-bg-surface); font-size: var(--font-caption-medium-size); font-weight: 600; }
+.depot-pin-mark { width: 18px; height: 18px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; background: var(--color-brand-primary); color: var(--color-text-on-brand); font-weight: 700; }
+.district-tip { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--font-body-s-size); }
+.district-tip-note { color: var(--color-text-secondary); font-size: var(--font-caption-size); max-width: 220px; white-space: normal; }
+
+/* Step 1 map split: the order list beside the district demand map. */
+.map-split-canvas-container { display: flex; flex-direction: column; gap: var(--space-12); min-width: 0; }
+.district-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: var(--space-8); margin: 0; }
+.district-summary > div { padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--color-bg-subtle); }
+.district-summary dt { font-size: var(--font-caption-size); color: var(--color-text-secondary); }
+.district-summary dd { margin: var(--space-2) 0 0; font-weight: 600; color: var(--color-text-primary); }
+.district-filter { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--color-brand-primary-soft); font-size: var(--font-body-s-size); }
+.district-chips { display: flex; flex-wrap: wrap; gap: var(--space-6); }
+.district-chip { display: inline-flex; align-items: center; gap: var(--space-6); padding: var(--space-4) var(--space-12); border: 1px solid var(--color-border-default); border-radius: var(--radius-full); background: var(--color-bg-surface); color: var(--color-text-primary); font-size: var(--font-body-s-size); cursor: pointer; }
+.district-chip:hover { background: var(--color-bg-subtle); }
+.district-chip.active { background: var(--color-text-primary); color: var(--color-bg-surface); border-color: var(--color-text-primary); }
+.district-chip-count { padding: 0 var(--space-6); border-radius: var(--radius-full); background: var(--color-brand-primary); color: var(--color-text-on-brand); font-weight: 700; font-size: var(--font-caption-size); }

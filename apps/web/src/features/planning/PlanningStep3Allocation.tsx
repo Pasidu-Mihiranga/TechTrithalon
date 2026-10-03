@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
-  Check,
   ChevronDown,
   Clock,
   Info,
@@ -14,7 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useVehicles } from '../../lib/referenceQueries'
-import { EmptyState, ErrorState, ViolationCard } from '../../components'
+import { Button, Dialog, EmptyState, ErrorState, Select, ViolationCard } from '../../components'
 import { InteractiveRouteMap } from './InteractiveRouteMap'
 import type { Edit, ManualPlanView } from './manualPlanQueries'
 import { ManualPlanRequestError } from './manualPlanQueries'
@@ -33,6 +32,10 @@ export interface VehicleRouteStop {
   window: string
   /** Server-computed planned arrival for this stop, when the candidate has been scheduled. */
   plannedArrival?: string
+  /** Server-computed service start; later than the arrival when the stop waits for its window. */
+  serviceStart?: string
+  dockType?: string
+  parkingConstraint?: string
   volume: string
   brand: string
   isChilled?: boolean
@@ -63,6 +66,13 @@ export interface VehicleAllocationCard {
   warning?: string
   accentColor: string
   stops?: VehicleRouteStop[]
+  /** Server-computed trip facts (candidate trips only). */
+  tripMinutes?: number
+  distanceKm?: number
+  fuelLitres?: number
+  /** Which daily budget the time bar is measured against. */
+  budgetLabel?: string
+  availabilityStatus?: string | null
 }
 
 export interface PlanningStep3AllocationProps {
@@ -108,6 +118,10 @@ export function PlanningStep3Allocation({
   // Add Trip Modal state
   const [addTripModalOpen, setAddTripModalOpen] = useState(false)
   const [newTripVehicle, setNewTripVehicle] = useState('')
+  /** Per-card expand/collapse; by default cards with a trip are open and standby vehicles are folded. */
+  const [expandedOverride, setExpandedOverride] = useState<Record<string, boolean>>({})
+  const isExpanded = (v: VehicleAllocationCard) => expandedOverride[v.id] ?? Boolean(v.tripId)
+  const toggleExpanded = (v: VehicleAllocationCard) => setExpandedOverride(prev => ({ ...prev, [v.id]: !isExpanded(v) }))
   const [newTripSlot, setNewTripSlot] = useState(1)
   const [newTripBrand, setNewTripBrand] = useState('')
   const [newTripDistrict, setNewTripDistrict] = useState('')
@@ -137,7 +151,7 @@ export function PlanningStep3Allocation({
         const refVeh = realVehicles.find((r) => r.vehicleId === trip.vehicleId)
         const temp = fleetVeh?.temp?.toLowerCase() || refVeh?.temp?.toLowerCase() || ''
         const isReefer = temp.includes('reefer') || temp.includes('chilled')
-        const isVan = fleetVeh?.vehicleId?.toLowerCase().includes('van') || refVeh?.type?.toLowerCase().includes('van')
+        const isVan = (fleetVeh?.type ?? refVeh?.type)?.toLowerCase() === 'van'
         const badge: 'Reefer' | 'Lorry' | 'Van' = isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry'
         const dayUse = candidateView.vehicleUtilisation?.[trip.vehicleId ?? '']
         const fresh = trip.brand?.toLowerCase() === 'fresh'
@@ -155,7 +169,7 @@ export function PlanningStep3Allocation({
           badge,
           driver: undefined,
           region: `${trip.district ?? activeDepot} Fleet`,
-          tripsSummary: `Trip ${trip.id} · ${trip.stops?.length ?? 0} stops · ${trip.tripMinutes ?? '—'} min · ${trip.distanceKm ?? '—'} km`,
+          tripsSummary: `Trip ${trip.tripIndex ?? 1} · ${plural(trip.stops?.length ?? 0, 'stop')} · ${trip.tripMinutes ?? '—'} min · ${trip.distanceKm ?? '—'} km`,
           trips: [
             {
               name: `Slot ${trip.tripIndex ?? 1}`,
@@ -185,12 +199,20 @@ export function PlanningStep3Allocation({
             unit: 'L this trip · weekly quota',
           },
           accentColor: colors[idx % colors.length],
+          tripMinutes: trip.tripMinutes,
+          distanceKm: trip.distanceKm,
+          fuelLitres: trip.fuelLitres,
+          budgetLabel: fresh ? 'Fresh budget, vehicle day' : 'Style/Tech budget, vehicle day',
+          availabilityStatus: fleetVeh?.availabilityStatus,
           stops: (trip.stops ?? []).map((s, sIdx) => ({
             seq: s.stopIndex ?? sIdx + 1,
             ref: s.order?.orderRef ?? `ORD-${s.orderId}`,
             outletName: s.order ? `${s.order.outletId} · ${s.order.district ?? 'district unavailable'}` : `Order ${s.orderId}`,
             window: formatDeliveryWindow(s.order?.effectiveWindowOpen, s.order?.effectiveWindowClose),
             plannedArrival: s.plannedArrival ? s.plannedArrival.slice(0, 5) : undefined,
+            serviceStart: s.serviceStart ? s.serviceStart.slice(0, 5) : undefined,
+            dockType: s.order?.dockType,
+            parkingConstraint: s.order?.parkingConstraint,
             volume: `${s.order?.volumeM3?.toFixed(1) ?? '0.0'} m³`,
             brand: s.order?.brand ?? trip.brand ?? '',
             isChilled: Boolean(s.order?.temp && (s.order.temp.toLowerCase().includes('chilled') || s.order.temp.toLowerCase().includes('reefer'))),
@@ -208,7 +230,7 @@ export function PlanningStep3Allocation({
           const refVeh = realVehicles.find((r) => r.vehicleId === veh.vehicleId)
           const temp = veh.temp?.toLowerCase() || refVeh?.temp?.toLowerCase() || ''
           const isReefer = temp.includes('reefer') || temp.includes('chilled')
-          const isVan = veh.vehicleId?.toLowerCase().includes('van') || refVeh?.type?.toLowerCase().includes('van')
+          const isVan = (veh.type ?? refVeh?.type)?.toLowerCase() === 'van'
           const badge: 'Reefer' | 'Lorry' | 'Van' = isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry'
           cards.push({
             id: veh.vehicleId ?? `VEH-${idx}`,
@@ -217,7 +239,8 @@ export function PlanningStep3Allocation({
             badge,
             driver: undefined,
             region: `${activeDepot} Fleet`,
-            tripsSummary: 'Standby · Ready for routes',
+            tripsSummary: 'No trip yet',
+            availabilityStatus: veh.availabilityStatus,
             trips: [],
             volume: { used: 0, total: veh.volumeCapM3 ?? refVeh?.volumeCapM3 ?? 0, unit: 'm³' },
             weight: { used: 0, total: veh.weightCapKg ?? refVeh?.weightCapKg ?? 0, unit: 'kg' },
@@ -305,20 +328,11 @@ export function PlanningStep3Allocation({
   const allocatedVehiclesCount = serverMetrics?.vehiclesUsed ?? displayVehicles.filter((v) => v.volume.used > 0).length
   const totalOrdersPlaced = serverMetrics?.ordersAssigned ?? displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
 
-  // Map representation of all routes
-  const allRoutesForMap = useMemo(() => {
-    return displayVehicles.map((v) => ({
-      vehicleId: v.id,
-      color: v.accentColor,
-      stops: v.stops ?? [],
-    }))
-  }, [displayVehicles])
-
   const availableBrands = useMemo(() => {
     const list = new Set<string>()
     candidateView?.unassignedOrders?.forEach((o) => { if (o.order?.brand) list.add(o.order.brand) })
     candidateView?.trips?.forEach((t) => { if (t.brand) list.add(t.brand) })
-    return list.size > 0 ? Array.from(list) : ['Fresh', 'Perishable', 'General']
+    return list.size > 0 ? Array.from(list) : ['Fresh', 'Style', 'Tech']
   }, [candidateView])
 
   const availableDistricts = useMemo(() => {
@@ -334,6 +348,7 @@ export function PlanningStep3Allocation({
   }
 
   function handleOpenSwapModal(v: VehicleAllocationCard) {
+    if (!v.tripId) return // a vehicle without a trip has nothing to change
     setSelectedVehicleId(v.id)
     setTargetSwapId(null)
     setTargetSwapSlot(v.tripIndex ?? 1)
@@ -452,6 +467,11 @@ export function PlanningStep3Allocation({
     }
   }
 
+  function openAddTrip(vehicleId?: string) {
+    setNewTripVehicle(vehicleId ?? '')
+    setAddTripModalOpen(true)
+  }
+
   async function handleAddTrip(e: FormEvent) {
     e.preventDefault()
     if (!newTripVehicle || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
@@ -498,15 +518,20 @@ export function PlanningStep3Allocation({
   }
 
   // Compatible swap options from real reference fleet
-  const compatibleVehicles = useMemo(() => {
+  const compatibleVehicles = useMemo<SwapOption[]>(() => {
     if (!activeVehicle) return []
     const fleetList = candidateView?.fleet?.map((f) => ({
       vehicleId: f.vehicleId!,
       temp: f.temp,
       volumeCapM3: f.volumeCapM3 ?? realVehicles.find((r) => r.vehicleId === f.vehicleId)?.volumeCapM3 ?? 0,
       weightCapKg: f.weightCapKg ?? realVehicles.find((r) => r.vehicleId === f.vehicleId)?.weightCapKg ?? 0,
+      type: f.type,
+      availabilityStatus: f.availabilityStatus,
     })) ?? realVehicles
-    return fleetList.filter((v) => v.vehicleId !== activeVehicle.id)
+    // Vehicles that can actually be chosen come first; the rest stay visible with their status.
+    return (fleetList as SwapOption[]).filter((v) => v.vehicleId !== activeVehicle.id)
+      .sort((a, b) => Number(b.availabilityStatus === 'available') - Number(a.availabilityStatus === 'available')
+        || a.vehicleId.localeCompare(b.vehicleId))
   }, [candidateView?.fleet, realVehicles, activeVehicle])
 
   function cycleSort() {
@@ -546,7 +571,7 @@ export function PlanningStep3Allocation({
                 className="toolbar-btn small"
                 disabled={blocked}
                 style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
-                onClick={() => setAddTripModalOpen(true)}
+                onClick={() => openAddTrip()}
               >
                 <Plus size={14} aria-hidden="true" />
                 <span>Add Trip</span>
@@ -577,32 +602,7 @@ export function PlanningStep3Allocation({
           )}
 
           {/* Failure & Violations Alert */}
-          {failure && (
-            <div style={{ marginBottom: '12px' }}>
-              <ErrorState
-                error={failure}
-                message={failure.message}
-                traceId={failure instanceof ManualPlanRequestError ? failure.traceId : undefined}
-                onRetry={onReloadPlan}
-              />
-              {failure instanceof ManualPlanRequestError && failure.violations.length > 0 && (
-                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {failure.violations.map((v, i) => (
-                    <ViolationCard
-                      key={`${v.ruleCode}-${i}`}
-                      violation={{
-                        ruleCode: v.ruleCode ?? 'RULE_VIOLATION',
-                        message: v.message ?? 'Constraint violation',
-                        severity: v.severity === 'INFO' ? 'INFO' : 'HARD',
-                        actualValue: v.actualValue,
-                        allowedValue: v.allowedValue,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {failure && <PlanFailure failure={failure} onRetry={onReloadPlan} />}
 
           {/* Filter Pills matching Figma */}
           <div className="step3-filter-pills" role="tablist" aria-label="Vehicle type filters">
@@ -650,173 +650,23 @@ export function PlanningStep3Allocation({
                 />
               </div>
             ) : (
-              processedVehicles.map((v) => {
-                const isSelected = activeVehicle?.id === v.id
-                const volPct = Math.min(100, Math.round((v.volume.used / (v.volume.total || 1)) * 100))
-                const wtPct = Math.min(100, Math.round((v.weight.used / (v.weight.total || 1)) * 100))
-                const timePct = v.time ? Math.min(100, Math.round((v.time.used / (v.time.total || 1)) * 100)) : 0
-
-                return (
-                  <div
-                    key={v.id}
-                    className={`veh-alloc-card ${isSelected ? 'selected' : ''}`}
-                    onClick={() => setSelectedVehicleId(v.id)}
-                  >
-                    {/* Left vertical color accent bar */}
-                    <div
-                      className="veh-card-accent-bar"
-                      style={{ background: isSelected ? 'var(--color-brand-primary)' : v.accentColor }}
-                    />
-
-                    <div className="veh-card-body">
-                      {/* Top Row: Vehicle ID, Badge, Trip count summary, and Action buttons */}
-                      <div className="veh-card-head">
-                        <div className="veh-card-title-group">
-                          <span className="veh-card-id">{v.id}</span>
-                          <span className={`veh-card-type-tag badge-${v.badge.toLowerCase()}`}>
-                            {v.type}
-                          </span>
-                        </div>
-
-                        <div className="veh-card-meta-right">
-                          <span className="veh-card-trips-summary">
-                            {v.tripsSummary ?? (v.stops && v.stops.length > 0 ? `${v.stops.length} stops` : 'Standby')}
-                          </span>
-                          <div className="veh-card-action-btns">
-                            <button
-                              type="button"
-                              className="card-action-btn"
-                              title="Review stops and timeline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenDrawer(v)
-                              }}
-                            >
-                              Review
-                            </button>
-                            <button
-                              type="button"
-                              className="card-action-btn"
-                              title="Change or reassign vehicle"
-                              disabled={blocked}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleOpenSwapModal(v)
-                              }}
-                            >
-                              Change
-                            </button>
-                            {v.tripId && onApplyCommand && !isLocked && (
-                              <button
-                                type="button"
-                                className="card-action-btn"
-                                title="Remove trip"
-                                disabled={blocked}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  void handleRemoveTrip(v.tripId!)
-                                }}
-                              >
-                                <Trash2 size={12} aria-hidden="true" />
-                                <span>Remove</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Driver & Territory / Fleet line */}
-                      <div className="veh-card-driver">
-                        <span>👤</span>
-                        <span>{v.driver ? v.driver : 'Unassigned driver'}</span>
-                        <span>·</span>
-                        <span>{v.region ?? `${activeDepot} Fleet`}</span>
-                      </div>
-
-                      {/* Warning banner if any */}
-                      {v.warning && (
-                        <div className="veh-warning-banner">
-                          <AlertTriangle size={13} aria-hidden="true" />
-                          <span>{v.warning}</span>
-                        </div>
-                      )}
-
-                      {/* Trip breakdown chips if trips exist */}
-                      {v.trips && v.trips.length > 0 && (
-                        <div className="veh-trips-tags">
-                          {v.trips.map((trip, idx) => (
-                            <div key={idx} className="veh-trip-pill">
-                              <strong>{trip.name}:</strong>
-                              <span>{trip.tag}</span>
-                              <span>({trip.stops} stops)</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 4 Multi-metric progress bars: Volume, Weight, Time, Fuel */}
-                      <div className="veh-util-bars">
-                        {/* Volume */}
-                        <div className="util-row">
-                          <span className="util-metric-name">Volume</span>
-                          <div className="util-bar-bg">
-                            <div className="util-bar-fill blue" style={{ width: `${volPct}%` }} />
-                          </div>
-                          <span className="util-metric-vals">
-                            {v.volume.used} / {v.volume.total} {v.volume.unit}
-                          </span>
-                        </div>
-
-                        {/* Weight */}
-                        <div className="util-row">
-                          <span className="util-metric-name">Weight</span>
-                          <div className="util-bar-bg">
-                            <div className="util-bar-fill purple" style={{ width: `${wtPct}%` }} />
-                          </div>
-                          <span className="util-metric-vals">
-                            {v.weight.used.toLocaleString()} / {v.weight.total.toLocaleString()} {v.weight.unit}
-                          </span>
-                        </div>
-
-                        {/* Time */}
-                        <div className="util-row">
-                          <span className="util-metric-name">Time</span>
-                          <div className="util-bar-bg">
-                            <div className="util-bar-fill green" style={{ width: `${timePct}%` }} />
-                          </div>
-                          <span className="util-metric-vals">
-                            {v.time && v.time.total > 0 ? `${v.time.used} / ${v.time.total} min` : 'Time budget unavailable'}
-                          </span>
-                        </div>
-
-                        {/* Fuel */}
-                        <div className="util-row">
-                          <span className="util-metric-name">Fuel</span>
-                          <div className="util-bar-bg">
-                            <div
-                              className="util-bar-fill amber"
-                              style={{
-                                width: v.fuel && v.fuel.total > 0 ? `${Math.min(100, Math.round((v.fuel.remaining / v.fuel.total) * 100))}%` : '0%',
-                              }}
-                            />
-                          </div>
-                          <span className="util-metric-vals">
-                            {v.fuel && v.fuel.total > 0 ? `${v.fuel.remaining} / ${v.fuel.total} ${v.fuel.unit}` : 'Fuel quota unavailable'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Fresh Delivery Budget Footer */}
-                      {v.freshBudget && (
-                        <div className="veh-fresh-budget">
-                          <Clock size={11} aria-hidden="true" />
-                          <span>Fresh delivery budget: {v.freshBudget}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
+              processedVehicles.map((v) => (
+                <VehicleCard
+                  key={v.id}
+                  vehicle={v}
+                  selected={activeVehicle?.id === v.id}
+                  expanded={isExpanded(v)}
+                  canEdit={Boolean(candidateView && onApplyCommand && !isLocked)}
+                  blocked={blocked}
+                  activeDepot={activeDepot}
+                  onSelect={() => setSelectedVehicleId(v.id)}
+                  onToggle={() => toggleExpanded(v)}
+                  onReview={() => handleOpenDrawer(v)}
+                  onChange={() => handleOpenSwapModal(v)}
+                  onRemove={() => { if (v.tripId) void handleRemoveTrip(v.tripId) }}
+                  onAddTrip={() => openAddTrip(v.vehicleId ?? v.id)}
+                />
+              ))
             )}
           </div>
         </div>
@@ -826,12 +676,12 @@ export function PlanningStep3Allocation({
           {activeVehicle && (
             <InteractiveRouteMap
               activeDepot={activeDepot}
-              vehicleId={activeVehicle.id}
-              vehicleType={activeVehicle.type}
-              accentColor={activeVehicle.accentColor}
-              stops={activeVehicle.stops}
-              allRoutes={allRoutesForMap}
+              vehicle={activeVehicle}
               onViewStops={() => setDrawerOpen(true)}
+              allCards={displayVehicles}
+              unassignedByDistrict={candidateView?.unassignedByDistrict}
+              onSelectVehicle={setSelectedVehicleId}
+              onAddTrip={candidateView && onApplyCommand && !isLocked ? () => openAddTrip(activeVehicle.vehicleId ?? activeVehicle.id) : undefined}
             />
           )}
         </div>
@@ -969,209 +819,48 @@ export function PlanningStep3Allocation({
         </div>
       )}
 
-      {/* Change Vehicle Modal (3D) */}
+      {/* Change Vehicle Dialog (3D) */}
       {changeModalOpen && activeVehicle && (
-        <div className="modal-overlay" onClick={() => setChangeModalOpen(false)}>
-          <div className="modal-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h3 className="modal-title">Change Vehicle for Route</h3>
-                <p className="modal-subtitle">
-                  Currently assigned: <strong>{activeVehicle.id}</strong> ({activeVehicle.type})
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={() => setChangeModalOpen(false)}
-                aria-label="Close modal"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <p className="modal-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
-                Select a compatible vehicle from the {activeDepot} fleet:
-              </p>
-              <div className="swap-options-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {compatibleVehicles.slice(0, 6).map((veh) => {
-                  const isChosen = targetSwapId === veh.vehicleId
-                  const isReefer = veh.temp?.toLowerCase() === 'reefer'
-                  return (
-                    <div
-                      key={veh.vehicleId}
-                      className={`swap-option-card ${isChosen ? 'chosen' : ''}`}
-                      onClick={() => setTargetSwapId(veh.vehicleId)}
-                      style={{
-                        padding: '10px 14px',
-                        border: isChosen ? '1.5px solid var(--color-brand-primary)' : '1px solid var(--color-border-default)',
-                        borderRadius: 'var(--radius-sm)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        background: isChosen ? '#fffbeb' : '#ffffff',
-                      }}
-                    >
-                      <div className="swap-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="swap-id" style={{ fontWeight: '800', fontFamily: 'var(--font-family-mono)', fontSize: '13px' }}>
-                          {veh.vehicleId}
-                        </span>
-                        <span className={`veh-card-type-tag badge-${isReefer ? 'reefer' : 'lorry'}`}>
-                          {isReefer ? 'Reefer' : 'Lorry'}
-                        </span>
-                        <span className="swap-cap" style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                          Cap: {veh.volumeCapM3} m³ · {veh.weightCapKg} kg
-                        </span>
-                      </div>
-                      <div className="swap-status">
-                        {isChosen ? (
-                          <span className="swap-selected-mark" style={{ color: '#b45309', fontWeight: '700', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Check size={14} /> Selected
-                          </span>
-                        ) : (
-                          <span className="swap-avail" style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Available</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              <div style={{ marginTop: '12px' }}>
-                <label className="field-label" htmlFor="swap-slot-select" style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
-                  Trip Slot:
-                </label>
-                <select
-                  id="swap-slot-select"
-                  className="field-select full-width"
-                  value={targetSwapSlot}
-                  onChange={(e) => setTargetSwapSlot(Number(e.target.value))}
-                >
-                  <option value={1}>Slot 1 (Morning delivery)</option>
-                  <option value={2}>Slot 2 (Afternoon delivery)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="toolbar-btn"
-                onClick={() => setChangeModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary-yellow"
-                disabled={!targetSwapId || blocked}
-                onClick={handleConfirmSwap}
-              >
-                Confirm Vehicle Switch
-              </button>
-            </div>
-          </div>
-        </div>
+        <ChangeVehicleDialog
+          vehicle={activeVehicle}
+          options={compatibleVehicles}
+          chosen={targetSwapId}
+          slot={targetSwapSlot}
+          submitting={isSubmitting}
+          failure={failure}
+          onChoose={setTargetSwapId}
+          onSlot={setTargetSwapSlot}
+          onConfirm={() => void handleConfirmSwap()}
+          onClose={() => setChangeModalOpen(false)}
+        />
       )}
 
-      {/* Add Trip Modal */}
-      {addTripModalOpen && (
-        <div className="modal-overlay" onClick={() => setAddTripModalOpen(false)}>
-          <div className="modal-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={(e) => void handleAddTrip(e)}>
-              <div className="modal-header">
-                <div>
-                  <h3 className="modal-title">Add Vehicle Trip</h3>
-                  <p className="modal-subtitle">{activeDepot} Depot · Manual Allocation</p>
-                </div>
-                <button
-                  type="button"
-                  className="modal-close-btn"
-                  onClick={() => setAddTripModalOpen(false)}
-                  aria-label="Close modal"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div>
-                  <label className="field-label" htmlFor="new-trip-veh">Vehicle:</label>
-                  <select
-                    id="new-trip-veh"
-                    className="field-select full-width"
-                    required
-                    value={newTripVehicle}
-                    onChange={(e) => setNewTripVehicle(e.target.value)}
-                  >
-                    <option value="">Select vehicle...</option>
-                    {(candidateView?.fleet ?? realVehicles).map((veh) => (
-                      <option key={veh.vehicleId} value={veh.vehicleId}>
-                        {veh.vehicleId} · {veh.temp ?? 'Ambient'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="new-trip-slot">Trip Slot:</label>
-                  <select
-                    id="new-trip-slot"
-                    className="field-select full-width"
-                    value={newTripSlot}
-                    onChange={(e) => setNewTripSlot(Number(e.target.value))}
-                  >
-                    <option value={1}>Slot 1 (Morning)</option>
-                    <option value={2}>Slot 2 (Afternoon)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="new-trip-brand">Brand:</label>
-                  <select
-                    id="new-trip-brand"
-                    className="field-select full-width"
-                    value={newTripBrand || availableBrands[0]}
-                    onChange={(e) => setNewTripBrand(e.target.value)}
-                  >
-                    {availableBrands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="new-trip-dist">District:</label>
-                  <select
-                    id="new-trip-dist"
-                    className="field-select full-width"
-                    value={newTripDistrict || availableDistricts[0]}
-                    onChange={(e) => setNewTripDistrict(e.target.value)}
-                  >
-                    {availableDistricts.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="toolbar-btn"
-                  onClick={() => setAddTripModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary-yellow"
-                  disabled={!newTripVehicle || blocked}
-                >
-                  Create Trip
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add Trip Dialog */}
+      <Dialog
+        open={addTripModalOpen}
+        title="Add Vehicle Trip"
+        onClose={() => setAddTripModalOpen(false)}
+        footer={<>
+          <Button variant="secondary" onClick={() => setAddTripModalOpen(false)}>Cancel</Button>
+          <Button type="submit" form="add-trip-form" disabled={!newTripVehicle || blocked} loading={isSubmitting}>Create Trip</Button>
+        </>}
+      >
+        <form id="add-trip-form" className="swap-body" onSubmit={(e) => void handleAddTrip(e)}>
+          <p className="swap-current">{activeDepot} Depot · the server validates the trip when its first order is assigned.</p>
+          <Select label="Vehicle" required placeholder="Select vehicle" value={newTripVehicle} onChange={(e) => setNewTripVehicle(e.target.value)}
+            options={(candidateView?.fleet ?? realVehicles).map((veh) => ({
+              value: veh.vehicleId!,
+              label: `${veh.vehicleId} · ${veh.temp ?? 'temperature unrecorded'} ${veh.type ?? ''}${'availabilityStatus' in veh && veh.availabilityStatus ? ` · ${availabilityLabel(veh.availabilityStatus)}` : ''}`,
+            }))} />
+          <Select label="Trip slot" value={String(newTripSlot)} onChange={(e) => setNewTripSlot(Number(e.target.value))}
+            options={[{ value: '1', label: 'Trip 1' }, { value: '2', label: 'Trip 2' }]} />
+          <Select label="Brand" value={newTripBrand || availableBrands[0]} onChange={(e) => setNewTripBrand(e.target.value)}
+            options={availableBrands.map((b) => ({ value: b, label: b }))} />
+          <Select label="District" value={newTripDistrict || availableDistricts[0]} onChange={(e) => setNewTripDistrict(e.target.value)}
+            options={availableDistricts.map((d) => ({ value: d, label: d }))} />
+          {failure && <PlanFailure failure={failure} />}
+        </form>
+      </Dialog>
 
       {/* Sticky Bottom Bar Matching Figma 3A */}
       <div className="planning-bottom-bar">
@@ -1219,4 +908,220 @@ export function PlanningStep3Allocation({
 /** Formats the effective window supplied by the backend; never substitutes an invented window. */
 export function formatDeliveryWindow(open?: string | null, close?: string | null) {
   return open && close ? `${open.slice(0, 5)}–${close.slice(0, 5)}` : 'unavailable'
+}
+
+/** A rejected edit: the backend's message, trace ID and every named rule violation. */
+function PlanFailure({ failure, onRetry }: { failure: Error; onRetry?: () => void }) {
+  return (
+    <div className="plan-failure">
+      <ErrorState
+        error={failure}
+        message={failure.message}
+        traceId={failure instanceof ManualPlanRequestError ? failure.traceId : undefined}
+        onRetry={onRetry}
+      />
+      {failure instanceof ManualPlanRequestError && failure.violations.length > 0 && (
+        <div className="plan-failure-list">
+          {failure.violations.map((v, i) => (
+            <ViolationCard
+              key={`${v.ruleCode}-${i}`}
+              violation={{
+                ruleCode: v.ruleCode ?? 'RULE_VIOLATION',
+                message: v.message ?? 'Constraint violation',
+                severity: v.severity === 'INFO' ? 'INFO' : 'HARD',
+                actualValue: v.actualValue,
+                allowedValue: v.allowedValue,
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface SwapOption {
+  vehicleId: string
+  temp?: string
+  type?: string
+  volumeCapM3?: number
+  weightCapKg?: number
+  availabilityStatus?: string | null
+}
+
+/** Change the vehicle (and slot) of an existing trip. The server validates the swap and names any rule it breaks. */
+function ChangeVehicleDialog({ vehicle, options, chosen, slot, submitting, failure, onChoose, onSlot, onConfirm, onClose }: {
+  vehicle: VehicleAllocationCard
+  options: SwapOption[]
+  chosen: string | null
+  slot: number
+  submitting: boolean
+  failure?: Error | null
+  onChoose: (vehicleId: string) => void
+  onSlot: (slot: number) => void
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  return (
+    <Dialog
+      open
+      title="Change Vehicle for Route"
+      onClose={onClose}
+      footer={<>
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button disabled={!chosen} loading={submitting} onClick={onConfirm}>Confirm Vehicle Switch</Button>
+      </>}
+    >
+      <div className="swap-body">
+      <p className="swap-current">Currently assigned: <strong>{vehicle.id}</strong> ({vehicle.type})</p>
+      <fieldset className="swap-fieldset">
+        <legend className="field-label">Choose a vehicle from the depot fleet</legend>
+        {options.length === 0
+          ? <p className="field-hint">No other vehicle is in this depot's fleet.</p>
+          : <div className="swap-list">
+            {options.map(option => {
+              const available = option.availabilityStatus === 'available'
+              return (
+                <label key={option.vehicleId} className={`swap-option${chosen === option.vehicleId ? ' chosen' : ''}${available ? '' : ' unavailable'}`}>
+                  <input type="radio" name="swap-vehicle" value={option.vehicleId} checked={chosen === option.vehicleId}
+                    disabled={!available} onChange={() => onChoose(option.vehicleId)} />
+                  <span className="swap-id">{option.vehicleId}</span>
+                  <span className="swap-kind">{swapKind(option)}</span>
+                  <span className="swap-cap">{option.volumeCapM3 ?? '—'} m³ · {option.weightCapKg ?? '—'} kg</span>
+                  <span className="swap-status">{availabilityLabel(option.availabilityStatus)}</span>
+                </label>
+              )
+            })}
+          </div>}
+      </fieldset>
+      <Select label="Trip slot" value={String(slot)} onChange={event => onSlot(Number(event.target.value))}
+        options={[{ value: '1', label: 'Trip 1' }, { value: '2', label: 'Trip 2' }]} />
+      {failure && <PlanFailure failure={failure} />}
+      </div>
+    </Dialog>
+  )
+}
+
+function swapKind(option: SwapOption) {
+  if (option.temp?.toLowerCase() === 'reefer') return 'Reefer'
+  return option.type?.toLowerCase() === 'van' ? 'Van' : 'Lorry'
+}
+
+function availabilityLabel(status?: string | null) {
+  if (!status) return 'Availability not recorded'
+  return status.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase())
+}
+
+const numberFormat = new Intl.NumberFormat('en', { maximumFractionDigits: 2 })
+const fmt = (value: number) => numberFormat.format(value)
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+const percent = (used: number, total: number) => (total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0)
+
+/** One readable measure: a large value, its limit, an optional bar and a short note. */
+function MetricTile({ label, value, total, pct, note, tone }: {
+  label: string; value: string; total?: string; pct?: number; note?: string; tone: 'blue' | 'purple' | 'green' | 'amber'
+}) {
+  return (
+    <div className="metric-tile">
+      <span className="metric-tile-label">{label}</span>
+      <span className="metric-tile-value">{value}{total && <span className="metric-tile-total"> of {total}</span>}</span>
+      {pct !== undefined && (
+        <div className="metric-tile-bar" role="progressbar" aria-label={`${label} used`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className={`metric-tile-fill ${tone}`} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      {note && <span className="metric-tile-note">{note}</span>}
+    </div>
+  )
+}
+
+/** A vehicle in the allocation list. The header stays visible; the details fold away. */
+function VehicleCard({ vehicle: v, selected, expanded, canEdit, blocked, activeDepot, onSelect, onToggle, onReview, onChange, onRemove, onAddTrip }: {
+  vehicle: VehicleAllocationCard
+  selected: boolean
+  expanded: boolean
+  canEdit: boolean
+  blocked: boolean
+  activeDepot: string
+  onSelect: () => void
+  onToggle: () => void
+  onReview: () => void
+  onChange: () => void
+  onRemove: () => void
+  onAddTrip: () => void
+}) {
+  const detailId = `vehicle-detail-${v.id}`
+  const hasTrip = Boolean(v.tripId)
+  const stop = (action: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); action() }
+  return (
+    <article className={`veh-alloc-card${selected ? ' selected' : ''}${expanded ? '' : ' collapsed'}`} onClick={onSelect} aria-label={`Vehicle ${v.id}`}>
+      <div className="veh-card-accent-bar" style={{ background: selected ? 'var(--color-brand-primary)' : v.accentColor }} />
+      <div className="veh-card-body">
+        <div className="veh-card-head">
+          <button type="button" className="veh-card-toggle" aria-expanded={expanded} aria-controls={detailId}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${v.id}`} onClick={stop(onToggle)}>
+            <ChevronDown size={16} aria-hidden="true" className={expanded ? 'veh-card-chevron open' : 'veh-card-chevron'} />
+            <span className="veh-card-id">{v.id}</span>
+          </button>
+          <span className={`veh-card-type-tag badge-${v.badge.toLowerCase()}`}>{v.type}</span>
+          <span className="veh-card-trips-summary">{v.tripsSummary ?? (hasTrip ? `${v.stops?.length ?? 0} stops` : 'No trip yet')}</span>
+        </div>
+
+        <div className="veh-card-action-btns">
+          <button type="button" className="card-action-btn" title="Review stops and timeline" onClick={stop(onReview)}>Review</button>
+          {hasTrip && canEdit && (
+            <>
+              <button type="button" className="card-action-btn" title="Change the vehicle or slot of this trip" disabled={blocked} onClick={stop(onChange)}>Change</button>
+              <button type="button" className="card-action-btn" title="Remove trip" disabled={blocked} onClick={stop(onRemove)}>
+                <Trash2 size={12} aria-hidden="true" /><span>Remove</span>
+              </button>
+            </>
+          )}
+          {!hasTrip && canEdit && (
+            <button type="button" className="card-action-btn primary" title={`Create a trip for ${v.id}`} disabled={blocked} onClick={stop(onAddTrip)}>Add trip</button>
+          )}
+          {!canEdit && <span className="veh-card-hint">Open a candidate plan to edit trips</span>}
+        </div>
+
+        {expanded && (
+          <div id={detailId} className="veh-card-detail">
+            <div className="veh-card-driver">
+              <span aria-hidden="true">👤</span>
+              <span>{v.driver ? v.driver : 'Driver assigned at publication'}</span>
+              <span aria-hidden="true">·</span>
+              <span>{v.region ?? `${activeDepot} Fleet`}</span>
+              {v.availabilityStatus !== undefined && <><span aria-hidden="true">·</span><span>{availabilityLabel(v.availabilityStatus)}</span></>}
+            </div>
+            {v.warning && (
+              <div className="veh-warning-banner"><AlertTriangle size={13} aria-hidden="true" /><span>{v.warning}</span></div>
+            )}
+            {v.trips && v.trips.length > 0 && (
+              <div className="veh-trips-tags">
+                {v.trips.map((trip, idx) => (
+                  <div key={idx} className="veh-trip-pill"><strong>{trip.name}:</strong><span>{trip.tag}</span><span>({plural(trip.stops, 'stop')})</span></div>
+                ))}
+              </div>
+            )}
+            <div className="metric-tiles">
+              <MetricTile label="Volume" tone="blue" value={`${fmt(v.volume.used)} m³`}
+                total={v.volume.total > 0 ? `${fmt(v.volume.total)} m³` : 'capacity unrecorded'} pct={percent(v.volume.used, v.volume.total)} />
+              <MetricTile label="Weight" tone="purple" value={`${fmt(v.weight.used)} kg`}
+                total={v.weight.total > 0 ? `${fmt(v.weight.total)} kg` : 'capacity unrecorded'} pct={percent(v.weight.used, v.weight.total)} />
+              {hasTrip && v.time && v.time.total > 0
+                ? <MetricTile label="Time" tone="green" value={`${fmt(v.time.used)} min`} total={`${fmt(v.time.total)} min`}
+                    pct={percent(v.time.used, v.time.total)} note={v.budgetLabel} />
+                : <MetricTile label="Time" tone="green" value="No trip yet" note="Budget applies once a trip exists" />}
+              {hasTrip && v.fuel && v.fuel.total > 0
+                ? <MetricTile label="Fuel" tone="amber" value={`${fmt(v.fuelLitres ?? v.fuel.remaining)} L`} total={`${fmt(v.fuel.total)} L weekly quota`}
+                    pct={percent(v.fuelLitres ?? v.fuel.remaining, v.fuel.total)} note="This trip" />
+                : <MetricTile label="Fuel" tone="amber" value={v.fuel && v.fuel.total > 0 ? `${fmt(v.fuel.total)} L` : 'Unrecorded'} note="Weekly quota" />}
+            </div>
+            {v.freshBudget && (
+              <div className="veh-fresh-budget"><Clock size={11} aria-hidden="true" /><span>Fresh delivery budget: {v.freshBudget}</span></div>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  )
 }
