@@ -62,6 +62,17 @@ class TimeBudgetRuleTest {
         assertEquals("OTHER_TIME_BUDGET_EXCEEDED", violations.get(0).remediationCode());
     }
 
+    @Test
+    void exactBudgetsPassAndOneExtraMinuteFails() {
+        for (String brand : List.of("Fresh", "Style", "Tech")) {
+            int budget = "Fresh".equals(brand) ? 270 : 480;
+            PlanTrip exact = new PlanTrip(1L, "SYN-V", 1, brand, "Alpha", List.of(), budget, null, null);
+            assertTrue(rule.evaluate(context(List.of(exact))).isEmpty(), brand + " exact budget");
+            PlanTrip over = new PlanTrip(1L, "SYN-V", 1, brand, "Alpha", List.of(), budget + 1, null, null);
+            assertEquals(1, rule.evaluate(context(List.of(over))).size(), brand + " budget plus one");
+        }
+    }
+
     private PlanContext context(List<PlanTrip> trips) {
         return new PlanContext(
             LocalDate.of(2026, 10, 5), "Peliyagoda",

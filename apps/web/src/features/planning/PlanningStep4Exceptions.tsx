@@ -38,7 +38,7 @@ export interface PlanningStep4ExceptionsProps {
   onContinueToConfirm: () => void
   candidateView?: ManualPlanView | null
   failure?: Error | null
-  onApplyCommand?: (edit: Edit) => Promise<void>
+  onApplyCommand?: (edit: Edit) => Promise<boolean | void>
   onReloadPlan?: () => void
   actionPending?: boolean
 }
@@ -63,8 +63,8 @@ export function PlanningStep4Exceptions({
   const [deferModalOpen, setDeferModalOpen] = useState(false)
   const [deferTarget, setDeferTarget] = useState<{ id: string; orderId?: number; ref: string; outletName: string; volume: string } | null>(null)
   const [deferReason, setDeferReason] = useState('Capacity constraint on current run')
-  const [deferNextDate, setDeferNextDate] = useState('2026-06-29')
-  const [deferNotifyStore, setDeferNotifyStore] = useState(true)
+  const [deferNextDate, setDeferNextDate] = useState('')
+  const [deferNotifyStore, setDeferNotifyStore] = useState(false)
 
   // Derive real exceptions from candidateView if provided
   const realViolations = useMemo(() => {
@@ -130,9 +130,10 @@ export function PlanningStep4Exceptions({
     // 2. Unassigned orders (pending)
     for (const u of pendingUnassigned) {
       const order = u.order
+      if (order?.id == null) continue
       const isChilled = order?.temp === 'chilled'
       items.push({
-        id: `unassigned-${order?.id ?? Math.random()}`,
+        id: `unassigned-${order.id}`,
         ref: order?.orderRef ?? `Order #${order?.id}`,
         outletName: order?.outletId ?? 'Unassigned Outlet',
         flag: isChilled ? '❄️ Cold Chain' : 'Ambient',
@@ -150,8 +151,9 @@ export function PlanningStep4Exceptions({
     // 3. Deferred orders (resolved)
     for (const u of deferredUnassigned) {
       const order = u.order
+      if (order?.id == null) continue
       items.push({
-        id: `deferred-${order?.id ?? Math.random()}`,
+        id: `deferred-${order.id}`,
         ref: order?.orderRef ?? `Order #${order?.id}`,
         outletName: order?.outletId ?? 'Deferred Outlet',
         flag: 'Deferred',
@@ -203,7 +205,7 @@ export function PlanningStep4Exceptions({
     if (!deferTarget) return
 
     if (candidateView && onApplyCommand && deferTarget.orderId) {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'defer',
         orderId: deferTarget.orderId,
         body: {
@@ -212,6 +214,7 @@ export function PlanningStep4Exceptions({
           nextDeliveryDate: deferNextDate || undefined,
         },
       })
+      if (saved === false) return
     } else if (onDeferOrder) {
       onDeferOrder(deferTarget.id, deferReason, deferNextDate)
     }
@@ -232,7 +235,7 @@ export function PlanningStep4Exceptions({
 
   async function handleRestoreOrder(orderId?: number, id?: string) {
     if (candidateView && onApplyCommand && orderId) {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'restore',
         orderId,
         body: {
@@ -240,6 +243,7 @@ export function PlanningStep4Exceptions({
           reason: 'Restoring deferred order to candidate backlog',
         },
       })
+      if (saved === false) return
     } else if (!candidateView && id) {
       setMockExceptions((prev) =>
         prev.map((item) =>

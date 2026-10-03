@@ -66,7 +66,7 @@ export interface PlanningStep3AllocationProps {
   routes?: VehicleAllocationCard[]
   activeDepot?: string
   candidateView?: ManualPlanView | null
-  onApplyCommand?: (edit: Edit) => Promise<void>
+  onApplyCommand?: (edit: Edit) => Promise<boolean | void>
   reason?: string
   onReasonChange?: (reason: string) => void
   failure?: Error | null
@@ -113,7 +113,7 @@ export function PlanningStep3Allocation({
 
   // Fetch real reference vehicles from backend database
   const vehiclesQuery = useVehicles()
-  const realVehicles = vehiclesQuery.data ?? []
+  const realVehicles = useMemo(() => vehiclesQuery.data ?? [], [vehiclesQuery.data])
 
   const isLocked = candidateView?.plan.status === 'published'
   const blocked = isLocked || isSubmitting
@@ -333,7 +333,7 @@ export function PlanningStep3Allocation({
     setIsSubmitting(true)
     try {
       if (activeVehicle.tripId && onApplyCommand && candidateView?.plan.lockVersion !== undefined) {
-        await onApplyCommand({
+        const saved = await onApplyCommand({
           operation: 'vehicle',
           tripId: activeVehicle.tripId,
           body: {
@@ -343,6 +343,7 @@ export function PlanningStep3Allocation({
             tripIndex: targetSwapSlot,
           },
         })
+      if (saved === false) return
       } else if (onChangeVehicle) {
         onChangeVehicle(activeVehicle.id, targetSwapId)
       }
@@ -361,7 +362,7 @@ export function PlanningStep3Allocation({
     ;[orderIds[stopIdx - 1], orderIds[stopIdx]] = [orderIds[stopIdx], orderIds[stopIdx - 1]]
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'sequence',
         tripId,
         body: {
@@ -370,6 +371,7 @@ export function PlanningStep3Allocation({
           orderIds,
         },
       })
+      if (saved === false) return
     } finally {
       setIsSubmitting(false)
     }
@@ -384,7 +386,7 @@ export function PlanningStep3Allocation({
     ;[orderIds[stopIdx], orderIds[stopIdx + 1]] = [orderIds[stopIdx + 1], orderIds[stopIdx]]
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'sequence',
         tripId,
         body: {
@@ -393,6 +395,7 @@ export function PlanningStep3Allocation({
           orderIds,
         },
       })
+      if (saved === false) return
     } finally {
       setIsSubmitting(false)
     }
@@ -402,7 +405,7 @@ export function PlanningStep3Allocation({
     if (!orderId || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'move',
         body: {
           expectedVersion: candidateView.plan.lockVersion,
@@ -411,6 +414,7 @@ export function PlanningStep3Allocation({
           fromTripId: tripId,
         },
       })
+      if (saved === false) return
     } finally {
       setIsSubmitting(false)
     }
@@ -420,7 +424,7 @@ export function PlanningStep3Allocation({
     if (!orderId || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'move',
         body: {
           expectedVersion: candidateView.plan.lockVersion,
@@ -429,6 +433,7 @@ export function PlanningStep3Allocation({
           toTripId: tripId,
         },
       })
+      if (saved === false) return
       setAssignTargetOrderId('')
     } finally {
       setIsSubmitting(false)
@@ -440,7 +445,7 @@ export function PlanningStep3Allocation({
     if (!newTripVehicle || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'addTrip',
         body: {
           expectedVersion: candidateView.plan.lockVersion,
@@ -454,6 +459,7 @@ export function PlanningStep3Allocation({
           },
         },
       })
+      if (saved === false) return
       setAddTripModalOpen(false)
       setNewTripVehicle('')
     } finally {
@@ -465,7 +471,7 @@ export function PlanningStep3Allocation({
     if (!candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
     setIsSubmitting(true)
     try {
-      await onApplyCommand({
+      const saved = await onApplyCommand({
         operation: 'removeTrip',
         tripId,
         body: {
@@ -473,6 +479,7 @@ export function PlanningStep3Allocation({
           reason: reason.trim() || `Remove trip ${tripId}`,
         },
       })
+      if (saved === false) return
     } finally {
       setIsSubmitting(false)
     }

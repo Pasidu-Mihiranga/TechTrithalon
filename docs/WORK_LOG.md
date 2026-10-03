@@ -6,6 +6,25 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 
 ## 2026-10-03
 
+### 7. Fix Step 3 Vehicle Allocation Cards Flex-Shrink Squishing & Validate Phase 7 Manual Planning UI Support
+- **Category:** UI/UX Bug Fix & Phase 7 Manual Planning Verification
+- **Summary:** Resolved the issue where vehicle cards in Step 3 (Review Allocation) rendered as flattened 24px capsules clipping their contents, and verified complete UI support for Phase 7 (Manual Planning First) operations on the vehicle cards.
+- **Details:**
+  - **Vehicle Card Flex-Shrink Fix:**
+    - Diagnosed that `.veh-alloc-card` and `.vehicle-card` inside `.step3-vehicle-cards-list` had `overflow: hidden;`. Under CSS flexbox rules, children with non-visible overflow default to `min-height: 0`, which caused flexbox to squish all 14 vehicle cards into ~24px pills to prevent list overflow, clipping vehicle IDs, badges, buttons, driver rows, and all 4 progress bars.
+    - Added `flex-shrink: 0;` to `.veh-alloc-card, .vehicle-card` and `flex-wrap: wrap; gap: 8px;` to `.veh-card-head` in `apps/web/src/components/ui.css`. Each card now retains its full intrinsic height (~160–180px) and the list scrolls vertically as intended.
+  - **Phase 7 UI Support Verification on Vehicle Cards:**
+    - Verified that `PlanningStep3Allocation.tsx` fully integrates with Phase 7 Manual Planning backend contracts:
+      - **Resequencing Stops:** "Earlier" and "Later" actions trigger `POST /api/v1/dispatcher/plans/{id}/trips/{tripId}/sequence`.
+      - **Assign / Move / Remove Stops:** Drag/assign dropdown triggers `POST /api/v1/dispatcher/plans/{id}/moves` to assign unassigned orders or remove stops.
+      - **Vehicle / Slot Swap:** "Change" button opens modal to execute `POST /api/v1/dispatcher/plans/{id}/trips/{tripId}/vehicle` for vehicle changes and slot 1/2 reassignment.
+      - **Trip Management:** "Add Trip" modal and "Remove" button mutate candidate trips.
+      - **Optimistic Concurrency & Audit:** Passes `expectedVersion: candidateView.plan.lockVersion` and non-blank audit reasons on every manual edit.
+      - **Authoritative Metrics & Rule Violations:** Displays live utilization progress bars (Volume, Weight, Time, Fuel) computed by Spring Boot, and named rule violation badges (`ViolationCard`).
+- **Files Modified:**
+  - `apps/web/src/components/ui.css`
+  - `docs/WORK_LOG.md`
+
 ### 6. Connect Five-Step Planning Workflow to Authoritative Manual Planning Backend and Spring Dashboard Metrics
 - **Category:** Backend Integration, Optimistic Locking & Planning Workflow
 - **Summary:** Connected the Figma-based five-step planning screens (`PlanningConfirmedOrdersPage`, `PlanningStep2Generate`, `PlanningStep3Allocation`, `PlanningStep4Exceptions`, `PlanningStep5Confirm`) to the verified manual-planning backend API (`/api/v1/dispatcher/plans/*`). Supported candidate creation from frozen snapshots, authoritative optimistic locking (`lockVersion`), real mutations (add/remove trips, assign/move/unassign orders, vehicle/slot changes, stop resequencing), named rule violation cards, explicit order deferral/restoration with audit reasons, atomic publication with fuel reservation, and server-supplied dashboard planning progress.
@@ -327,3 +346,16 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Figma MCP metadata and identity calls repeatedly returned authentication prompts; no fresh design access or visual comparison was obtained and no token was requested/stored. Earlier role-frame documentation conflicts are explicitly unresolved.
 - Preserved the existing uncommitted `apps/web/src/components/ui.css` change. No application fixes, deployment, commit, push, external post or phase-scope change was performed in this analysis task.
 - Regenerated the TypeScript API client to `/tmp` and confirmed it is byte-identical to the tracked client; generated files were not changed. Final `git diff --check` passed.
+
+
+## 2026-10-03 — Authorized merge and planning integrity repairs
+
+- Read the Figma design-to-code skill and obtained Dispatcher metadata and Confirmed Orders design context/screenshot. Figma access now works; no token or design write was needed.
+- At the owner's request, committed the existing changes, fetched/merged current remote main, merged the manual-planning branch without conflicts, and pushed `main` at `561ee5f`. Created `fix/planning-data-integrity` from that main. New fixes remain local and uncommitted.
+- Added ordering-owned complete queue summary and server parking filtering before paging through published reference services. Added server-assigned plan volume and regenerated OpenAPI/TypeScript. Tested 207 invented orders to prove the 200-row limit does not truncate summary values.
+- Connected Step 1 exclusions to reasoned persisted candidate DEFERRED dispositions, retaining all closed orders in the snapshot. Preserve other trips/dispositions and restore included orders to the backlog. Corrected false save/publication success, candidate readiness after refresh, and depot/URL scope clearing, including obsolete asynchronous responses.
+- Removed fake late-count/map positions/manifest bay and departure/volume fallback/timed optimizer claims and unwired rule controls. Disabled unavailable notification delivery controls. Corrected empty manual-candidate language and retained existing screen slots/shared components.
+- Repaired independent delivery-window waiting cascades without changing the trip-time/fuel formulas. Added exact close-time and 270/480-minute plus-one boundary tests.
+- Final verification: full API suite 114 passed, plus later boundary/OpenAPI drift checks; web 71 passed, zero lint errors/warnings, TypeScript and Docker build passed. Isolated synthetic API 18084/web 15176: 26 captured curl outcomes with error trace/scope checks, SQL reconciliation, permanent smoke passed, primary queue/deferral/reload/depot browser passed, and full manual publication browser passed with Python stopped. Restored isolated Python afterward. See `docs/MANUAL_PLANNING_VERIFICATION.md` for commands/responses.
+- Corrected initial test fixture column names, a startup-readiness browser failure, the refresh and URL/remount scope regressions found by browser checks, and smoke's obsolete planned-count expectation. Kept the competition database/data and credentials out of the verification artifacts/source.
+- Updated audit/implementation evidence without marking remaining input/full-S1/visual, operational or release gates complete. Product-line representation and submitted intelligence/design commitments remain unresolved later dependencies.

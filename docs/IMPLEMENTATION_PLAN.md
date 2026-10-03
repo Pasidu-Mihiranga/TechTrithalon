@@ -13,7 +13,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; current truthfulness/server-metric regressions and visual sign-off remain)**
 - [x] Phase 4 — Store Manager Order Flow **(functional gate: recorded curl/browser evidence and fresh PostgreSQL tests; release design review remains)**
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
-- [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; 56 domain tests pass; remaining boundary/input/cross-trip checks keep gate open)**
+- [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; waiting and timing boundaries verified; input integrity/full acceptance keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
 - [ ] Phase 8 — Deferral & Fairness
 - [ ] Phase 9 — Automatic Planning
@@ -35,6 +35,8 @@ Check a phase only after its exit gate passes in the running system; documentati
 **Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
 
 **Evidence reconciliation, 2026-10-03:** the completion record later includes PostgreSQL, curl and browser evidence for the ordering corrections, so Phase 4's functional gate is restored. Fresh checks passed 110 API tests, 66 web tests, typecheck, build and three Python tests; full web lint failed with three errors. Current five-step UI inspection found hard-coded operational copy, client-computed totals, ineffective van-only filtering and exclusions not used by snapshot creation. Phase 3A/5 therefore stay open. Phase 6 code and timing fixtures exist, but full boundary/input/cross-trip evidence is incomplete. Phase 7 retains its verified functional-board status; operational loading/driver handoff remains Phase 11+. See [the full audit and execution order](./ROUND2_REQUIREMENTS_AUDIT.md). No new mutation/browser verification or Figma visual sign-off is claimed by this audit.
+
+**Repair evidence, 2026-10-03:** existing work was merged/pushed to `main` at `561ee5f`; fixes are local on `fix/planning-data-integrity`. Figma reads now succeed. Server queue totals/van filtering, recorded candidate deferrals, candidate refresh/scope clearing, truthful manual progress/maps/publication, and independent waiting-time validation have fresh synthetic curl/SQL/browser evidence. Full API suite: 114 passed, plus the newly added budget-boundary/contract check; web: 71 passed, clean lint/typecheck and Docker build. Required-input integrity, full S1, remaining screen/business metrics and visual/state review keep earlier gates open. See [verification details](./MANUAL_PLANNING_VERIFICATION.md#2026-10-03--planning-integrity-follow-up). Later phases remain in the audit's dependency order; none is silently skipped.
 
 ## 1. How to Use This Plan
 
@@ -573,7 +575,7 @@ Queue UI and snapshot service can advance in parallel on agreed read models; int
 
 ### Exit Gate
 
-- [ ] Dispatcher can inspect the exact closed order set. *(Backend is verified; current filter/exclusion controls must agree with queried/snapshotted membership before closing the latest UI gate.)*
+- [ ] Dispatcher can inspect the exact closed order set. *(Server counts/filter and persisted candidate deferrals now have synthetic curl/SQL/browser evidence; complete screen/state/CSV/date-switch and visual review remain open.)*
 - [x] A snapshot freezes all inputs needed for a planning attempt.
 - [x] Repeated reads reproduce the same snapshot.
 
@@ -633,6 +635,7 @@ Not required in this phase.
 - [ ] JUnit/AssertJ tests for every rule, positive and negative cases; 101/112/213 fixtures.
 - [ ] Use Testcontainers for database constraints; run S1 rule/shortage diagnostics without asserting an unproven optimum.
 - [x] Verify the implemented timing examples and named-rule suite. *(2026-10-03: 56 planning-domain tests pass, including 101/112/213; the complete 110-test API suite passes. This does not close missing boundary/full-S1 checks.)*
+- [x] Verify exact 270/480-minute budgets and plus-one rejection, arrival exactly at window close, and waiting cascaded between vehicle trips. *(2026-10-03 regression tests passed; booklet formulas unchanged.)*
 
 #### Documentation
 

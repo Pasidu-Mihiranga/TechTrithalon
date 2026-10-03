@@ -891,6 +891,9 @@
       },
       "PlanMetrics" : {
         "properties" : {
+          "assignedVolumeM3" : {
+            "type" : "number"
+          },
           "avgVolumeUtilisation" : {
             "type" : "number"
           },
@@ -1099,6 +1102,30 @@
           "total" : {
             "format" : "int32",
             "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "PlanningQueueSummary" : {
+        "properties" : {
+          "ambientOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "chilledOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalVolumeM3" : {
+            "type" : "number"
+          },
+          "vanOnlyOrders" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -1632,6 +1659,13 @@
           }
         }, {
           "in" : "query",
+          "name" : "parkingConstraint",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
           "name" : "status",
           "required" : false,
           "schema" : {
@@ -1685,6 +1719,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrderPage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/orders/summary" : {
+      "get" : {
+        "operationId" : "summary_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanningQueueSummary"
                 }
               }
             },

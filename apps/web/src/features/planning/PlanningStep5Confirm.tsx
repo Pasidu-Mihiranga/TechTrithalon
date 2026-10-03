@@ -68,13 +68,12 @@ export function PlanningStep5Confirm({
   onReloadPlan,
   actionPending = false,
 }: PlanningStep5ConfirmProps) {
-  const [notifyLoaderApp, setNotifyLoaderApp] = useState(false)
-  const [notifyDriverSms, setNotifyDriverSms] = useState(false)
-  const [notifySupervisorEmail, setNotifySupervisorEmail] = useState(false)
+  const notifyLoaderApp = false
+  const notifyDriverSms = false
+  const notifySupervisorEmail = false
 
   // 5A+ Modal State
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  const [modalEmailChecked, setModalEmailChecked] = useState(false)
   const [publishReason, setPublishReason] = useState('Publishing finalized delivery routes and locking fuel allocations')
   const [publishing, setPublishing] = useState(false)
   const [localPublishError, setLocalPublishError] = useState<string | null>(null)
@@ -90,14 +89,13 @@ export function PlanningStep5Confirm({
         const util = candidateView.utilisation?.[String(trip.id)]
         const volUsed = util?.volumeUsedM3 != null ? util.volumeUsedM3.toFixed(1) : '—'
         const volLimit = util?.volumeLimitM3 != null ? util.volumeLimitM3.toFixed(1) : '—'
-        const firstStop = trip.stops?.[0]
         return {
           vehicle: `${trip.vehicleId} (Slot ${trip.tripIndex ?? 1})`,
           driver: 'Unassigned', // Drivers are unassigned in Phase 7
           stops: trip.stops?.length ?? 0,
           volume: `${volUsed} / ${volLimit} m³`,
-          departs: firstStop?.plannedArrival ? `Depot -> ${firstStop.plannedArrival}` : '—',
-          bay: `Bay ${trip.tripIndex ?? 1}`,
+          departs: 'Not provided',
+          bay: 'Unassigned',
           accentColor: '#FFC20E',
         }
       })
@@ -105,25 +103,24 @@ export function PlanningStep5Confirm({
 
   // Derive counts & KPIs
   const vehiclesCount = candidateView
-    ? new Set((candidateView.trips ?? []).map((t) => t.vehicleId)).size
-    : (propsMetrics?.totalVehicles ?? manifestRows.length)
+    ? (candidateView.validation?.metrics?.vehiclesUsed ?? '—')
+    : (propsMetrics?.totalVehicles ?? '—')
 
   const driversCount = candidateView
     ? 'Unassigned'
-    : (propsMetrics?.totalDrivers ?? manifestRows.filter((m) => Boolean(m.driver)).length)
+    : (propsMetrics?.totalDrivers ?? '—')
 
   const ordersCount = candidateView
-    ? (candidateView.validation?.metrics?.ordersAssigned ??
-       (candidateView.trips ?? []).reduce((acc, t) => acc + (t.stops?.length ?? 0), 0))
-    : (propsMetrics?.totalOrders ?? manifestRows.reduce((acc, m) => acc + m.stops, 0))
+    ? (candidateView.validation?.metrics?.ordersAssigned ?? '—')
+    : (propsMetrics?.totalOrders ?? '—')
 
   const totalVolumeStr = candidateView
-    ? `${Object.values(candidateView.utilisation ?? {}).reduce((acc, u) => acc + (u.volumeUsedM3 ?? 0), 0).toFixed(1)} m³`
+    ? candidateView.validation?.metrics?.assignedVolumeM3 != null
+      ? `${candidateView.validation.metrics.assignedVolumeM3.toFixed(1)} m³`
+      : '—'
     : propsMetrics
       ? `${propsMetrics.totalVolumeM3.toFixed(1)} m³`
-      : manifestRows.length > 0
-        ? `${manifestRows.length * 15} m³`
-        : '0.0 m³'
+      : '—'
 
   const totalDistanceStr = candidateView?.validation?.metrics?.totalDistanceKm != null
     ? `${candidateView.validation.metrics.totalDistanceKm} km`
@@ -143,8 +140,10 @@ export function PlanningStep5Confirm({
         await onPublishPlan({
           notifyLoaderApp,
           notifyDriverSms,
-          notifySupervisorEmail: modalEmailChecked || notifySupervisorEmail,
+          notifySupervisorEmail,
         })
+      } else {
+        throw new Error('Publication service is unavailable. No plan has been sent.')
       }
       setConfirmModalOpen(false)
       setPlanSent(true)
@@ -201,10 +200,10 @@ export function PlanningStep5Confirm({
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
             <Lock size={18} className="text-brand-blue" style={{ marginTop: '2px', flexShrink: 0 }} />
             <div>
-              <strong style={{ color: '#0369A1' }}>Phase 7 Publication Complete: </strong>
+              <strong style={{ color: '#0369A1' }}>Plan published: </strong>
               <span style={{ color: '#0C4A6E', fontSize: '13px' }}>
                 Operational routes are committed and vehicle fuel is reserved in the ledger. Published plans are immutable.
-                Note: Loader mobile apps and driver dispatch notifications belong to Phase 11+ and are not simulated here.
+                Loader and driver dispatch are unavailable.
               </span>
             </div>
           </div>
@@ -250,7 +249,7 @@ export function PlanningStep5Confirm({
               <div className="timeline-node upcoming">
                 <div className="node-marker">○</div>
                 <div className="node-info">
-                  <div className="node-title">Warehouse loading execution (Phase 11+)</div>
+                  <div className="node-title">Warehouse loading unavailable</div>
                   <div className="node-meta">Bay staging and pallet sequence dispatch</div>
                 </div>
               </div>
@@ -258,7 +257,7 @@ export function PlanningStep5Confirm({
               <div className="timeline-node upcoming">
                 <div className="node-marker">○</div>
                 <div className="node-info">
-                  <div className="node-title">Driver mobile dispatch (Phase 11+)</div>
+                  <div className="node-title">Driver dispatch unavailable</div>
                   <div className="node-meta">Route navigation and ePOD rollout</div>
                 </div>
               </div>
@@ -359,7 +358,7 @@ export function PlanningStep5Confirm({
             </h2>
             <p className="ready-subtitle">
               {manifestRows.length > 0
-                ? `All exceptions are resolved and all constraints are satisfied. Plan for ${planDate} from ${activeDepot} is ready.`
+                ? `Review the saved manifest. Plan for ${planDate} from ${activeDepot} is ready.`
                 : `Finalize notifications and compile dispatch manifest for ${planDate} (${activeDepot} Depot).`}
             </p>
           </div>
@@ -474,7 +473,7 @@ export function PlanningStep5Confirm({
                         <td>{row.volume}</td>
                         <td>{row.departs ?? '—'}</td>
                         <td>
-                          <span className="bay-badge">{row.bay ?? 'Bay 1'}</span>
+                          <span className="bay-badge">{row.bay ?? 'Unassigned'}</span>
                         </td>
                       </tr>
                     ))
@@ -489,7 +488,7 @@ export function PlanningStep5Confirm({
         <div className="step5-side-col">
           <div className="notifications-card">
             <h3 className="notif-title">Send Notifications</h3>
-            <p className="notif-sub">Choose who receives updates when the plan is confirmed:</p>
+            <p className="notif-sub">Notification delivery is unavailable. Publishing saves the plan and its audit record.</p>
 
             <div className="notif-toggles-list">
               {/* Loader App */}
@@ -506,7 +505,7 @@ export function PlanningStep5Confirm({
                   role="switch"
                   aria-checked={notifyLoaderApp}
                   className={`toggle-switch ${notifyLoaderApp ? 'active' : ''}`}
-                  onClick={() => setNotifyLoaderApp(!notifyLoaderApp)}
+                  disabled
                 >
                   <span className="toggle-thumb" />
                 </button>
@@ -526,7 +525,7 @@ export function PlanningStep5Confirm({
                   role="switch"
                   aria-checked={notifyDriverSms}
                   className={`toggle-switch ${notifyDriverSms ? 'active' : ''}`}
-                  onClick={() => setNotifyDriverSms(!notifyDriverSms)}
+                  disabled
                 >
                   <span className="toggle-thumb" />
                 </button>
@@ -546,7 +545,7 @@ export function PlanningStep5Confirm({
                   role="switch"
                   aria-checked={notifySupervisorEmail}
                   className={`toggle-switch ${notifySupervisorEmail ? 'active' : ''}`}
-                  onClick={() => setNotifySupervisorEmail(!notifySupervisorEmail)}
+                  disabled
                 >
                   <span className="toggle-thumb" />
                 </button>
@@ -556,9 +555,7 @@ export function PlanningStep5Confirm({
             <div className="notif-disclaimer">
               <Clock size={12} aria-hidden="true" />
               <span>
-                {candidateView
-                  ? 'Phase 7 locks routes and commits fuel. Operational dispatch apps connect in Phase 11+.'
-                  : 'Once confirmed, changes will notify affected drivers and loaders automatically.'}
+                Loader and driver notifications are unavailable.
               </span>
             </div>
           </div>
@@ -626,8 +623,8 @@ export function PlanningStep5Confirm({
                 <input
                   type="checkbox"
                   id="modal-email-check"
-                  checked={modalEmailChecked}
-                  onChange={(e) => setModalEmailChecked(e.target.checked)}
+                  checked
+                  disabled
                 />
                 <label htmlFor="modal-email-check">
                   Record publication in operational audit ledger

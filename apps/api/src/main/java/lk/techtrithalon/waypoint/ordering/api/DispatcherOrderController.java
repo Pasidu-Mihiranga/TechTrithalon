@@ -7,6 +7,7 @@ import lk.techtrithalon.waypoint.ordering.application.OrderQueryService;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.DashboardSnapshot;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
+import lk.techtrithalon.waypoint.ordering.domain.PlanningQueueSummary;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +39,7 @@ class DispatcherOrderController {
         @RequestParam(required = false) String depot,
         @RequestParam(required = false) String brand,
         @RequestParam(required = false) String tempRequirement,
+        @RequestParam(required = false) String parkingConstraint,
         @RequestParam(required = false) String status,
         @RequestParam(required = false) String q,
         @RequestParam(defaultValue = "ref") String sort,
@@ -45,11 +47,20 @@ class DispatcherOrderController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "50") int size
     ) {
-        return service.dispatcherOrders(user, date, depot, brand, tempRequirement, status, q, sort, asc, page, size);
+        return service.dispatcherOrders(user, date, depot, brand, tempRequirement, status, q, sort, asc, page, size, parkingConstraint);
     }
 
     @GetMapping("/orders/{id}")
     CustomerOrder order(@AuthenticationPrincipal CurrentUser user, @PathVariable long id) {
         return service.dispatcherOrder(user, id);
+    }
+
+    @GetMapping("/orders/summary")
+    PlanningQueueSummary summary(
+        @AuthenticationPrincipal CurrentUser user,
+        @RequestParam(required = false) LocalDate date,
+        @RequestParam(required = false) String depot
+    ) {
+        return service.planningQueueSummary(user, date, depot);
     }
 }

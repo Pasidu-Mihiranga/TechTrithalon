@@ -58,6 +58,30 @@ export type Edit =
   | { operation: 'defer' | 'restore'; orderId: number; body: Schema['ManualPlanDeferRequest'] }
   | { operation: 'publish'; body: Schema['ManualPlanCommandRequest'] }
 
+export type DispositionChange = { orderId: number; reason?: string; nextDeliveryDate?: string }
+
+/** Preserve the full snapshot and other work while recording exclusions as reasoned deferrals. */
+export function dispositionReplacement(view: ManualPlanView, changes: DispositionChange[]): Schema['ManualPlanReplaceRequest'] {
+  const changedIds = new Set(changes.map(change => change.orderId))
+  const deferredIds = new Set(changes.filter(change => change.reason).map(change => change.orderId))
+  return {
+    expectedVersion: view.plan.lockVersion!,
+    reason: 'Update reasoned queue deferrals',
+    trips: (view.trips ?? []).map(trip => ({
+      id: trip.id, vehicleId: trip.vehicleId!, tripIndex: trip.tripIndex,
+      brand: trip.brand!, district: trip.district!,
+      orderIds: (trip.stops ?? []).map(stop => stop.orderId!).filter(id => !deferredIds.has(id)),
+    })),
+    dispositions: [
+      ...(view.unassignedOrders ?? []).filter(item => item.order?.id != null && item.reason && !changedIds.has(item.order.id))
+        .map(item => ({ orderId: item.order!.id, code: item.disposition!, reason: item.reason!, nextDeliveryDate: item.nextDeliveryDate })),
+      ...changes.filter(change => change.reason).map(change => ({
+        orderId: change.orderId, code: 'DEFERRED', reason: change.reason!, nextDeliveryDate: change.nextDeliveryDate,
+      })),
+    ],
+  }
+}
+
 function useSavedPlan() {
   const cache = useQueryClient()
   return (view: ManualPlanView) => {

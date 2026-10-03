@@ -20,6 +20,7 @@ export function useDispatcherOrders(query: {
   depot?: string
   brand?: string
   tempRequirement?: string
+  parkingConstraint?: string
   status?: string
   q?: string
   sort?: string
@@ -37,6 +38,7 @@ export function useDispatcherOrders(query: {
             depot: query.depot,
             brand: query.brand || undefined,
             tempRequirement: query.tempRequirement || undefined,
+            parkingConstraint: query.parkingConstraint || undefined,
             status: query.status || undefined,
             q: query.q || undefined,
             sort: query.sort ?? 'ref',
@@ -125,5 +127,19 @@ export function useStoreOrder(id: number) {
       return data
     },
     retry: false,
+  })
+}
+
+export function usePlanningQueueSummary(date: string, depot: string) {
+  return useQuery({
+    queryKey: ['dispatcher', 'orders', 'summary', date, depot],
+    enabled: Boolean(date && depot), retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/summary', {
+        params: { query: { date, depot } },
+      })
+      if (error || !data) throw apiReadError(response, 'Planning queue totals could not be loaded')
+      return data
+    },
   })
 }
