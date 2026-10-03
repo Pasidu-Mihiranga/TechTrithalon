@@ -157,6 +157,13 @@ assert_failure 403 FORBIDDEN -b "$cookies" -H 'Content-Type: application/json' -
   -d '{"tempRequirement":"ambient","units":1,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
 assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/orders/999999999"
 
+echo "District map data: geography and demand by district (read-only)"
+geography=$(curl -fsS -b "$cookies" "$API/api/v1/reference/geography")
+[[ "$(echo "$geography" | python3 -c "import sys,json; g=json.load(sys.stdin); print(len(g['districts']) > 0 and len(g['depots']) > 0 and len(g['links']) > 0)")" == "True" ]] || fail "geography is empty: $geography"
+district_demand=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/districts?date=$demo_date&depot=$depot")
+[[ "$(echo "$district_demand" | python3 -c "import sys,json; print(sum(r['orders'] for r in json.load(sys.stdin)))")" == "$(echo "$queue" | json_field "['totalOrders']")" ]] || fail "district demand does not add up to the queue total"
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' "$API/api/v1/reference/geography")" == "401" ]] || fail "anonymous geography did not return 401"
+
 echo "Deferral history: run summary and store notices (read-only)"
 deferral_run=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/deferrals?date=$demo_date&depot=$depot")
 [[ "$(echo "$deferral_run" | json_field "['deferredOrders']")" == "$(echo "$deferral_run" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))")" ]] \

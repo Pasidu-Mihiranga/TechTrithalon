@@ -5,6 +5,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { PlanningStep3Allocation, formatDeliveryWindow } from './PlanningStep3Allocation'
 import type { ManualPlanView } from './manualPlanQueries'
 
+const geography = { attribution: 'Synthetic test boundaries', depots: [{ name: 'Synthetic', lat: 7, lng: 80, basis: 'Synthetic point' }],
+  districts: [{ district: 'Alpha', served: true, depot: 'Synthetic', labelPoint: [80.1, 7.1], geometry: { type: 'Polygon', coordinates: [[[80, 7], [80.3, 7], [80.3, 7.3], [80, 7.3], [80, 7]]] } }],
+  links: [{ district: 'Alpha', depot: 'Synthetic', depotToDistrictKm: 10, depotToDistrictMinutes: 20, interStopKm: 3, interStopMinutes: 7, roadClass: 'urban' }] }
+const answer = async (request: Request) => new Response(request.url.includes('/reference/geography') ? JSON.stringify(geography) : '[]', { status: 200, headers: { 'Content-Type': 'application/json' } })
+
 const sources = import.meta.glob('./*.tsx', { query: '?raw', import: 'default', eager: true })
 const navSources = import.meta.glob('../../app/roles.ts', { query: '?raw', import: 'default', eager: true })
 
@@ -34,13 +39,13 @@ describe('Step 3 stop windows', () => {
   })
 
   it('shows the effective window and the planned arrival as separate facts', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    vi.stubGlobal('fetch', vi.fn(answer))
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <PlanningStep3Allocation candidateView={view} activeDepot="Synthetic" onBackToSummary={() => {}} onContinueToExceptions={() => {}} />
     </QueryClientProvider>)
     await userEvent.click(screen.getAllByRole('button', { name: /review/i })[0])
     expect(screen.getByText('🕒 Window 05:00–05:20')).toBeInTheDocument()
-    expect(screen.getByText('Arrives 03:50')).toBeInTheDocument()
+    expect(screen.getAllByText('Arrives 03:50').length).toBeGreaterThan(0)
     expect(screen.getByText('🕒 Window unavailable')).toBeInTheDocument()
     expect(screen.queryByText(/06:00–08:00/)).not.toBeInTheDocument()
   })

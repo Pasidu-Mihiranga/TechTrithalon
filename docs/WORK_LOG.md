@@ -423,3 +423,28 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Backend: loader board and task endpoints; count, shortfall (with hold), acknowledge and handover with optimistic versions; dispatcher loading-issue list and decision. A republish carries counts and open issues to the new task and requires acknowledgement. Migration `V20261003_2200` is additive; publication copies the driver name and vehicle capacity onto load tasks.
 - Step 5 (published) shows a Loading issues panel with the two decisions and marks held trips.
 - Tests: `LoaderWorkflowIT` (5), `loader.test.tsx` (9), Playwright `loader.spec.ts`; the smoke script covers loader reads. Totals: API 140, web 93; lint, typecheck and build clean. Curl, SQL and a full Chromium journey on the synthetic stack (see `docs/LOADING_VERIFICATION.md`).
+
+## 2026-10-03 — Change Vehicle dialog fixed and checked against the backend
+
+- The dialog used classes with no CSS (`modal-card`, `modal-header`, `modal-footer`), so it rendered unstyled over the page. It now uses the shared `Dialog` component with a radio list, tokens and no inline styles.
+- Options show each vehicle's recorded availability (unavailable ones are disabled and sorted last) instead of a hard-coded "Available". Slots read "Trip 1 / Trip 2" instead of invented "Morning / Afternoon".
+- Backend rejections (named rule, trace ID) now appear inside the dialog; before they were hidden behind it.
+- "Change" is disabled for a standby vehicle: it has no trip, and the old confirm button silently did nothing there.
+- Tests: `changeVehicle.test.tsx` (4) and `change-vehicle.spec.ts` (Playwright, isolated stack). The browser run showed a swap accepted and persisted through `POST /plans/{id}/trips/{id}/vehicle`, and a swap to an ambient truck for a chilled order rejected with `TEMPERATURE_COMPATIBILITY` while leaving the plan unchanged. Web: 97 tests, typecheck, lint and build clean.
+
+## 2026-10-03 — Review Allocation cards, route detail panel and remaining dialogs
+
+- Vehicle cards are collapsible (header with ID, type and summary always visible; cards with a trip open by default, standby vehicles folded). Metrics are four readable tiles (value, limit, bar, note) instead of small monospace rows.
+- Actions follow what the vehicle can do: a trip has Review / Change / Remove; a standby vehicle has **Add trip**, which opens the trip dialog with that vehicle preselected. Without an open candidate the card says so instead of showing dead buttons.
+- Fixed van detection (it looked for "van" in the vehicle ID, so every van showed as a lorry and the Van tab read 0) and the invented brand fallback ("Perishable", "General").
+- The right side is now a route detail panel: trip time, distance, fuel and stops from the server, then a schematic sequence (depot, each stop with window, planned arrival, wait, dock, van-only and chilled tags, return to depot). It states that no map is drawn because the competition data has no coordinates. No coordinates were invented.
+- The Add Trip and Resolve Exceptions defer dialogs now use the shared `Dialog` (they had the same unstyled classes).
+- Tests: web 99 (new card, action, panel and dialog cases); browser: swap accepted, swap rejected with the named rule, and Add trip on a standby vehicle creating the trip through the API.
+
+## 2026-10-03 — Interactive district map on the planning screens
+
+- Added a Leaflet district map (`components/DistrictMap`) with public district boundaries, two town-level depot points, depot-to-district lines labelled with the competition's km and minutes, click-to-select districts, "Base map" toggle (with automatic fallback to shapes only), reset view and a legend. No outlet is ever drawn; no coordinates were invented. Approved by the owner: `leaflet` dependency, the geoBoundaries file (ODbL, attributed on the map), and an optional CARTO base layer.
+- Step 1 "Map" view: districts shaded by the server's order counts, labels carry the counts, and clicking a district (or its chip, for keyboard and phone use) filters the list through the existing server-side search. Removed invented outlet names and the `?? 'Colombo'` fallback.
+- Step 3: the right panel now has the map above the route detail. It shades districts by orders not yet on a trip, highlights the selected trip's district and link, and clicking a district selects a trip there.
+- New endpoints: `GET /api/v1/reference/geography` and `GET /api/v1/dispatcher/orders/districts`; the plan view gained `unassignedByDistrict`. Curl matched SQL (7 districts, 85 orders, volumes to 3 decimals) with 401/403/404/400 paths. `scripts/smoke.sh` covers both.
+- Tests: `GeographyIT` (3), `DistrictMap.test.tsx` (5), Playwright `district-map.spec.ts` on real demo data. Documented in `docs/GEOGRAPHY.md`.
