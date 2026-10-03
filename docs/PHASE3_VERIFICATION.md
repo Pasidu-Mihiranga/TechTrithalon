@@ -2,6 +2,8 @@
 
 Verified locally on 2026-10-02. Phase 3 is complete. Phase 3A (Dispatcher and Store Manager screens) is next; Phase 0's remote GitHub CI check remains pending.
 
+The curl responses below are historical captures. On 2026-10-04, the synthetic `VEH901` fixture changed from `truck` to `van` so the four-role browser journey can legally serve the van-only `OUT901` outlet; the captured responses were left as originally observed.
+
 ## Implemented slice
 
 Spring exposes seeded outlet, vehicle, district travel, depot, calendar and service-allowance reads. Outlet responses derive effective delivery windows as `max(windowOpen, mallWindowOpen)` through `min(windowClose, mallWindowClose)`; the importer rejects empty intersections in one transaction. Imports retain natural IDs and use `ON CONFLICT DO NOTHING`, so repeating startup does not duplicate rows or silently overwrite existing reference values.

@@ -113,14 +113,14 @@ export function PlanningConfirmedOrdersPage() {
         if (!data) { setDepotsError(apiReadError(response, 'Depots could not be loaded')); return }
         const names = data.filter((n): n is string => Boolean(n))
         setDepots(names)
-        const initial = scope.depot || (names.includes('Peliyagoda') ? 'Peliyagoda' : names[0]) || ''
+        const initial = scope.depot || names[0] || ''
         setDepot(initial)
       } catch (f) { if (!cancelled) setDepotsError(f instanceof Error ? f : new Error('Depots could not be loaded')) }
     })()
     return () => { cancelled = true }
   }, [scope.depot])
 
-  const activeDepot = scope.depot || depot || (depots?.includes('Peliyagoda') ? 'Peliyagoda' : depots?.[0]) || 'Peliyagoda'
+  const activeDepot = scope.depot || depot || depots?.[0] || ''
   const planDate = date || summary.data?.demoOperatingDate || ''
 
   // Authoritative manual plan hooks
@@ -387,6 +387,8 @@ export function PlanningConfirmedOrdersPage() {
 
   if (queueSummary.isPending) return <LoadingState label="Loading planning queue totals" />
   if (queueSummary.error) return <ErrorState error={queueSummary.error} message={queueSummary.error.message} onRetry={() => void queueSummary.refetch()} />
+  if (activePlanId && planQuery.isPending) return <LoadingState label="Loading candidate plan" />
+  if (activePlanId && planQuery.isError) return <ErrorState error={planQuery.error} message="Candidate plan could not be loaded." onRetry={() => void planQuery.refetch()} />
 
   const totalOrders = ordersQuery.data?.total ?? 0
   const items = ordersQuery.data?.items ?? []
@@ -502,7 +504,7 @@ export function PlanningConfirmedOrdersPage() {
               <Calendar size={18} />
             </div>
             <div className="planning-date-info">
-              <span className="planning-date-badge">Tomorrow</span>
+              <span className="planning-date-badge">Delivery date</span>
               <span className="planning-date-display">{formatDisplayDate(planDate)}</span>
               <input
                 id="planning-delivery-date"
@@ -567,6 +569,10 @@ export function PlanningConfirmedOrdersPage() {
       {/* Stepper */}
       <PlanningStageTabs stage={stage} onChange={setStage} />
 
+      {stage > 1 && !candidateView && <EmptyState title="Create or open a candidate plan"
+        description="Allocation, exception review and publication require a saved candidate from this planning run."
+        action={<Button onClick={() => setStage(1)}>Go to Generate Plan</Button>} />}
+
       {stage === 1 && (
         <PlanningStep2Generate
           snapshot={snapshot}
@@ -581,7 +587,7 @@ export function PlanningConfirmedOrdersPage() {
         />
       )}
 
-      {stage === 2 && (
+      {stage === 2 && candidateView && (
         <PlanningStep3Allocation
           activeDepot={activeDepot}
           candidateView={candidateView}
@@ -594,7 +600,7 @@ export function PlanningConfirmedOrdersPage() {
         />
       )}
 
-      {stage === 3 && (
+      {stage === 3 && candidateView && (
         <PlanningStep4Exceptions
           candidateView={candidateView}
           onApplyCommand={handleApplyCommand}
@@ -605,7 +611,7 @@ export function PlanningConfirmedOrdersPage() {
         />
       )}
 
-      {stage === 4 && (
+      {stage === 4 && candidateView && (
         <PlanningStep5Confirm
           activeDepot={activeDepot}
           planDate={formatDisplayDate(planDate)}

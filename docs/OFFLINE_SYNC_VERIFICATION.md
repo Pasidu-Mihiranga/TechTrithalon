@@ -96,3 +96,16 @@ The API ran on the host with the synthetic fixtures. The demo clock is fixed at 
 - A real Cloudinary upload is still not exercised (no credentials here); offline photo upload and idempotency are covered with the in-memory store.
 - Device-clock skew is flagged on the action result. Showing it to the dispatcher is part of Step 8 (exceptions).
 - The "Route updated" full-screen frame (`835:19616`) is not built separately. The trip screen shows the server's `routeChanged` banner, and the review list explains offline route changes.
+
+## 2026-10-04 recheck and live seed
+
+| Check | Result |
+|---|---|
+| `SyncIT` | 3 passed against PostgreSQL Testcontainers |
+| Full web suite | 151 passed, including the 3 focused retry and Sync Status tests; proof upload HTTP 503 now remains pending for retry, while HTTP 422 settles with its server error |
+| Web typecheck | Passed |
+| `driver-offline.spec.ts` on fresh isolated synthetic Compose stack | Passed: driver completed the trip offline and the five actions synced once after reconnection |
+| Live `--seed-offline-arrival` | Driver trip 2 at OUT004: `STOP_ARRIVE` returned `APPLIED`; the same action returned `DUPLICATE`; the order remains open. A second seed run made no change. PostgreSQL has two `APPLIED` sync rows on this trip, the earlier `STOP_DEPART` at OUT001 and this arrival. |
+| Local container refresh | Web and API HTTP 200; `--verify-only` passed after restart |
+
+The demo API clock remains fixed in June while these live seed actions carry October device times, so both rows have `clock_skew=true`. This is the intended skew flag; the device timestamps were preserved. The seed represents actions already synchronized to PostgreSQL. Pending outbox entries live in the driver's browser IndexedDB and are exercised by the browser test rather than seeded into PostgreSQL.

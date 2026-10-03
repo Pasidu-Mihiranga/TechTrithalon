@@ -28,7 +28,7 @@ export const httpSyncTransport: SyncTransport = {
     }))
     if (data) return { ok: true }
     if (response.status === 401) throw new AuthError()
-    if (response.status >= 500 && response.status !== 503) throw new NetworkError(`Upload failed (${response.status})`)
+    if (response.status >= 500) throw new NetworkError(`Upload failed (${response.status})`)
     const body = (error && typeof error === 'object' ? error : {}) as { code?: string; detail?: string }
     return { ok: false, code: body.code, message: body.detail }
   },

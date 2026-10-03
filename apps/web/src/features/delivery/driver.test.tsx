@@ -192,7 +192,10 @@ describe('driver screens', () => {
       'GET /driver/capabilities': () => ({ proofUploads: true, maxUploadBytes: 5242880 }) })
     renderAt('/driver/trips/1/orders/901/confirm')
     expect(await screen.findByLabelText('Take proof photo')).toBeInTheDocument()
-    await userEvent.type(screen.getByLabelText('Recipient name'), 'S. Perera')
+    const recipient = screen.getByLabelText('Recipient name')
+    await userEvent.type(recipient, 'S. Perera')
+    // Confirm the name landed before submitting, so the proof rule is what the form complains about.
+    await waitFor(() => expect(recipient).toHaveValue('S. Perera'))
     await userEvent.click(screen.getByRole('button', { name: 'Confirm Delivery' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Add a photo or the recipient’s signature.')
   })

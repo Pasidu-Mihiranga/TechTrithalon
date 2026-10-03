@@ -30,26 +30,6 @@ export interface GeneratedRouteSummary {
   color?: string
 }
 
-export interface GeneratedPlanMetrics {
-  routesCount: number
-  vehiclesUsed: number
-  totalVehicles: number
-  allocatedOrders: number
-  totalOrders: number
-  unassignedOrders: number
-  totalDistanceKm: number
-  avgUtilisationPct: number
-  onTimeWindowsPct: number
-}
-
-export interface GeneratedPlan {
-  planId?: string
-  status: 'pending' | 'generating' | 'ready' | 'failed'
-  executionSeconds?: number
-  metrics?: GeneratedPlanMetrics
-  routes?: GeneratedRouteSummary[]
-}
-
 export interface PlanningStep2GenerateProps {
   snapshot: Snapshot | null
   orderCount: number
@@ -57,7 +37,6 @@ export interface PlanningStep2GenerateProps {
   chilledCount: number
   activeDepot: string
   candidateView?: ManualPlanView | null
-  plan?: GeneratedPlan | null
   onContinueToAllocation: () => void
   onGeneratePlan: () => Promise<boolean | void>
   onReloadPlan?: () => void
@@ -70,14 +49,12 @@ export function PlanningStep2Generate({
   chilledCount,
   activeDepot,
   candidateView,
-  plan,
   onContinueToAllocation,
   onGeneratePlan,
   onReloadPlan,
 }: PlanningStep2GenerateProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
-  const [isPlanReady, setIsPlanReady] = useState(Boolean(candidateView || (plan && plan.status === 'ready')))
   const [optionsOpen, setOptionsOpen] = useState(false)
 
   const valMetrics = candidateView?.validation?.metrics
@@ -91,7 +68,6 @@ export function PlanningStep2Generate({
     try {
       const created = await onGeneratePlan()
       if (created === false) throw new Error('The candidate could not be created. Review the error and retry.')
-      setIsPlanReady(true)
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Plan generation could not be completed.')
     } finally {
@@ -116,10 +92,10 @@ export function PlanningStep2Generate({
     })
   }, [candidateView])
 
-  const routes = candidateRoutes.length > 0 ? candidateRoutes : (plan?.routes ?? [])
-  const metrics = plan?.metrics
+  const routes = candidateRoutes
 
-  if (candidateView || isPlanReady || plan?.status === 'ready') {
+  // The ready view exists only once Spring has saved a candidate.
+  if (candidateView) {
     return (
       <div className="planning-step2-container animate-fade-in">
         {/* Success / Ready Banner */}
@@ -131,20 +107,12 @@ export function PlanningStep2Generate({
             <div>
               <div className="plan-ready-title-row">
                 <h2 className="plan-ready-title">
-                  {candidateView
-                    ? `Plan #${candidateView.plan.id} Frozen (Revision ${candidateView.plan.lockVersion})`
-                    : plan?.executionSeconds
-                      ? `Plan ready in ${plan.executionSeconds} seconds`
-                      : 'Planning Snapshot Frozen'}
+                  {`Candidate #${candidateView.plan.id} created (revision ${candidateView.plan.lockVersion})`}
                 </h2>
-                <span className="badge-optimised">{candidateView ? candidateView.plan.status : 'Ready'}</span>
+                <span className="badge-optimised">{candidateView.plan.status}</span>
               </div>
               <p className="plan-ready-subtitle">
-                {candidateView
-                  ? `${valMetrics?.tripsUsed ?? '—'} active trips · ${valMetrics?.ordersAssigned ?? 0} orders allocated · ${valMetrics?.ordersUnassigned ?? orderCount} unassigned.`
-                  : routes.length > 0
-                    ? `${routes.length} routes built for ${metrics?.allocatedOrders ?? orderCount} orders.`
-                    : `Snapshot #${snapshot?.id ?? 1} captured with ${orderCount} confirmed orders (${totalVolume.toFixed(1)} m³).`}
+                {`${valMetrics?.tripsUsed ?? '—'} active trips · ${valMetrics?.ordersAssigned ?? 0} orders allocated · ${valMetrics?.ordersUnassigned ?? orderCount} unassigned.`}
               </p>
             </div>
           </div>
@@ -172,7 +140,6 @@ export function PlanningStep2Generate({
               className="toolbar-btn"
               disabled={isGenerating}
               onClick={() => {
-                setIsPlanReady(false)
                 void handleStartGeneration()
               }}
             >
@@ -203,8 +170,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box yellow"><Sliders size={15} /></span>
               <span className="kpi-label">Routes</span>
             </div>
-            <div className="kpi-value">{valMetrics?.tripsUsed ?? (candidateView ? '—' : (metrics ? metrics.routesCount : routes.length || '—'))}</div>
-            <div className="kpi-sub">{candidateView ? `${candidateView.trips?.length ?? 0} active trips` : (routes.length > 0 ? 'active trips' : 'pending allocation')}</div>
+            <div className="kpi-value">{valMetrics?.tripsUsed ?? '—'}</div>
+            <div className="kpi-sub">{`${candidateView.trips?.length ?? 0} active trips`}</div>
           </div>
 
           <div className="kpi-tile">
@@ -212,7 +179,7 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box orange"><Truck size={15} /></span>
               <span className="kpi-label">Vehicles used</span>
             </div>
-            <div className="kpi-value">{valMetrics?.vehiclesUsed !== undefined ? `${valMetrics.vehiclesUsed} / ${vehiclesCount ?? '—'}` : (metrics ? `${metrics.vehiclesUsed} / ${metrics.totalVehicles}` : 'Freeze inputs to check')}</div>
+            <div className="kpi-value">{valMetrics?.vehiclesUsed !== undefined ? `${valMetrics.vehiclesUsed} / ${vehiclesCount ?? '—'}` : '—'}</div>
             <div className="kpi-sub">Availability checked when inputs are frozen</div>
           </div>
 
@@ -221,8 +188,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box amber"><Box size={15} /></span>
               <span className="kpi-label">Orders allocated</span>
             </div>
-            <div className="kpi-value">{valMetrics?.ordersAssigned !== undefined ? `${valMetrics.ordersAssigned} / ${frozenOrderCount}` : (metrics ? `${metrics.allocatedOrders} / ${metrics.totalOrders}` : `${orderCount} total`)}</div>
-            <div className="kpi-sub">{valMetrics?.ordersUnassigned !== undefined ? `${valMetrics.ordersUnassigned} unassigned` : (metrics && metrics.unassignedOrders > 0 ? `${metrics.unassignedOrders} unassigned` : 'all in scope')}</div>
+            <div className="kpi-value">{valMetrics?.ordersAssigned !== undefined ? `${valMetrics.ordersAssigned} / ${frozenOrderCount}` : '—'}</div>
+            <div className="kpi-sub">{valMetrics?.ordersUnassigned !== undefined ? `${valMetrics.ordersUnassigned} unassigned` : 'awaiting validation'}</div>
           </div>
 
           <div className="kpi-tile">
@@ -230,8 +197,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box green"><ArrowRight size={15} /></span>
               <span className="kpi-label">Total distance</span>
             </div>
-            <div className="kpi-value">{valMetrics?.totalDistanceKm !== undefined ? `${valMetrics.totalDistanceKm} km` : (metrics ? `${metrics.totalDistanceKm} km` : '—')}</div>
-            <div className="kpi-sub">{candidateView ? 'calculated from trips' : 'calculated by solver'}</div>
+            <div className="kpi-value">{valMetrics?.totalDistanceKm !== undefined ? `${valMetrics.totalDistanceKm} km` : '—'}</div>
+            <div className="kpi-sub">calculated from trips</div>
           </div>
 
           <div className="kpi-tile">
@@ -239,17 +206,17 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box teal"><CheckCircle size={15} /></span>
               <span className="kpi-label">Avg utilisation</span>
             </div>
-            <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation)}%` : (metrics ? `${metrics.avgUtilisationPct}%` : '—')}</div>
+            <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation)}%` : '—'}</div>
             <div className="kpi-sub">server-reported average</div>
           </div>
 
           <div className="kpi-tile">
             <div className="kpi-tile-header">
               <span className="kpi-icon-box blue"><Clock size={15} /></span>
-              <span className="kpi-label">On-time windows</span>
+              <span className="kpi-label">Constraint check</span>
             </div>
-            <div className="kpi-value">{candidateView?.validation?.feasible !== undefined ? (candidateView.validation.feasible ? 'No violations' : 'Violations') : (metrics ? `${metrics.onTimeWindowsPct}%` : '—')}</div>
-            <div className="kpi-sub">{candidateView ? (candidateView.validation?.feasible ? 'current assignments only' : 'review exceptions') : 'delivery adherence'}</div>
+            <div className="kpi-value">{candidateView?.validation?.feasible !== undefined ? (candidateView.validation.feasible ? 'Passed' : 'Violations') : '—'}</div>
+            <div className="kpi-sub">{candidateView ? 'Server validation of current assignments' : 'Available after candidate creation'}</div>
           </div>
         </div>
 
@@ -351,7 +318,7 @@ export function PlanningStep2Generate({
             <div className="kpi-tile">
               <div className="kpi-tile-header">
                 <span className="kpi-icon-box amber"><Box size={15} /></span>
-                <span className="kpi-label">Selected orders</span>
+                <span className="kpi-label">Orders in scope</span>
               </div>
               <div className="kpi-value">{orderCount}</div>
               <div className="kpi-sub">({totalVolume.toFixed(1)} m³)</div>

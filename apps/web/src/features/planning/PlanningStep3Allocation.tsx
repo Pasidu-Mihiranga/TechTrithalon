@@ -76,7 +76,6 @@ export interface VehicleAllocationCard {
 }
 
 export interface PlanningStep3AllocationProps {
-  routes?: VehicleAllocationCard[]
   activeDepot?: string
   candidateView?: ManualPlanView | null
   onApplyCommand?: (edit: Edit) => Promise<boolean | void>
@@ -93,8 +92,7 @@ export interface PlanningStep3AllocationProps {
 type SortOption = 'utilisation' | 'id' | 'capacity'
 
 export function PlanningStep3Allocation({
-  routes,
-  activeDepot = 'Peliyagoda',
+  activeDepot = '',
   candidateView,
   onApplyCommand,
   reason = 'Manual allocation edit',
@@ -136,8 +134,6 @@ export function PlanningStep3Allocation({
   const blocked = isLocked || isSubmitting
 
   const displayVehicles = useMemo<VehicleAllocationCard[]>(() => {
-    if (routes && routes.length > 0) return routes
-
     if (candidateView) {
       const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
       const cards: VehicleAllocationCard[] = []
@@ -256,38 +252,10 @@ export function PlanningStep3Allocation({
         }
       })
 
-      if (cards.length > 0) return cards
+      return cards
     }
-
-    // Fallback: Map real reference vehicles for the depot
-    const depotVehicles = realVehicles.filter(
-      (v) => !activeDepot || !v.depot || v.depot.toLowerCase() === activeDepot.toLowerCase()
-    )
-    const list = depotVehicles.length > 0 ? depotVehicles : realVehicles
-    const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
-
-    return list.slice(0, 14).map((v, i) => {
-      const isReefer = v.temp?.toLowerCase() === 'reefer'
-      const isVan = v.type?.toLowerCase() === 'van'
-      const weightTons = Math.round((v.weightCapKg ?? 0) / 1000)
-
-      return {
-        id: v.vehicleId,
-        type: `${isReefer ? 'Reefer' : isVan ? 'Van' : 'Truck'} ${weightTons}T`,
-        badge: (isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry') as 'Reefer' | 'Lorry' | 'Van',
-        driver: undefined,
-        region: v.depot ? `${v.depot} Depot Fleet` : 'Depot Fleet',
-        tripsSummary: 'Standby · Ready for routes',
-        trips: [],
-        volume: { used: 0, total: v.volumeCapM3 ?? 0, unit: 'm³' },
-        weight: { used: 0, total: v.weightCapKg ?? 0, unit: 'kg' },
-        time: { used: 0, total: 0, unit: 'min' },
-        fuel: { remaining: 0, total: v.weeklyFuelQuotaL ?? 0, unit: 'L this trip · weekly quota' },
-        accentColor: colors[i % colors.length],
-        stops: [],
-      }
-    })
-  }, [routes, candidateView, realVehicles, activeDepot])
+    return []
+  }, [candidateView, realVehicles, activeDepot])
 
   // Category counts
   const lorryCount = displayVehicles.filter((v) => v.badge === 'Lorry').length
@@ -325,21 +293,21 @@ export function PlanningStep3Allocation({
   const activeVehicle = displayVehicles.find((v) => v.id === selectedVehicleId) || processedVehicles[0] || displayVehicles[0]
 
   const serverMetrics = candidateView?.validation?.metrics
-  const allocatedVehiclesCount = serverMetrics?.vehiclesUsed ?? displayVehicles.filter((v) => v.volume.used > 0).length
-  const totalOrdersPlaced = serverMetrics?.ordersAssigned ?? displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
+  const allocatedVehiclesCount = serverMetrics?.vehiclesUsed
+  const totalOrdersPlaced = serverMetrics?.ordersAssigned
 
   const availableBrands = useMemo(() => {
     const list = new Set<string>()
     candidateView?.unassignedOrders?.forEach((o) => { if (o.order?.brand) list.add(o.order.brand) })
     candidateView?.trips?.forEach((t) => { if (t.brand) list.add(t.brand) })
-    return list.size > 0 ? Array.from(list) : ['Fresh', 'Style', 'Tech']
+    return Array.from(list)
   }, [candidateView])
 
   const availableDistricts = useMemo(() => {
     const list = new Set<string>()
     candidateView?.unassignedOrders?.forEach((o) => { if (o.order?.district) list.add(o.order.district) })
     candidateView?.trips?.forEach((t) => { if (t.district) list.add(t.district) })
-    return list.size > 0 ? Array.from(list) : ['Colombo', 'Gampaha', 'Kalutara']
+    return Array.from(list)
   }, [candidateView])
 
   function handleOpenDrawer(v: VehicleAllocationCard) {
@@ -474,7 +442,7 @@ export function PlanningStep3Allocation({
 
   async function handleAddTrip(e: FormEvent) {
     e.preventDefault()
-    if (!newTripVehicle || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    if (!newTripVehicle || !availableBrands.length || !availableDistricts.length || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
     setIsSubmitting(true)
     try {
       const saved = await onApplyCommand({
@@ -485,8 +453,8 @@ export function PlanningStep3Allocation({
           trip: {
             vehicleId: newTripVehicle,
             tripIndex: newTripSlot,
-            brand: newTripBrand || availableBrands[0] || 'Fresh',
-            district: newTripDistrict || availableDistricts[0] || 'Colombo',
+            brand: newTripBrand || availableBrands[0],
+            district: newTripDistrict || availableDistricts[0],
             orderIds: [],
           },
         },
@@ -842,7 +810,7 @@ export function PlanningStep3Allocation({
         onClose={() => setAddTripModalOpen(false)}
         footer={<>
           <Button variant="secondary" onClick={() => setAddTripModalOpen(false)}>Cancel</Button>
-          <Button type="submit" form="add-trip-form" disabled={!newTripVehicle || blocked} loading={isSubmitting}>Create Trip</Button>
+          <Button type="submit" form="add-trip-form" disabled={!newTripVehicle || !availableBrands.length || !availableDistricts.length || blocked} loading={isSubmitting}>Create Trip</Button>
         </>}
       >
         <form id="add-trip-form" className="swap-body" onSubmit={(e) => void handleAddTrip(e)}>
@@ -858,6 +826,7 @@ export function PlanningStep3Allocation({
             options={availableBrands.map((b) => ({ value: b, label: b }))} />
           <Select label="District" value={newTripDistrict || availableDistricts[0]} onChange={(e) => setNewTripDistrict(e.target.value)}
             options={availableDistricts.map((d) => ({ value: d, label: d }))} />
+          {(!availableBrands.length || !availableDistricts.length) && <p className="field-hint">This snapshot has no order brand or district to use for a trip.</p>}
           {failure && <PlanFailure failure={failure} />}
         </form>
       </Dialog>
@@ -870,14 +839,14 @@ export function PlanningStep3Allocation({
           </div>
           <div>
             <div className="bottom-bar-metric">
-              {totalOrdersPlaced > 0
-                ? `${totalOrdersPlaced} orders allocated across ${allocatedVehiclesCount || displayVehicles.length} vehicles`
-                : `${displayVehicles.length} vehicles available`}
+              {totalOrdersPlaced == null || allocatedVehiclesCount == null
+                ? 'Allocation metrics unavailable'
+                : `${totalOrdersPlaced} orders allocated across ${allocatedVehiclesCount} vehicles`}
             </div>
             <div className="bottom-bar-sub">
-              {totalOrdersPlaced > 0
-                ? 'Review allocations or proceed to triage exceptions'
-                : `Standby at ${activeDepot} Depot · Ready for routes`}
+              {totalOrdersPlaced == null
+                ? 'Reload the candidate to check its current assignments'
+                : 'Review allocations or proceed to triage exceptions'}
             </div>
           </div>
         </div>

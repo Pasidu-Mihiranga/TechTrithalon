@@ -35,8 +35,8 @@ export function DeferredOrdersPage() {
   }, [run.data, tab, query])
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-  const selected = (run.data?.items ?? []).find(row => row.id === selectedId) ?? null
-  const reset = (change: () => void) => { change(); setPage(0) }
+  const selected = filtered.find(row => row.id === selectedId) ?? null
+  const reset = (change: () => void) => { change(); setPage(0); setSelectedId(null) }
 
   const columns = useMemo<Column<DeferralRecord>[]>(() => [
     { key: 'order', header: 'Order', cell: row => <>

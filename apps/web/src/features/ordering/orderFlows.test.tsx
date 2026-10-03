@@ -24,9 +24,10 @@ describe('confirmed order flows', () => {
     await screen.findByText('SYN-FIRST')
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     await screen.findByText('SYN-NEXT')
-    expect(requests[1].searchParams.get('page')).toBe('1')
-    expect(requests[1].searchParams.get('date')).toBe('2026-06-26')
-    expect(requests[1].searchParams.get('depot')).toBe('Synthetic depot')
+    const orderPages = requests.filter(url => url.pathname.endsWith('/dispatcher/orders'))
+    expect(orderPages[1].searchParams.get('page')).toBe('1')
+    expect(orderPages[1].searchParams.get('date')).toBe('2026-06-26')
+    expect(orderPages[1].searchParams.get('depot')).toBe('Synthetic depot')
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
   })
   it('shows forbidden and empty states without manufactured rows', async () => {
