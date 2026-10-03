@@ -204,3 +204,8 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - Done: the store manager confirms or disputes each delivered order against the driver's record; disputes reach the dispatcher, who decides them; the order ends as `receipt_confirmed`. The four-role lifecycle passes in the browser. Evidence: `docs/RECEIPT_VERIFICATION.md`.
 - Still open: dispatcher exceptions queue and Live Operations (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
 
+## Step 8 follow-up: dispatcher exceptions and Live Operations, 2026-10-04
+
+- Done: one Exceptions queue over loading shortfalls, store disputes, driver problems and offline review flags (each closed through its owner, or acknowledged with a note); a Live Operations board for every published trip, refreshed every 15 s; real dashboard tiles and a menu badge. Evidence: `docs/EXCEPTIONS_LIVE_OPS_VERIFICATION.md`.
+- Departures: a district-spoke schematic instead of a map (no coordinates exist); polling instead of server-sent events; "Suggested fix / Apply Fix" and planning-engine exceptions wait for Steps 10–11; device-clock skew shows on the affected item rather than as its own item (the demo clock is fixed, so it would flag every action).
+- Still open: a real Cloudinary upload, README walkthrough, architecture, AI disclosure and deploy (Step 9), and the Docker smoke and real-dataset runs.
