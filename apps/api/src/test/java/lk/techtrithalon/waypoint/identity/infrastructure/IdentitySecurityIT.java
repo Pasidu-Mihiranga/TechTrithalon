@@ -164,12 +164,12 @@ class IdentitySecurityIT {
         mvc.perform(get("/api/v1/loader/depots/Peliyagoda").cookie(loader)).andExpect(status().isOk());
         failure(mvc.perform(get("/api/v1/loader/depots/Kandy").cookie(loader)).andReturn(), 404, "NOT_FOUND");
         Cookie driver = login("DRV-001", "synthetic-driver-password");
-        mvc.perform(get("/api/v1/driver/trips/901").cookie(driver)).andExpect(status().isOk());
-        failure(mvc.perform(get("/api/v1/driver/trips/902").cookie(driver)).andReturn(), 404, "NOT_FOUND");
+        mvc.perform(get("/api/v1/driver/probe-trips/901").cookie(driver)).andExpect(status().isOk());
+        failure(mvc.perform(get("/api/v1/driver/probe-trips/902").cookie(driver)).andReturn(), 404, "NOT_FOUND");
         db.update("INSERT INTO app_user (username, display_name, password_hash, role) VALUES (?, ?, ?, ?)",
             "SYN-OTHER-DRIVER", "Synthetic other driver", encoder.encode("synthetic-other-password"), "DRIVER");
         Cookie otherDriver = login("SYN-OTHER-DRIVER", "synthetic-other-password");
-        failure(mvc.perform(get("/api/v1/driver/trips/901").cookie(otherDriver)).andReturn(), 404, "NOT_FOUND");
+        failure(mvc.perform(get("/api/v1/driver/probe-trips/901").cookie(otherDriver)).andReturn(), 404, "NOT_FOUND");
         var scoped = new CurrentUser(901, "synthetic", "Synthetic", Role.DISPATCHER, null, "Kandy");
         assertThat(scoped.canAccessOutlet("OUT901", "Peliyagoda")).isFalse();
         assertThat(scoped.canAccessOutlet("OUT901", "Kandy")).isTrue();
@@ -267,7 +267,7 @@ class IdentitySecurityIT {
             if (!user.canAccessDepot(depot)) throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
             return Map.of("depot", depot);
         }
-        @GetMapping("/api/v1/driver/trips/{id}") Map<String, Long> trip(@PathVariable long id, @AuthenticationPrincipal CurrentUser user) {
+        @GetMapping("/api/v1/driver/probe-trips/{id}") Map<String, Long> trip(@PathVariable long id, @AuthenticationPrincipal CurrentUser user) {
             if (id != 901 || user.id() != db.queryForObject("SELECT id FROM app_user WHERE username='DRV-001'", Long.class)) throw new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Resource not found");
             return Map.of("tripId", id, "actorId", user.id());
         }

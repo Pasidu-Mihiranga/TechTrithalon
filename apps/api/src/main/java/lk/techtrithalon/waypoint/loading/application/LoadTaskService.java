@@ -53,15 +53,42 @@ public class LoadTaskService {
             List<Integer> loadSequence = task.lines().stream().map(l -> count - l.stopSeq() + 1).toList();
             LoadTask replaced = task.replacedPlanId() == null ? null
                 : tasks.forSlot(task.replacedPlanId(), task.vehicleId(), task.tripIndex()).orElse(null);
-            long id = tasks.insert(task, loadSequence, replaced == null ? null : replaced.id(), replaced != null, now);
+            // A handed-over trip whose orders are unchanged stays handed over (it may already be on the road).
+            boolean stillLoaded = replaced != null && replaced.loadedAt() != null && sameOrders(replaced, task);
+            long id = tasks.insert(task, loadSequence, replaced == null ? null : replaced.id(), replaced != null && !stillLoaded, now);
             int carried = replaced == null ? 0 : carryCounts(id, task.planVersion(), replaced);
+            if (stillLoaded) tasks.inheritLoaded(id, replaced.id());
             ids.add(id);
             Map<String, Object> record = new HashMap<>(Map.of("planId", task.planId(), "planVersion", task.planVersion(),
                 "tripId", task.tripId(), "vehicleId", task.vehicleId(), "lines", count, "carriedCounts", carried));
             if (replaced != null) record.put("replacesTaskId", replaced.id());
+            if (stillLoaded) record.put("stillLoaded", true);
             audit.record("load_task.created", user, "load_task", String.valueOf(id), null, record, null);
         }
         return ids;
+    }
+
+    private static boolean sameOrders(LoadTask replaced, NewLoadTask task) {
+        var before = new HashSet<Long>(); replaced.lines().forEach(l -> before.add(l.orderId()));
+        var after = new HashSet<Long>(); task.lines().forEach(l -> after.add(l.orderId()));
+        return before.equals(after);
+    }
+
+    /**
+     * Published for the driver: the signed-in driver's current (not superseded) trips on a run, in
+     * departure order. Only tasks published to this driver are returned.
+     */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('DRIVER')")
+    public List<LoadTask> currentForDriver(CurrentUser driver, java.time.LocalDate date) {
+        return tasks.activeForDriver(date, driver.id());
+    }
+
+    /** Current (not superseded) tasks of a run, for publication checks. */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<LoadTask> currentForRun(CurrentUser user, java.time.LocalDate date, String depot) {
+        return tasks.activeForRun(date, depot);
     }
 
     /** Orders that stay on the same vehicle and trip are already on the vehicle: keep their counts. */

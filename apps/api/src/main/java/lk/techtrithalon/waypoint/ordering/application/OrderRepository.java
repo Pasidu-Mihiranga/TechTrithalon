@@ -12,6 +12,8 @@ import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 
 public interface OrderRepository {
     boolean markPlanned(long id, int expectedVersion, java.time.Instant at);
+    /** Moves an order between road statuses; false when it is no longer in {@code from} or its version changed. */
+    boolean markRoadStatus(long id, int expectedVersion, Collection<String> from, String to, java.time.Instant at);
     /** Moves a confirmed or carried order to a later planning run; false when it changed meanwhile. */
     boolean markDeferred(long id, int expectedVersion, LocalDate nextPlanningDate, java.time.Instant at);
     default OrderPage search(
@@ -44,7 +46,7 @@ public interface OrderRepository {
 
     /** Orders eligible for the planning run on {@code date}: confirmed, or carried forward by a deferral. */
     List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot);
-    /** Every order still in a run: confirmed, carried forward, or planned by its current published version. */
+    /** Every order still in a run: confirmed, carried forward, planned by its current published version, or already on the road. */
     List<CustomerOrder> findInPlanningRun(LocalDate date, String depot);
 
     long countByDateDepotStatus(LocalDate date, String depot, String status);

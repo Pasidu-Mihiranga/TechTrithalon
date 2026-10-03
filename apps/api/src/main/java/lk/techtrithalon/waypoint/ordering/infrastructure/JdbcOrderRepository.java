@@ -29,6 +29,10 @@ class JdbcOrderRepository implements OrderRepository {
         return db.update("UPDATE customer_order SET status='planned',version=version+1,updated_at=? WHERE id=? AND status IN ('confirmed','deferred') AND version=?",
             java.sql.Timestamp.from(at),id,expectedVersion)==1;
     }
+    public boolean markRoadStatus(long id,int expectedVersion,java.util.Collection<String> from,String to,java.time.Instant at) {
+        return db.update("UPDATE customer_order SET status=?,version=version+1,updated_at=? WHERE id=? AND status = ANY(?) AND version=?",
+            to,java.sql.Timestamp.from(at),id,from.toArray(String[]::new),expectedVersion)==1;
+    }
     public boolean markDeferred(long id,int expectedVersion,LocalDate nextPlanningDate,java.time.Instant at) {
         return db.update("""
             UPDATE customer_order SET status='deferred',planning_date=?,version=version+1,updated_at=?
@@ -163,7 +167,7 @@ class JdbcOrderRepository implements OrderRepository {
     public List<CustomerOrder> findInPlanningRun(LocalDate date, String depot) {
         return db.query("""
             SELECT * FROM customer_order
-            WHERE planning_date=? AND depot=? AND status IN ('confirmed','deferred','planned')
+            WHERE planning_date=? AND depot=? AND status IN ('confirmed','deferred','planned','in_transit','delivered','partial','failed')
             ORDER BY id ASC
             """, ROW, Date.valueOf(date), depot);
     }

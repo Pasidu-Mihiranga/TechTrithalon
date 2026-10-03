@@ -441,6 +441,646 @@
         },
         "type" : "object"
       },
+      "DriverCapabilities" : {
+        "properties" : {
+          "maxUploadBytes" : {
+            "description" : "Largest accepted upload in bytes",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "proofUploads" : {
+            "description" : "Proof photos and signatures can be stored",
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverDeliveries" : {
+        "properties" : {
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "rows" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverDeliveryRow"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverDeliveryRow" : {
+        "properties" : {
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "eta" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderRefs" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "seq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "description" : "PENDING, IN_PROGRESS, DELIVERED or ISSUE",
+            "type" : "string"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverEvent" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverHome" : {
+        "properties" : {
+          "current" : {
+            "$ref" : "#/components/schemas/DriverTripCard",
+            "description" : "The trip to work on now: the first one not completed",
+            "type" : "null"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "progress" : {
+            "$ref" : "#/components/schemas/DriverProgress"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverTripCard"
+            },
+            "type" : "array"
+          },
+          "vehicleId" : {
+            "description" : "Vehicle of the driver's trips today; null without trips",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DriverOrder" : {
+        "properties" : {
+          "loadedUnits" : {
+            "description" : "Units that left the depot (fewer when the loader sent the order short)",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "$ref" : "#/components/schemas/DriverOutcome",
+            "type" : "null"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverOrderDetail" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "loadedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "$ref" : "#/components/schemas/DriverOutcome",
+            "type" : "null"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "proofs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverProof"
+            },
+            "type" : "array"
+          },
+          "status" : {
+            "description" : "Order status",
+            "type" : "string"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "timeline" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverEvent"
+            },
+            "type" : "array"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverOutcome" : {
+        "properties" : {
+          "deliveredUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "issueKind" : {
+            "type" : [ "string", "null" ]
+          },
+          "notes" : {
+            "type" : [ "string", "null" ]
+          },
+          "outcome" : {
+            "description" : "DELIVERED, PARTIAL or FAILED",
+            "type" : "string"
+          },
+          "photos" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "recipientName" : {
+            "type" : [ "string", "null" ]
+          },
+          "recordedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "signatures" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverOutcomeRequest" : {
+        "properties" : {
+          "deliveredUnits" : {
+            "description" : "Required for PARTIAL: units handed over",
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "issueKind" : {
+            "description" : "Required for PARTIAL and FAILED",
+            "pattern" : "CUSTOMER_UNAVAILABLE|MISSING|DAMAGED|WRONG_ITEM|REFUSED|OTHER",
+            "type" : "string"
+          },
+          "notes" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "outcome" : {
+            "minLength" : 1,
+            "pattern" : "DELIVERED|PARTIAL|FAILED",
+            "type" : "string"
+          },
+          "proofIds" : {
+            "description" : "Uploaded proof files for this order",
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 6,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "recipientName" : {
+            "description" : "Required unless FAILED",
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "expectedVersion", "outcome" ],
+        "type" : "object"
+      },
+      "DriverPastTrip" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "delivered" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "partial" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverPodUpload" : {
+        "properties" : {
+          "bytes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "height" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "width" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverProgress" : {
+        "properties" : {
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stopsDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverProof" : {
+        "properties" : {
+          "height" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "description" : "PHOTO or SIGNATURE",
+            "type" : "string"
+          },
+          "uploadedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "url" : {
+            "description" : "Short-lived link; null when proof storage is not configured",
+            "type" : [ "string", "null" ]
+          },
+          "width" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverStartTripRequest" : {
+        "properties" : {
+          "planVersion" : {
+            "description" : "Plan version shown on the trip; a newer one must be reviewed first",
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "required" : [ "planVersion" ],
+        "type" : "object"
+      },
+      "DriverStop" : {
+        "properties" : {
+          "arrivedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "chilled" : {
+            "type" : "boolean"
+          },
+          "departedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "eta" : {
+            "description" : "Projected arrival, recomputed after each stop; null once arrived",
+            "type" : [ "string", "null" ]
+          },
+          "late" : {
+            "description" : "The projected arrival is after the window closes",
+            "type" : "boolean"
+          },
+          "orders" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverOrder"
+            },
+            "type" : "array"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "parkingConstraint" : {
+            "type" : [ "string", "null" ]
+          },
+          "plannedArrival" : {
+            "type" : "string"
+          },
+          "recorded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "seq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "description" : "PENDING, ARRIVED or COMPLETED",
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "weightKg" : {
+            "type" : "number"
+          },
+          "windowClose" : {
+            "type" : [ "string", "null" ]
+          },
+          "windowOpen" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "DriverTripCard" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "chilled" : {
+            "type" : "boolean"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "distanceKm" : {
+            "type" : "number"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "issues" : {
+            "description" : "Orders recorded as partial or failed",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "loadStatus" : {
+            "description" : "Load task status: pending, loading or loaded",
+            "type" : "string"
+          },
+          "nextEta" : {
+            "description" : "Projected arrival at the next stop (planned before the trip starts)",
+            "type" : [ "string", "null" ]
+          },
+          "nextOutletId" : {
+            "description" : "Next stop to serve",
+            "type" : [ "string", "null" ]
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "planVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "plannedDepart" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "state" : {
+            "description" : "LOADING (not handed over yet), READY, IN_PROGRESS or COMPLETED",
+            "type" : "string"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stopsDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "DriverTripCommandRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expectedVersion" ],
+        "type" : "object"
+      },
+      "DriverTripDetail" : {
+        "properties" : {
+          "card" : {
+            "$ref" : "#/components/schemas/DriverTripCard"
+          },
+          "currentStopSeq" : {
+            "description" : "Sequence of the stop to serve now",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "routeChanged" : {
+            "description" : "The dispatcher published a newer version since the trip started",
+            "type" : "boolean"
+          },
+          "startBlocker" : {
+            "description" : "Why the trip cannot start yet",
+            "type" : [ "string", "null" ]
+          },
+          "startedPlanVersion" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "stops" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DriverStop"
+            },
+            "type" : "array"
+          },
+          "version" : {
+            "description" : "Send with every trip action; null before the trip starts",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
       "FleetVehicle" : {
         "properties" : {
           "availabilityNote" : {
@@ -3011,7 +3651,7 @@
     },
     "/api/v1/dispatcher/orders/{id}" : {
       "get" : {
-        "operationId" : "order_1",
+        "operationId" : "order_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -3801,6 +4441,527 @@
           "session" : [ ]
         } ],
         "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/driver/capabilities" : {
+      "get" : {
+        "operationId" : "capabilities",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverCapabilities"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/deliveries" : {
+      "get" : {
+        "operationId" : "deliveries",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverDeliveries"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/home" : {
+      "get" : {
+        "operationId" : "home",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverHome"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/orders/{orderId}" : {
+      "get" : {
+        "operationId" : "order_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverOrderDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/past-trips" : {
+      "get" : {
+        "operationId" : "pastTrips",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DriverPastTrip"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}" : {
+      "get" : {
+        "operationId" : "trip",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/complete" : {
+      "post" : {
+        "operationId" : "complete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DriverTripCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/orders/{orderId}/outcome" : {
+      "post" : {
+        "operationId" : "outcome",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DriverOutcomeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/orders/{orderId}/proofs" : {
+      "post" : {
+        "operationId" : "upload",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "kind",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "properties" : {
+                  "file" : {
+                    "format" : "binary",
+                    "type" : "string"
+                  }
+                },
+                "required" : [ "file" ],
+                "type" : "object"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverPodUpload"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/start" : {
+      "post" : {
+        "operationId" : "start",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DriverStartTripRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/stops/{outletId}/arrive" : {
+      "post" : {
+        "operationId" : "arrive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "outletId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DriverTripCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
+      }
+    },
+    "/api/v1/driver/trips/{tripIndex}/stops/{outletId}/depart" : {
+      "post" : {
+        "operationId" : "depart",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "tripIndex",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "outletId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DriverTripCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverTripDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "driver-controller" ]
       }
     },
     "/api/v1/loader/board" : {

@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import lk.techtrithalon.waypoint.audit.application.AuditService;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
+import lk.techtrithalon.waypoint.ordering.domain.OrderStatus;
 import lk.techtrithalon.waypoint.reference.application.ReferenceService;
 import lk.techtrithalon.waypoint.reference.domain.CalendarDay;
 import lk.techtrithalon.waypoint.reference.domain.Outlet;
@@ -96,6 +97,8 @@ public class OrderCommandService {
         }
         return temp;
     }
+    private static final java.util.Set<String> ON_ROAD=java.util.Set.of("in_transit","delivered","partial","failed");
+
     /** Published planning boundary. Only a validated publication invokes this inside its transaction. */
     @Transactional
     @PreAuthorize("hasRole('DISPATCHER')")
@@ -105,10 +108,40 @@ public class OrderCommandService {
             if (!user.canAccessDepot(before.depot())) throw new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found");
             // A revised plan keeps orders the previous version already planned.
             if ("planned".equals(before.status())) continue;
+            // Orders on a trip that has left the depot keep their road status.
+            if (ON_ROAD.contains(before.status())) continue;
             if (!orders.markPlanned(id,before.version(),clock.instant()))
                 throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","An order changed during publication; reload before retrying");
             audit.record("order.planned",user,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),reason);
         }
+    }
+
+    /**
+     * Published delivery boundary: the driver started the trip carrying these planned orders. The
+     * delivery module has already checked that the trip is the signed-in driver's.
+     */
+    @Transactional
+    @PreAuthorize("hasRole('DRIVER')")
+    public void markInTransit(CurrentUser driver,java.util.List<Long> ids) {
+        for (long id : ids.stream().distinct().sorted().toList()) {
+            var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
+            if ("in_transit".equals(before.status())) continue;
+            if (!orders.markRoadStatus(id,before.version(),java.util.List.of("planned"),"in_transit",clock.instant()))
+                throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","An order on this trip changed; reload the trip");
+            audit.record("order.in_transit",driver,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),null);
+        }
+    }
+
+    /** Published delivery boundary: the order's recorded outcome (delivered, partial or failed). */
+    @Transactional
+    @PreAuthorize("hasRole('DRIVER')")
+    public void markDelivered(CurrentUser driver,long id,OrderStatus outcome) {
+        if (outcome!=OrderStatus.delivered && outcome!=OrderStatus.partial && outcome!=OrderStatus.failed)
+            throw new IllegalArgumentException("Not a delivery outcome: "+outcome);
+        var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
+        if (!orders.markRoadStatus(id,before.version(),java.util.List.of("in_transit"),outcome.value(),clock.instant()))
+            throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","This order is not out for delivery; reload the trip");
+        audit.record("order."+outcome.value(),driver,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),null);
     }
 
     /** Published for planning: carries a deferred order to a later planning run inside the publish transaction. */
