@@ -18,7 +18,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 8 — Deferral & Fairness **(functional gate verified by tests, curl and SQL; browser journey and Figma review pending)**
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
-- [ ] Phase 11 — Plan Publication & Versioning
+- [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 12 — Loader Workflow
 - [ ] Phase 13 — Driver Workflow
 - [ ] Phase 14 — Offline & Sync
@@ -910,17 +910,17 @@ Execution needs one valid current version and an auditable history.
 
 #### Backend
 
-- [ ] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
-- [ ] Implement republish conflict handling, stale-version response, and version diff.
-- [ ] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
+- [x] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
+- [x] Implement republish conflict handling, stale-version response, and version diff.
+- [x] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
 
 #### Frontend
 
-- [ ] Build Confirm & Send, published state, and current-version indicators.
+- [x] Build Confirm & Send, published state, and current-version indicators.
 
 #### Database
 
-- [ ] Add partial unique current-plan index; keep candidate/historical plans coexisting; stamp load tasks with version.
+- [x] Add partial unique current-plan index; keep candidate/historical plans coexisting; stamp load tasks with version.
 
 #### Python / Intelligence
 
@@ -928,11 +928,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test invalid publish rollback, concurrent publishes, republish, double fuel accounting, and stale-version response.
+- [x] Test invalid publish rollback, concurrent publishes, republish, double fuel accounting, and stale-version response.
 
 #### Documentation
 
-- [ ] Document publication invariants and recovery on conflict.
+- [x] Document publication invariants and recovery on conflict. *([Publication verification](./PUBLICATION_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -940,9 +940,13 @@ Publish service and Figma confirmation UI can progress together; DB uniqueness a
 
 ### Exit Gate
 
-- [ ] Only validated, fully accounted plans become current.
-- [ ] Republish preserves old versions and signals stale clients.
-- [ ] Fuel is committed exactly once per current plan.
+- [x] Only validated, fully accounted plans become current.
+- [x] Republish preserves old versions and signals stale clients.
+- [x] Fuel is committed exactly once per current plan.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 135 passed (7 new in `OperationalPublicationIT`), web 83 passed, typecheck, lint and build clean. Curl and SQL on a running API with synthetic fixtures agree: version 1 publishes with frozen schedule, driver and pending load tasks (ledger 8.00 L); version 2 replaces it, ledger 4.00 L, old load tasks superseded; stale and superseded publishes return 409. Details, design departures and limits: [Publication verification](./PUBLICATION_VERIFICATION.md). The Docker smoke and a real-dataset run were not possible in the cloud container.
 
 ### Result
 
@@ -1619,7 +1623,8 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
 | 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl and SQL; browser/Figma pending | 2026-10-03 |
-| 9–22 | Pending; optional/conditional phases retain their scope labels | — |
+| 11 | [Publication verification](./PUBLICATION_VERIFICATION.md): tests, curl/SQL, Step 5 browser on synthetic data | 2026-10-03 |
+| 9–10, 12–22 | Pending; optional/conditional phases retain their scope labels | — |
 
 - Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.

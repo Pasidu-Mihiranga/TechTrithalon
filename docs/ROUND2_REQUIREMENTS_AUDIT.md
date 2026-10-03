@@ -174,3 +174,10 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - Fairness is derived from that history and the imported scenario facts. Stores see and acknowledge their notices.
 - Evidence: [Deferral verification](./DEFERRAL_VERIFICATION.md).
 - Still open: operational publication (load tasks, driver assignment, supersession; finding 8's remaining part), a browser and Figma review of the new screens, and the Step 4 local fallback path flagged in that document.
+
+## Step 3 follow-up: operational publication, 2026-10-03
+
+- Publication is now the operational handoff: it replaces the current version, counts fuel once, freezes the schedule, assigns the vehicle's driver and creates load tasks in one transaction. This closes the remaining part of finding 8.
+- Revisions re-plan the whole run from a copy of the published trips. A server-computed version diff feeds Step 5 and, later, the loader.
+- Owner decision: quantities are per order, in units, because the data has no product lines (finding 11). This is a documented design departure.
+- Evidence: [Publication verification](./PUBLICATION_VERIFICATION.md). Still open: loader and driver screens (Steps 4–5), Docker smoke and a real-dataset run.
