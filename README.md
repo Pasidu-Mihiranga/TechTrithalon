@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Ordering, complete immutable snapshots, the constraint engine, validated manual planning, durable deferrals with store notices, and operational publication (plan versions, fuel counted once, frozen schedule, driver assignment and load tasks) are implemented. Latest checks: 135 API and 83 web tests, clean lint and typecheck. Hosted CI remains open. The loader and driver screens, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
+> **Status:** Ordering, complete immutable snapshots, the constraint engine, validated manual planning, durable deferrals with store notices, and operational publication (plan versions, fuel counted once, frozen schedule, driver assignment and load tasks) and the loader workflow (phone/tablet counting, shortfalls with vehicle holds, manifest acknowledgement, handover) are implemented. Latest checks: 140 API and 93 web tests, clean lint and typecheck. Hosted CI remains open. The driver screens, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
 
 ---
 

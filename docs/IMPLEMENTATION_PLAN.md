@@ -19,7 +19,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
-- [ ] Phase 12 — Loader Workflow
+- [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 13 — Driver Workflow
 - [ ] Phase 14 — Offline & Sync
 - [ ] Phase 14A — Driver Android App (React Native)
@@ -970,16 +970,16 @@ The dock needs the published stop sequence and a predeparture shortfall path.
 
 #### Backend
 
-- [ ] Expose depot trips and load tasks; record line confirmations and issues; block completion on unresolved shortfall.
-- [ ] Return plan version and changes on stale requests.
+- [x] Expose depot trips and load tasks; record line confirmations and issues; block completion on unresolved shortfall.
+- [x] Return plan version and changes on stale requests.
 
 #### Frontend
 
-- [ ] Build tablet/phone load list in reverse stop order, issue reporting, completion, and stale-plan diff.
+- [x] Build tablet/phone load list in reverse stop order, issue reporting, completion, and stale-plan diff.
 
 #### Database
 
-- [ ] Add load-line and loading-issue records if not present in Phase 11.
+- [x] Add load-line and loading-issue records if not present in Phase 11.
 
 #### Python / Intelligence
 
@@ -987,11 +987,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test LIFO order, issue blocking, handoff, role/depot scope, and mid-load republish E2E.
+- [x] Test LIFO order, issue blocking, handoff, role/depot scope, and mid-load republish E2E. *(Mid-load republish: integration test and curl; the browser spec covers the shortfall and handover journey.)*
 
 #### Documentation
 
-- [ ] Record loader handoff and stale-list behavior.
+- [x] Record loader handoff and stale-list behavior. *([Loading verification](./LOADING_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -999,9 +999,13 @@ Load API/data and mobile UI can progress in parallel from a published-trip contr
 
 ### Exit Gate
 
-- [ ] Loader completes a published trip’s load.
-- [ ] Shortfall reaches dispatcher and can block departure.
-- [ ] Republish displays a meaningful diff.
+- [x] Loader completes a published trip’s load.
+- [x] Shortfall reaches dispatcher and can block departure.
+- [x] Republish displays a meaningful diff.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 140 passed (5 new in `LoaderWorkflowIT`), web 93 passed, typecheck, lint and build clean, Playwright `loader.spec.ts` passed on the synthetic stack. Curl and SQL agree on counting, held shortfalls, the dispatcher's decision, handover and the mid-load republish (count carried, acknowledgement required). Details, Figma departures and limits: [Loading verification](./LOADING_VERIFICATION.md).
 
 ### Result
 
@@ -1624,7 +1628,8 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
 | 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl, SQL and browser journey; Figma comparison of two frames pending | 2026-10-03 |
 | 11 | [Publication verification](./PUBLICATION_VERIFICATION.md): tests, curl/SQL, Step 5 browser on synthetic data | 2026-10-03 |
-| 9–10, 12–22 | Pending; optional/conditional phases retain their scope labels | — |
+| 12 | [Loading verification](./LOADING_VERIFICATION.md): tests, curl/SQL, Playwright and browser on synthetic data | 2026-10-03 |
+| 9–10, 13–22 | Pending; optional/conditional phases retain their scope labels | — |
 
 - Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.
