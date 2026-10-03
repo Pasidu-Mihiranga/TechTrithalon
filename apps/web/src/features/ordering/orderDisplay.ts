@@ -1,4 +1,13 @@
 import type { BadgeTone, VehicleKind } from '../../components'
+import type { components } from '../../generated/api'
+
+export function planningOrdersCsv(orders: components['schemas']['CustomerOrder'][]) {
+  const cell = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
+  return [
+    'Order ID,Outlet,District,Volume,Type',
+    ...orders.map(order => [order.ref, order.outletId, order.district, order.volumeM3, order.tempRequirement].map(cell).join(',')),
+  ].join('\r\n')
+}
 
 /** Formats order fields for display. Does not compute business metrics. */
 export function formatVolume(m3: number | string) {

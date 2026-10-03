@@ -20,7 +20,8 @@ import { Button, Dialog, Input, EmptyState, ErrorState, LoadingState } from '../
 import { useReferenceSummary } from '../shell/useReferenceSummary'
 import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { useOutlets } from '../../lib/referenceQueries'
-import { useDispatcherOrders, usePlanningQueueSummary } from './orderQueries'
+import { loadSelectedPlanningOrders, useDispatcherOrders, usePlanningQueueSummary } from './orderQueries'
+import { planningOrdersCsv } from './orderDisplay'
 import { api, apiReadError } from '../../lib/apiClient'
 import { PlanningStageTabs } from '../planning/PlanningStages'
 import { Step1BulkActionBar } from '../planning/Step1BulkActionBar'
@@ -322,6 +323,25 @@ export function PlanningConfirmedOrdersPage() {
     }
   }
 
+  async function exportSelectedOrders() {
+    const generation = scopeVersion.current
+    setError(null)
+    try {
+      const selected = await loadSelectedPlanningOrders([...selectedKeys].map(Number), planDate, activeDepot)
+      if (generation !== scopeVersion.current) return
+      const url = URL.createObjectURL(new Blob([planningOrdersCsv(selected)], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `selected_orders_${planDate}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (failure) {
+      if (generation === scopeVersion.current) setError(failure instanceof Error ? failure.message : 'Selected orders could not be exported.')
+    }
+  }
+
   function toggleSelectAll() {
     const itemsList = ordersQuery.data?.items ?? []
     if (selectedKeys.size === itemsList.length && itemsList.length > 0) {
@@ -336,7 +356,7 @@ export function PlanningConfirmedOrdersPage() {
   if (!depots?.length) return <EmptyState title="No accessible depots" description="A depot must be configured before planning." />
 
   if (queueSummary.isPending) return <LoadingState label="Loading planning queue totals" />
-  if (queueSummary.error) return <ErrorState message={queueSummary.error.message} />
+  if (queueSummary.error) return <ErrorState error={queueSummary.error} message={queueSummary.error.message} onRetry={() => void queueSummary.refetch()} />
 
   const totalOrders = ordersQuery.data?.total ?? 0
   const items = ordersQuery.data?.items ?? []
@@ -845,18 +865,7 @@ export function PlanningConfirmedOrdersPage() {
             onExclude={() => setDeferIds([...selectedKeys].map(Number))}
             onInclude={() => void includeOrders([...selectedKeys].map(Number))}
             onMoveToDeferred={() => setDeferIds([...selectedKeys].map(Number))}
-            onExportCsv={() => {
-              const selectedItems = items.filter((i) => selectedKeys.has(String(i.id)))
-              const rows = selectedItems.map((i) => `${i.ref},${i.outletId},${i.district ?? ''},${i.volumeM3},${i.tempRequirement}`)
-              const csvContent = 'data:text/csv;charset=utf-8,' + ['Order ID,Outlet,District,Volume,Type', ...rows].join('\n')
-              const encodedUri = encodeURI(csvContent)
-              const link = document.createElement('a')
-              link.setAttribute('href', encodedUri)
-              link.setAttribute('download', `selected_orders_${planDate}.csv`)
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-            }}
+            onExportCsv={() => void exportSelectedOrders()}
             onClearSelection={() => setSelectedKeys(new Set())}
           />
 
