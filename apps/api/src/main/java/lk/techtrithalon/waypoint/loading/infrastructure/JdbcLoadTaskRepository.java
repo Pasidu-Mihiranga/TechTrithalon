@@ -79,6 +79,11 @@ class JdbcLoadTaskRepository implements LoadTaskRepository {
             this::task, Date.valueOf(date), driverUserId);
     }
 
+    public List<LoadTask> allForDriver(LocalDate date, long driverUserId) {
+        return db.query("SELECT * FROM load_task WHERE plan_date=? AND driver_user_id=? ORDER BY plan_version DESC,trip_index",
+            this::task, Date.valueOf(date), driverUserId);
+    }
+
     public void inheritLoaded(long taskId, long replacedTaskId) {
         db.update("""
             UPDATE load_task n SET status='loaded', loaded_by=o.loaded_by, loaded_at=o.loaded_at,

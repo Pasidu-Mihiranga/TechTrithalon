@@ -25,7 +25,7 @@ class LoaderWorkflowIT extends ReferenceApiTestSupport {
 
     @BeforeEach void setup() throws Exception {
         db.execute("TRUNCATE deferral_acknowledgement, deferral");
-        db.update("DELETE FROM pod_asset"); db.update("DELETE FROM delivery_record"); db.update("DELETE FROM stop_visit"); db.update("DELETE FROM delivery_trip");
+        db.update("DELETE FROM sync_command"); db.update("DELETE FROM pod_asset"); db.update("DELETE FROM delivery_record"); db.update("DELETE FROM stop_visit"); db.update("DELETE FROM delivery_trip");
         db.update("DELETE FROM loading_issue"); db.update("DELETE FROM load_line"); db.update("DELETE FROM load_task");
         db.update("DELETE FROM plan");
         db.update("DELETE FROM planning_snapshot");

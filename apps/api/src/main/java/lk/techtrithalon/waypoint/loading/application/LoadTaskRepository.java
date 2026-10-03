@@ -25,6 +25,7 @@ public interface LoadTaskRepository {
     void carryLine(long newLineId, long newTaskId, long oldLineId, int planVersion);
     /** Active tasks published to a driver for a run, ordered by planned departure. */
     List<LoadTask> activeForDriver(LocalDate date, long driverUserId);
+    List<LoadTask> allForDriver(LocalDate date, long driverUserId);
     /** A republished task for a handed-over trip with the same orders keeps the handover. */
     void inheritLoaded(long taskId, long replacedTaskId);
     void markStarted(long taskId, long actor, Instant at);

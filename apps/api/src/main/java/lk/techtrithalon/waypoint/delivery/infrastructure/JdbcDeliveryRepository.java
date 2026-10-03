@@ -53,6 +53,10 @@ class JdbcDeliveryRepository implements DeliveryRepository {
         return db.update("UPDATE delivery_trip SET version=version+1, updated_at=? WHERE id=? AND version=?", Timestamp.from(at), tripId, expected) == 1;
     }
 
+    public void touch(long tripId, Instant at) {
+        db.update("UPDATE delivery_trip SET version=version+1, updated_at=? WHERE id=?", Timestamp.from(at), tripId);
+    }
+
     public void complete(long tripId, Instant at) {
         db.update("UPDATE delivery_trip SET status='completed', completed_at=? WHERE id=?", Timestamp.from(at), tripId);
     }
@@ -80,21 +84,26 @@ class JdbcDeliveryRepository implements DeliveryRepository {
     }
 
     public long insertRecord(long tripId, long orderId, String outletId, String outcome, int ordered, int loaded, int delivered,
-                             String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt) {
+                             String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt,
+                             String review) {
         return db.queryForObject("""
             INSERT INTO delivery_record(delivery_trip_id,order_id,outlet_id,outcome,ordered_units,loaded_units,delivered_units,
-                                        issue_kind,recipient_name,notes,recorded_by,occurred_at,recorded_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
+                                        issue_kind,recipient_name,notes,recorded_by,occurred_at,recorded_at,review_reason)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
             """, Long.class, tripId, orderId, outletId, outcome, ordered, loaded, delivered, issueKind, recipient, notes, actor,
-            Timestamp.from(occurredAt), Timestamp.from(recordedAt));
+            Timestamp.from(occurredAt), Timestamp.from(recordedAt), review);
     }
 
     public long insertAsset(long tripId, long orderId, String kind, String storage, String objectKey, String contentType,
-                            int bytes, int width, int height, long actor, Instant at) {
+                            int bytes, int width, int height, long actor, Instant at, java.util.UUID clientUploadId) {
         return db.queryForObject("""
-            INSERT INTO pod_asset(delivery_trip_id,order_id,kind,storage,object_key,content_type,bytes,width,height,uploaded_by,uploaded_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING id
-            """, Long.class, tripId, orderId, kind, storage, objectKey, contentType, bytes, width, height, actor, Timestamp.from(at));
+            INSERT INTO pod_asset(delivery_trip_id,order_id,kind,storage,object_key,content_type,bytes,width,height,uploaded_by,uploaded_at,client_upload_id)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
+            """, Long.class, tripId, orderId, kind, storage, objectKey, contentType, bytes, width, height, actor, Timestamp.from(at), clientUploadId);
+    }
+
+    public Optional<PodAsset> assetByClientId(long uploader, java.util.UUID clientUploadId) {
+        return db.query("SELECT * FROM pod_asset WHERE client_upload_id=? AND uploaded_by=?", this::mapAsset, clientUploadId, uploader).stream().findFirst();
     }
 
     public Optional<PodAsset> asset(long id) {
@@ -126,7 +135,7 @@ class JdbcDeliveryRepository implements DeliveryRepository {
         return new DeliveryRecord(rs.getLong("id"), rs.getLong("delivery_trip_id"), rs.getLong("order_id"), rs.getString("outlet_id"),
             rs.getString("outcome"), rs.getInt("ordered_units"), rs.getInt("loaded_units"), rs.getInt("delivered_units"),
             rs.getString("issue_kind"), rs.getString("recipient_name"), rs.getString("notes"), rs.getLong("recorded_by"),
-            instant(rs, "occurred_at"), instant(rs, "recorded_at"));
+            instant(rs, "occurred_at"), instant(rs, "recorded_at"), rs.getString("review_reason"));
     }
 
     private PodAsset mapAsset(ResultSet rs, int i) throws SQLException {

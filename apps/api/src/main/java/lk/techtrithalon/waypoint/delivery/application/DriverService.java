@@ -166,49 +166,22 @@ public class DriverService {
     }
 
     // ---------------------------------------------------------------- actions
+    // Online actions carry the displayed versions. Field commands from the phone's outbox carry the
+    // device time instead: they are replayed later, so an action whose effect is already in place is
+    // reported as ALREADY_APPLIED, and the driver's record of what happened on the road wins over a
+    // plan that changed meanwhile (applied and flagged for the dispatcher).
 
     @Transactional
     public DriverViews.TripDetail start(CurrentUser user, int tripIndex, LocalDate date, int planVersion) {
         LocalDate day = day(date);
-        var slot = slot(user, day, tripIndex);
-        if (slot.trip().isPresent()) throw conflict("TRIP_ALREADY_STARTED", "This trip has already started", Map.of());
-        String blocker = startBlocker(user, slot);
-        if (blocker != null) throw conflict(slot.task().status().equals("loaded") ? "PREVIOUS_TRIP_OPEN" : "TRIP_NOT_HANDED_OVER", blocker, Map.of());
-        if (planVersion != slot.task().planVersion())
-            throw conflict("ROUTE_CHANGED", "The dispatcher published version " + slot.task().planVersion() + "; review the trip before starting",
-                Map.of("currentPlanVersion", slot.task().planVersion()));
-        var now = clock.instant();
-        long id;
-        try {
-            id = deliveries.insertTrip(day, slot.task().depot(), slot.task().vehicleId(), tripIndex, user.id(), planVersion, now);
-        } catch (DuplicateKeyException e) {
-            throw conflict("TRIP_ALREADY_STARTED", "This trip has already started", Map.of());
-        }
-        orderCommands.markInTransit(user, slot.task().lines().stream().map(LoadLine::orderId).toList());
-        audit.record("delivery_trip.started", user, "delivery_trip", String.valueOf(id), null,
-            Map.of("vehicleId", slot.task().vehicleId(), "tripIndex", tripIndex, "planVersion", planVersion,
-                "orders", slot.task().lines().size()), null);
+        doStart(user, day, tripIndex, planVersion, clock.instant());
         return detail(user, slot(user, day, tripIndex));
     }
 
     @Transactional
     public DriverViews.TripDetail arrive(CurrentUser user, int tripIndex, String outletId, LocalDate date, int expectedVersion) {
         LocalDate day = day(date);
-        var slot = running(user, day, tripIndex, expectedVersion);
-        var stop = groups(slot.task()).stream().filter(g -> g.outletId().equals(outletId)).findFirst().orElseThrow(DriverService::notFound);
-        if (slot.visits().stream().anyMatch(v -> v.outletId().equals(outletId)))
-            throw conflict("STOP_ALREADY_VISITED", "You have already arrived at this stop", Map.of());
-        var open = slot.visits().stream().filter(v -> v.departedAt() == null).findFirst();
-        if (open.isPresent())
-            throw conflict("STOP_IN_PROGRESS", "Finish the stop at " + open.get().outletId() + " first", Map.of("outletId", open.get().outletId()));
-        var trip = slot.trip().orElseThrow();
-        var now = clock.instant();
-        deliveries.arrive(trip.id(), outletId, user.id(), now);
-        bump(trip, expectedVersion, now);
-        int expectedSeq = groups(slot.task()).stream().filter(g -> slot.visits().stream().noneMatch(v -> v.outletId().equals(g.outletId())))
-            .mapToInt(StopGroup::seq).min().orElse(stop.seq());
-        audit.record("stop.arrived", user, "delivery_trip", String.valueOf(trip.id()), null,
-            Map.of("outletId", outletId, "stopSeq", stop.seq(), "outOfSequence", stop.seq() != expectedSeq), null);
+        doArrive(user, day, tripIndex, outletId, expectedVersion, clock.instant());
         return detail(user, slot(user, day, tripIndex));
     }
 
@@ -218,105 +191,275 @@ public class DriverService {
     @Transactional
     public DriverViews.TripDetail record(CurrentUser user, int tripIndex, long orderId, LocalDate date, OutcomeCommand command) {
         LocalDate day = day(date);
-        var slot = running(user, day, tripIndex, command.expectedVersion());
-        var line = slot.task().lines().stream().filter(l -> l.orderId() == orderId).findFirst().orElseThrow(DriverService::notFound);
-        var visit = slot.visits().stream().filter(v -> v.outletId().equals(line.outletId()) && v.departedAt() == null).findFirst();
-        if (visit.isEmpty()) throw conflict("NOT_AT_STOP", "Mark your arrival at " + line.outletId() + " first", Map.of());
-        if (slot.records().stream().anyMatch(r -> r.orderId() == orderId))
-            throw conflict("ORDER_ALREADY_RECORDED", "This order's outcome is already recorded", Map.of());
-        int loaded = loadedUnits(line);
-        String recipient = trim(command.recipientName());
-        String kind = command.issueKind();
-        int delivered;
-        switch (command.outcome()) {
-            case "DELIVERED" -> {
-                if (kind != null) throw invalid("ISSUE_NOT_ALLOWED", "A full delivery has no issue; choose partial or failed to report one");
-                delivered = loaded;
-            }
-            case "PARTIAL" -> {
-                if (kind == null) throw invalid("ISSUE_REQUIRED", "Choose what went wrong");
-                Integer units = command.deliveredUnits();
-                if (units == null || units < 1 || units >= loaded)
-                    throw invalid("DELIVERED_UNITS_INVALID", "Delivered units must be between 1 and " + (loaded - 1));
-                delivered = units;
-            }
-            default -> {
-                if (kind == null) throw invalid("ISSUE_REQUIRED", "Choose why the delivery failed");
-                delivered = 0;
-            }
-        }
-        boolean handedOver = !"FAILED".equals(command.outcome());
-        if (handedOver && recipient == null) throw invalid("RECIPIENT_REQUIRED", "Enter who received the order");
-        var proofIds = command.proofIds() == null ? List.<Long>of() : command.proofIds().stream().distinct().toList();
-        var available = slot.assets().stream().filter(a -> a.orderId() == orderId && a.deliveryRecordId() == null).map(PodAsset::id).toList();
-        if (!available.containsAll(proofIds)) throw invalid("PROOF_INVALID", "A proof file does not belong to this order");
-        if (handedOver && storage.configured() && proofIds.isEmpty())
-            throw invalid("PROOF_REQUIRED", "Add a photo or the recipient's signature");
-        var trip = slot.trip().orElseThrow();
-        var now = clock.instant();
-        long id = deliveries.insertRecord(trip.id(), orderId, line.outletId(), command.outcome(), line.units(), loaded, delivered,
-            kind, recipient, trim(command.notes()), user.id(), now, now);
-        deliveries.attachAssets(proofIds, orderId, id);
-        orderCommands.markDelivered(user, orderId, switch (command.outcome()) {
-            case "DELIVERED" -> OrderStatus.delivered;
-            case "PARTIAL" -> OrderStatus.partial;
-            default -> OrderStatus.failed;
-        });
-        bump(trip, command.expectedVersion(), now);
-        Map<String, Object> after = new LinkedHashMap<>();
-        after.put("orderId", orderId); after.put("outcome", command.outcome()); after.put("deliveredUnits", delivered);
-        after.put("loadedUnits", loaded); after.put("proofs", proofIds.size());
-        if (kind != null) after.put("issueKind", kind);
-        audit.record("delivery.recorded", user, "delivery_record", String.valueOf(id), null, after, trim(command.notes()));
+        doRecord(user, day, tripIndex, orderId, command.expectedVersion(), command.outcome(), command.deliveredUnits(), command.issueKind(),
+            command.recipientName(), command.notes(), command.proofIds() == null ? List.of() : command.proofIds(), clock.instant());
         return detail(user, slot(user, day, tripIndex));
     }
 
     @Transactional
     public DriverViews.TripDetail depart(CurrentUser user, int tripIndex, String outletId, LocalDate date, int expectedVersion) {
         LocalDate day = day(date);
-        var slot = running(user, day, tripIndex, expectedVersion);
-        var stop = groups(slot.task()).stream().filter(g -> g.outletId().equals(outletId)).findFirst().orElseThrow(DriverService::notFound);
-        var visit = slot.visits().stream().filter(v -> v.outletId().equals(outletId) && v.departedAt() == null).findFirst()
-            .orElseThrow(() -> conflict("NOT_AT_STOP", "You are not at this stop", Map.of()));
-        var pending = stop.lines().stream().filter(l -> slot.records().stream().noneMatch(r -> r.orderId() == l.orderId()))
-            .map(LoadLine::orderRef).toList();
-        if (!pending.isEmpty())
-            throw conflict("STOP_INCOMPLETE", "Record every order at this stop first", Map.of("pendingOrders", pending));
-        var trip = slot.trip().orElseThrow();
-        var now = clock.instant();
-        deliveries.depart(visit.id(), user.id(), now);
-        bump(trip, expectedVersion, now);
-        audit.record("stop.departed", user, "delivery_trip", String.valueOf(trip.id()), null, Map.of("outletId", outletId, "stopSeq", stop.seq()), null);
+        doDepart(user, day, tripIndex, outletId, expectedVersion, clock.instant());
         return detail(user, slot(user, day, tripIndex));
     }
 
     @Transactional
     public DriverViews.TripDetail complete(CurrentUser user, int tripIndex, LocalDate date, int expectedVersion) {
         LocalDate day = day(date);
+        doComplete(user, day, tripIndex, expectedVersion, clock.instant());
+        return detail(user, slot(user, day, tripIndex));
+    }
+
+    /** One action from the phone's outbox, with the time it happened on the device. */
+    public record FieldCommand(String actionType, LocalDate planDate, int tripIndex, Integer planVersion, String outletId, Long orderId,
+                               String outcome, Integer deliveredUnits, String issueKind, String recipientName, String notes,
+                               List<java.util.UUID> proofUploadIds, Instant occurredAt) {}
+
+    /**
+     * @param alreadyApplied the effect was already in place (a replay, or the same action recorded online)
+     * @param review         applied, but the dispatcher should look at it (for example an order moved while offline)
+     */
+    public record FieldResult(boolean alreadyApplied, String review) {
+        static FieldResult applied() { return new FieldResult(false, null); }
+        static FieldResult already() { return new FieldResult(true, null); }
+    }
+
+    /** Applies a field command inside the caller's transaction; failures surface as {@link ApiException}. */
+    @Transactional
+    public FieldResult applyField(CurrentUser user, FieldCommand c) {
+        LocalDate day = day(c.planDate());
+        Instant at = c.occurredAt() == null ? clock.instant() : c.occurredAt();
+        return switch (c.actionType()) {
+            case "TRIP_START" -> doStart(user, day, c.tripIndex(), null, at);
+            case "STOP_ARRIVE" -> doArrive(user, day, c.tripIndex(), require(c.outletId()), null, at);
+            case "ORDER_OUTCOME" -> doRecordField(user, day, c, at);
+            case "STOP_DEPART" -> doDepart(user, day, c.tripIndex(), require(c.outletId()), null, at);
+            case "TRIP_COMPLETE" -> doComplete(user, day, c.tripIndex(), null, at);
+            default -> throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ACTION", "Unknown action type");
+        };
+    }
+
+    private FieldResult doStart(CurrentUser user, LocalDate day, int tripIndex, Integer planVersion, Instant at) {
+        var slot = slot(user, day, tripIndex);
+        boolean field = planVersion == null;
+        if (slot.trip().isPresent()) {
+            if (field) return FieldResult.already();
+            throw conflict("TRIP_ALREADY_STARTED", "This trip has already started", Map.of());
+        }
+        String blocker = startBlocker(user, slot);
+        String review = null;
+        if (blocker != null && field && !"loaded".equals(slot.task().status()) && handedOverEarlier(user, day, tripIndex)) {
+            // The truck left loaded on an earlier version; the dispatcher changed the manifest while the phone was offline.
+            review = "ROUTE_CHANGED_OFFLINE";
+            blocker = null;
+        }
+        if (blocker != null) throw conflict(slot.task().status().equals("loaded") ? "PREVIOUS_TRIP_OPEN" : "TRIP_NOT_HANDED_OVER", blocker, Map.of());
+        if (!field && planVersion != slot.task().planVersion())
+            throw conflict("ROUTE_CHANGED", "The dispatcher published version " + slot.task().planVersion() + "; review the trip before starting",
+                Map.of("currentPlanVersion", slot.task().planVersion()));
+        long id;
+        try {
+            id = deliveries.insertTrip(day, slot.task().depot(), slot.task().vehicleId(), tripIndex, user.id(), slot.task().planVersion(), at);
+        } catch (DuplicateKeyException e) {
+            if (field) return FieldResult.already();
+            throw conflict("TRIP_ALREADY_STARTED", "This trip has already started", Map.of());
+        }
+        orderCommands.markInTransit(user, slot.task().lines().stream().map(LoadLine::orderId).toList());
+        audit.record("delivery_trip.started", user, "delivery_trip", String.valueOf(id), null,
+            Map.of("vehicleId", slot.task().vehicleId(), "tripIndex", tripIndex, "planVersion", slot.task().planVersion(),
+                "orders", slot.task().lines().size(), "source", field ? "sync" : "online", "review", review == null ? "" : review), null);
+        return new FieldResult(false, review);
+    }
+
+    private boolean handedOverEarlier(CurrentUser user, LocalDate day, int tripIndex) {
+        return loadTasks.everForDriver(user, day).stream().anyMatch(t -> t.tripIndex() == tripIndex && t.loadedAt() != null);
+    }
+
+    private FieldResult doArrive(CurrentUser user, LocalDate day, int tripIndex, String outletId, Integer expectedVersion, Instant at) {
+        boolean field = expectedVersion == null;
+        var slot = running(user, day, tripIndex, expectedVersion);
+        var stop = groups(slot.task()).stream().filter(g -> g.outletId().equals(outletId)).findFirst();
+        String review = null;
+        if (stop.isEmpty()) {
+            // Offline, the driver may stop at an outlet the dispatcher has since moved off this trip.
+            if (!field || !wasOnDriverTrip(user, day, tripIndex, l -> l.outletId().equals(outletId))) throw notFound();
+            review = "STOP_NOT_ON_TRIP";
+        }
+        if (slot.visits().stream().anyMatch(v -> v.outletId().equals(outletId))) {
+            if (field) return FieldResult.already();
+            throw conflict("STOP_ALREADY_VISITED", "You have already arrived at this stop", Map.of());
+        }
+        var open = slot.visits().stream().filter(v -> v.departedAt() == null).findFirst();
+        if (open.isPresent())
+            throw conflict("STOP_IN_PROGRESS", "Finish the stop at " + open.get().outletId() + " first", Map.of("outletId", open.get().outletId()));
+        var trip = slot.trip().orElseThrow();
+        deliveries.arrive(trip.id(), outletId, user.id(), at);
+        bump(trip, expectedVersion, clock.instant());
+        int seq = stop.map(StopGroup::seq).orElse(0);
+        int expectedSeq = groups(slot.task()).stream().filter(g -> slot.visits().stream().noneMatch(v -> v.outletId().equals(g.outletId())))
+            .mapToInt(StopGroup::seq).min().orElse(seq);
+        Map<String, Object> after = new LinkedHashMap<>(Map.of("outletId", outletId, "stopSeq", seq, "outOfSequence", seq != expectedSeq,
+            "source", field ? "sync" : "online"));
+        if (review != null) after.put("review", review);
+        audit.record("stop.arrived", user, "delivery_trip", String.valueOf(trip.id()), null, after, null);
+        return new FieldResult(false, review);
+    }
+
+    private FieldResult doRecordField(CurrentUser user, LocalDate day, FieldCommand c, Instant at) {
+        if (c.orderId() == null || c.outcome() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "An outcome needs an order and an outcome");
+        List<Long> proofIds = new ArrayList<>();
+        var uploads = c.proofUploadIds() == null ? List.<java.util.UUID>of() : c.proofUploadIds();
+        for (var clientId : uploads) deliveries.assetByClientId(user.id(), clientId).filter(a -> a.orderId() == c.orderId())
+            .ifPresent(a -> proofIds.add(a.id()));
+        return doRecord(user, day, c.tripIndex(), c.orderId(), null, c.outcome(), c.deliveredUnits(), c.issueKind(), c.recipientName(), c.notes(),
+            proofIds, at, uploads.size() > proofIds.size());
+    }
+
+    private FieldResult doRecord(CurrentUser user, LocalDate day, int tripIndex, long orderId, Integer expectedVersion, String outcome,
+                                 Integer deliveredUnits, String kind, String recipientName, String notes, List<Long> requestedProofs, Instant at) {
+        return doRecord(user, day, tripIndex, orderId, expectedVersion, outcome, deliveredUnits, kind, recipientName, notes, requestedProofs, at, false);
+    }
+
+    private FieldResult doRecord(CurrentUser user, LocalDate day, int tripIndex, long orderId, Integer expectedVersion, String outcome,
+                                 Integer deliveredUnits, String kind, String recipientName, String notes, List<Long> requestedProofs, Instant at,
+                                 boolean proofLost) {
+        boolean field = expectedVersion == null;
+        var slot = running(user, day, tripIndex, expectedVersion);
+        String review = null;
+        var current = slot.task().lines().stream().filter(l -> l.orderId() == orderId).findFirst();
+        LoadLine line;
+        if (current.isPresent()) line = current.get();
+        else if (field) {
+            // The driver's record wins: the order was on this driver's trip in an earlier version.
+            line = historicalLine(user, day, tripIndex, orderId).orElseThrow(DriverService::notFound);
+            review = "ORDER_NOT_ON_TRIP";
+        } else throw notFound();
+        var existing = slot.records().stream().filter(r -> r.orderId() == orderId).findFirst();
+        int loaded = loadedUnits(line);
+        String recipient = trim(recipientName);
+        int delivered;
+        switch (outcome) {
+            case "DELIVERED" -> {
+                if (kind != null) throw invalid("ISSUE_NOT_ALLOWED", "A full delivery has no issue; choose partial or failed to report one");
+                delivered = loaded;
+            }
+            case "PARTIAL" -> {
+                if (kind == null) throw invalid("ISSUE_REQUIRED", "Choose what went wrong");
+                if (deliveredUnits == null || deliveredUnits < 1 || deliveredUnits >= loaded)
+                    throw invalid("DELIVERED_UNITS_INVALID", "Delivered units must be between 1 and " + (loaded - 1));
+                delivered = deliveredUnits;
+            }
+            case "FAILED" -> {
+                if (kind == null) throw invalid("ISSUE_REQUIRED", "Choose why the delivery failed");
+                delivered = 0;
+            }
+            default -> throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Unknown outcome");
+        }
+        if (existing.isPresent()) {
+            var r = existing.get();
+            if (field && r.outcome().equals(outcome) && r.deliveredUnits() == delivered) return FieldResult.already();
+            Map<String, Object> facts = new LinkedHashMap<>();
+            facts.put("recordedOutcome", r.outcome()); facts.put("recordedUnits", r.deliveredUnits());
+            facts.put("recordedAt", r.recordedAt().toString()); facts.put("sentOutcome", outcome); facts.put("sentUnits", delivered);
+            throw conflict("ORDER_ALREADY_RECORDED", "This order's outcome is already recorded", facts);
+        }
+        var visit = slot.visits().stream().filter(v -> v.outletId().equals(line.outletId()) && v.departedAt() == null).findFirst();
+        if (visit.isEmpty()) throw conflict("NOT_AT_STOP", "Mark your arrival at " + line.outletId() + " first", Map.of());
+        boolean handedOver = !"FAILED".equals(outcome);
+        if (handedOver && recipient == null) throw invalid("RECIPIENT_REQUIRED", "Enter who received the order");
+        var proofIds = requestedProofs.stream().distinct().toList();
+        var available = slot.assets().stream().filter(a -> a.orderId() == orderId && a.deliveryRecordId() == null).map(PodAsset::id).toList();
+        if (!available.containsAll(proofIds)) throw invalid("PROOF_INVALID", "A proof file does not belong to this order");
+        if (handedOver && storage.configured() && proofIds.isEmpty()) {
+            // Online the driver adds the proof now; a replayed record is kept and flagged instead of lost.
+            if (!field) throw invalid("PROOF_REQUIRED", "Add a photo or the recipient's signature");
+            if (review == null) review = "PROOF_MISSING";
+        }
+        if (proofLost && review == null) review = "PROOF_MISSING";
+        var trip = slot.trip().orElseThrow();
+        var now = clock.instant();
+        long id = deliveries.insertRecord(trip.id(), orderId, line.outletId(), outcome, line.units(), loaded, delivered,
+            kind, recipient, trim(notes), user.id(), at, now, review);
+        deliveries.attachAssets(proofIds, orderId, id);
+        orderCommands.markDelivered(user, orderId, switch (outcome) {
+            case "DELIVERED" -> OrderStatus.delivered;
+            case "PARTIAL" -> OrderStatus.partial;
+            default -> OrderStatus.failed;
+        }, review != null && review.equals("ORDER_NOT_ON_TRIP"));
+        bump(trip, expectedVersion, now);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("orderId", orderId); after.put("outcome", outcome); after.put("deliveredUnits", delivered);
+        after.put("loadedUnits", loaded); after.put("proofs", proofIds.size()); after.put("source", field ? "sync" : "online");
+        if (kind != null) after.put("issueKind", kind);
+        if (review != null) after.put("review", review);
+        audit.record("delivery.recorded", user, "delivery_record", String.valueOf(id), null, after, trim(notes));
+        return new FieldResult(false, review);
+    }
+
+    private FieldResult doDepart(CurrentUser user, LocalDate day, int tripIndex, String outletId, Integer expectedVersion, Instant at) {
+        boolean field = expectedVersion == null;
+        var slot = running(user, day, tripIndex, expectedVersion);
+        var stop = groups(slot.task()).stream().filter(g -> g.outletId().equals(outletId)).findFirst();
+        if (stop.isEmpty() && !(field && slot.visits().stream().anyMatch(v -> v.outletId().equals(outletId)))) throw notFound();
+        var visits = slot.visits().stream().filter(v -> v.outletId().equals(outletId)).toList();
+        if (field && !visits.isEmpty() && visits.stream().allMatch(v -> v.departedAt() != null)) return FieldResult.already();
+        var visit = visits.stream().filter(v -> v.departedAt() == null).findFirst()
+            .orElseThrow(() -> conflict("NOT_AT_STOP", "You are not at this stop", Map.of()));
+        var pending = stop.map(g -> g.lines().stream().filter(l -> slot.records().stream().noneMatch(r -> r.orderId() == l.orderId()))
+            .map(LoadLine::orderRef).toList()).orElse(List.of());
+        if (!pending.isEmpty())
+            throw conflict("STOP_INCOMPLETE", "Record every order at this stop first", Map.of("pendingOrders", pending));
+        var trip = slot.trip().orElseThrow();
+        deliveries.depart(visit.id(), user.id(), at.isBefore(visit.arrivedAt()) ? visit.arrivedAt() : at);
+        bump(trip, expectedVersion, clock.instant());
+        audit.record("stop.departed", user, "delivery_trip", String.valueOf(trip.id()), null,
+            Map.of("outletId", outletId, "stopSeq", stop.map(StopGroup::seq).orElse(0), "source", field ? "sync" : "online"), null);
+        return FieldResult.applied();
+    }
+
+    private FieldResult doComplete(CurrentUser user, LocalDate day, int tripIndex, Integer expectedVersion, Instant at) {
+        boolean field = expectedVersion == null;
+        if (field) {
+            var slot = slot(user, day, tripIndex);
+            if (slot.trip().map(t -> "completed".equals(t.status())).orElse(false)) return FieldResult.already();
+        }
         var slot = running(user, day, tripIndex, expectedVersion);
         var groups = groups(slot.task());
         long remaining = groups.stream().filter(g -> slot.visits().stream().noneMatch(v -> v.outletId().equals(g.outletId()) && v.departedAt() != null)).count();
         if (remaining > 0)
             throw conflict("TRIP_INCOMPLETE", remaining + (remaining == 1 ? " stop is" : " stops are") + " not finished yet", Map.of("remainingStops", remaining));
         var trip = slot.trip().orElseThrow();
-        var now = clock.instant();
-        deliveries.complete(trip.id(), now);
-        bump(trip, expectedVersion, now);
+        deliveries.complete(trip.id(), at.isBefore(trip.startedAt()) ? trip.startedAt() : at);
+        bump(trip, expectedVersion, clock.instant());
         audit.record("delivery_trip.completed", user, "delivery_trip", String.valueOf(trip.id()), null,
             Map.of("delivered", count(slot.records(), "DELIVERED"), "partial", count(slot.records(), "PARTIAL"),
-                "failed", count(slot.records(), "FAILED")), null);
-        return detail(user, slot(user, day, tripIndex));
+                "failed", count(slot.records(), "FAILED"), "source", field ? "sync" : "online"), null);
+        return FieldResult.applied();
     }
 
-    /** Stores a proof photo or signature for an order still to be recorded; attach it with {@link #record}. */
+    /**
+     * Stores a proof photo or signature for an order still to be recorded; attach it with {@link #record}.
+     * With {@code clientUploadId} (the outbox's id for the file) a repeated upload returns the stored file.
+     */
     @Transactional
-    public DriverViews.PodUpload upload(CurrentUser user, int tripIndex, long orderId, LocalDate date, String kind, byte[] bytes) {
+    public DriverViews.PodUpload upload(CurrentUser user, int tripIndex, long orderId, LocalDate date, String kind, byte[] bytes,
+                                        java.util.UUID clientUploadId) {
         LocalDate day = day(date);
         if (!List.of("PHOTO", "SIGNATURE").contains(kind)) throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_KIND", "Use PHOTO or SIGNATURE");
+        if (clientUploadId != null) {
+            var stored = deliveries.assetByClientId(user.id(), clientUploadId);
+            if (stored.isPresent()) {
+                var a = stored.get();
+                if (a.orderId() != orderId || !a.kind().equals(kind)) throw conflict("UPLOAD_ID_REUSED", "This upload id belongs to another file", Map.of());
+                return new DriverViews.PodUpload(a.id(), a.kind(), a.bytes(), a.width(), a.height());
+            }
+        }
         var slot = slot(user, day, tripIndex);
         var trip = slot.trip().filter(t -> "in_progress".equals(t.status()))
             .orElseThrow(() -> conflict("TRIP_NOT_RUNNING", "Start the trip first", Map.of()));
-        var line = slot.task().lines().stream().filter(l -> l.orderId() == orderId).findFirst().orElseThrow(DriverService::notFound);
+        var line = slot.task().lines().stream().filter(l -> l.orderId() == orderId).findFirst()
+            .or(() -> clientUploadId == null ? Optional.empty() : historicalLine(user, day, tripIndex, orderId))
+            .orElseThrow(DriverService::notFound);
         if (slot.records().stream().anyMatch(r -> r.orderId() == orderId))
             throw conflict("ORDER_ALREADY_RECORDED", "This order's outcome is already recorded", Map.of());
         if (!storage.configured())
@@ -327,10 +470,26 @@ public class DriverService {
         String stored = storage.store(key, image.bytes(), image.contentType());
         var now = clock.instant();
         long id = deliveries.insertAsset(trip.id(), orderId, kind, storage.name(), stored, image.contentType(), image.bytes().length,
-            image.width(), image.height(), user.id(), now);
+            image.width(), image.height(), user.id(), now, clientUploadId);
         audit.record("pod.uploaded", user, "pod_asset", String.valueOf(id), null,
             Map.of("orderId", orderId, "kind", kind, "bytes", image.bytes().length), null);
         return new DriverViews.PodUpload(id, kind, image.bytes().length, image.width(), image.height());
+    }
+
+    /** The order's line on any version of this trip slot that was published to the driver (current or replaced). */
+    private Optional<LoadLine> historicalLine(CurrentUser user, LocalDate day, int tripIndex, long orderId) {
+        return loadTasks.everForDriver(user, day).stream().filter(t -> t.tripIndex() == tripIndex)
+            .flatMap(t -> t.lines().stream()).filter(l -> l.orderId() == orderId).findFirst();
+    }
+
+    private boolean wasOnDriverTrip(CurrentUser user, LocalDate day, int tripIndex, java.util.function.Predicate<LoadLine> match) {
+        return loadTasks.everForDriver(user, day).stream().filter(t -> t.tripIndex() == tripIndex)
+            .flatMap(t -> t.lines().stream()).anyMatch(match);
+    }
+
+    private static String require(String value) {
+        if (value == null || value.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "This action needs an outlet");
+        return value;
     }
 
     // ---------------------------------------------------------------- assembly
@@ -354,16 +513,17 @@ public class DriverService {
             trip.map(t -> deliveries.assetsForTrip(t.id())).orElse(List.of()));
     }
 
-    private Slot running(CurrentUser user, LocalDate day, int tripIndex, int expectedVersion) {
+    private Slot running(CurrentUser user, LocalDate day, int tripIndex, Integer expectedVersion) {
         var slot = slot(user, day, tripIndex);
         var trip = slot.trip().orElseThrow(() -> conflict("TRIP_NOT_RUNNING", "Start the trip first", Map.of()));
         if (!"in_progress".equals(trip.status())) throw conflict("TRIP_COMPLETED", "This trip is finished", Map.of());
-        if (trip.version() != expectedVersion)
+        if (expectedVersion != null && trip.version() != expectedVersion)
             throw conflict("STALE_TRIP", "The trip changed since you opened it; reload it", Map.of("currentVersion", trip.version()));
         return slot;
     }
 
-    private void bump(DeliveryTrip trip, int expected, Instant now) {
+    private void bump(DeliveryTrip trip, Integer expected, Instant now) {
+        if (expected == null) { deliveries.touch(trip.id(), now); return; }
         if (!deliveries.bumpVersion(trip.id(), expected, now))
             throw conflict("STALE_TRIP", "The trip changed since you opened it; reload it", Map.of());
     }
@@ -410,7 +570,7 @@ public class DriverService {
         BigDecimal volume = task.lines().stream().map(LoadLine::volumeM3).reduce(BigDecimal.ZERO, BigDecimal::add);
         var next = stops.stream().filter(s -> !"COMPLETED".equals(s.status())).findFirst();
         int issues = (int) slot.records().stream().filter(r -> !"DELIVERED".equals(r.outcome())).count();
-        return new DriverViews.TripCard(task.tripIndex(), task.vehicleId(), task.brand(), task.district(), task.depot(), task.planVersion(),
+        return new DriverViews.TripCard(task.tripIndex(), task.planDate(), task.vehicleId(), task.brand(), task.district(), task.depot(), task.planVersion(),
             task.plannedDepart(), stops.size(), task.lines().size(), units, weight, volume, slot.route().distanceKm(),
             slot.route().tripMinutes(), task.lines().stream().anyMatch(l -> "chilled".equals(l.tempRequirement())), state, task.status(),
             (int) stops.stream().filter(s -> "COMPLETED".equals(s.status())).count(), slot.records().size(), issues,

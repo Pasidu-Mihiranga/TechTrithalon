@@ -135,11 +135,20 @@ public class OrderCommandService {
     /** Published delivery boundary: the order's recorded outcome (delivered, partial or failed). */
     @Transactional
     @PreAuthorize("hasRole('DRIVER')")
-    public void markDelivered(CurrentUser driver,long id,OrderStatus outcome) {
+    public void markDelivered(CurrentUser driver,long id,OrderStatus outcome) { markDelivered(driver,id,outcome,false); }
+
+    /**
+     * {@code moved}: the driver delivered while offline an order the dispatcher had meanwhile moved or
+     * deferred. The field record wins, so the order takes the outcome from its current run status.
+     */
+    @Transactional
+    @PreAuthorize("hasRole('DRIVER')")
+    public void markDelivered(CurrentUser driver,long id,OrderStatus outcome,boolean moved) {
         if (outcome!=OrderStatus.delivered && outcome!=OrderStatus.partial && outcome!=OrderStatus.failed)
             throw new IllegalArgumentException("Not a delivery outcome: "+outcome);
         var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
-        if (!orders.markRoadStatus(id,before.version(),java.util.List.of("in_transit"),outcome.value(),clock.instant()))
+        var from=moved ? java.util.List.of("in_transit","planned","deferred","confirmed") : java.util.List.of("in_transit");
+        if (!orders.markRoadStatus(id,before.version(),from,outcome.value(),clock.instant()))
             throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","This order is not out for delivery; reload the trip");
         audit.record("order."+outcome.value(),driver,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),null);
     }

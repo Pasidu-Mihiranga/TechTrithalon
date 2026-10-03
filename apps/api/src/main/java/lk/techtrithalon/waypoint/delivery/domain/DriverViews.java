@@ -21,7 +21,7 @@ public final class DriverViews {
     public record Progress(int stops, int stopsDone, int orders, int ordersDone) {}
 
     @Schema(name="DriverTripCard")
-    public record TripCard(int tripIndex, String vehicleId, String brand, String district, String depot, int planVersion,
+    public record TripCard(int tripIndex, LocalDate planDate, String vehicleId, String brand, String district, String depot, int planVersion,
                            LocalTime plannedDepart, int stops, int orders, int units, BigDecimal weightKg, BigDecimal volumeM3,
                            BigDecimal distanceKm, int tripMinutes, boolean chilled,
                            @Schema(description="LOADING (not handed over yet), READY, IN_PROGRESS or COMPLETED") String state,

@@ -84,6 +84,13 @@ public class LoadTaskService {
         return tasks.activeForDriver(date, driver.id());
     }
 
+    /** Every task published to the driver for a run, replaced versions included (newest first). */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('DRIVER')")
+    public List<LoadTask> everForDriver(CurrentUser driver, java.time.LocalDate date) {
+        return tasks.allForDriver(date, driver.id());
+    }
+
     /** Current (not superseded) tasks of a run, for publication checks. */
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('DISPATCHER')")

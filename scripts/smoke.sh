@@ -222,6 +222,8 @@ for role in STORE_MANAGER LOADER DRIVER; do
     curl -fsS -b "$cookies" "$API/api/v1/driver/capabilities" > /dev/null || fail "driver capabilities failed"
     assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/driver/trips/9"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/loader/board"
+    assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+      -d '{"actions":[]}' "$API/api/v1/driver/sync"
   fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done

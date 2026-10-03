@@ -19,6 +19,8 @@ public interface DeliveryRepository {
     List<DeliveryTrip> pastTrips(long driver, LocalDate before, int limit);
     /** Optimistic concurrency: bumps the version only if it still equals {@code expected}. */
     boolean bumpVersion(long tripId, int expected, Instant at);
+    /** Bumps the version without a check (replayed field commands carry no version). */
+    void touch(long tripId, Instant at);
     void complete(long tripId, Instant at);
 
     List<StopVisit> visits(long tripId);
@@ -28,10 +30,11 @@ public interface DeliveryRepository {
     List<DeliveryRecord> records(long tripId);
     Optional<DeliveryRecord> recordForOrder(long orderId);
     long insertRecord(long tripId, long orderId, String outletId, String outcome, int ordered, int loaded, int delivered,
-                      String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt);
+                      String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt, String review);
 
     long insertAsset(long tripId, long orderId, String kind, String storage, String objectKey, String contentType,
-                     int bytes, int width, int height, long actor, Instant at);
+                     int bytes, int width, int height, long actor, Instant at, java.util.UUID clientUploadId);
+    Optional<PodAsset> assetByClientId(long uploader, java.util.UUID clientUploadId);
     Optional<PodAsset> asset(long id);
     List<PodAsset> assetsForOrder(long orderId);
     List<PodAsset> assetsForTrip(long tripId);

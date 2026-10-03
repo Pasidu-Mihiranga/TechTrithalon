@@ -987,6 +987,10 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
           "planVersion" : {
             "format" : "int32",
             "type" : "integer"
@@ -2903,6 +2907,148 @@
         },
         "type" : "object"
       },
+      "SyncAction" : {
+        "properties" : {
+          "actionType" : {
+            "minLength" : 1,
+            "pattern" : "TRIP_START|STOP_ARRIVE|ORDER_OUTCOME|STOP_DEPART|TRIP_COMPLETE",
+            "type" : "string"
+          },
+          "clientActionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "deliveredUnits" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : [ "integer", "null" ]
+          },
+          "issueKind" : {
+            "pattern" : "CUSTOMER_UNAVAILABLE|MISSING|DAMAGED|WRONG_ITEM|REFUSED|OTHER",
+            "type" : [ "string", "null" ]
+          },
+          "notes" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "occurredAt" : {
+            "description" : "Device time of the action",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "orderId" : {
+            "description" : "ORDER_OUTCOME",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "outcome" : {
+            "pattern" : "DELIVERED|PARTIAL|FAILED",
+            "type" : [ "string", "null" ]
+          },
+          "outletId" : {
+            "description" : "STOP_ARRIVE and STOP_DEPART",
+            "maxLength" : 8,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "planVersion" : {
+            "description" : "Plan version the phone showed when the action was taken",
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : [ "integer", "null" ]
+          },
+          "proofUploadIds" : {
+            "description" : "Client ids of proof files uploaded for this order",
+            "items" : {
+              "format" : "uuid",
+              "type" : "string"
+            },
+            "maxItems" : 6,
+            "minItems" : 0,
+            "type" : [ "array", "null" ]
+          },
+          "recipientName" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "maximum" : 2,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "required" : [ "actionType", "clientActionId", "occurredAt", "planDate", "tripIndex" ],
+        "type" : "object"
+      },
+      "SyncRequest" : {
+        "properties" : {
+          "actions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SyncAction"
+            },
+            "maxItems" : 100,
+            "minItems" : 1,
+            "type" : "array"
+          }
+        },
+        "required" : [ "actions" ],
+        "type" : "object"
+      },
+      "SyncResponse" : {
+        "properties" : {
+          "results" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SyncResult"
+            },
+            "type" : "array"
+          },
+          "syncedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SyncResult" : {
+        "properties" : {
+          "clientActionId" : {
+            "format" : "uuid",
+            "type" : "string"
+          },
+          "clockSkew" : {
+            "description" : "The device time is implausibly far from the server's; it is kept as reported",
+            "type" : "boolean"
+          },
+          "code" : {
+            "description" : "Server code: ALREADY_APPLIED, or the rule that stopped the action",
+            "type" : [ "string", "null" ]
+          },
+          "detail" : {
+            "additionalProperties" : { },
+            "description" : "Facts for the conflict screen (for example both records)",
+            "type" : [ "object", "null" ]
+          },
+          "message" : {
+            "type" : [ "string", "null" ]
+          },
+          "result" : {
+            "description" : "APPLIED, DUPLICATE, CONFLICT or REJECTED",
+            "type" : "string"
+          },
+          "review" : {
+            "description" : "Applied, but the dispatcher reviews it: ORDER_NOT_ON_TRIP, STOP_NOT_ON_TRIP, PROOF_MISSING",
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
       "SystemHealth" : {
         "properties" : {
           "intelligence" : {
@@ -4595,6 +4741,37 @@
         "tags" : [ "driver-controller" ]
       }
     },
+    "/api/v1/driver/sync" : {
+      "post" : {
+        "operationId" : "sync",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SyncRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SyncResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "sync-controller" ]
+      }
+    },
     "/api/v1/driver/trips/{tripIndex}" : {
       "get" : {
         "operationId" : "trip",
@@ -4769,6 +4946,14 @@
           "name" : "kind",
           "required" : true,
           "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "clientUploadId",
+          "required" : false,
+          "schema" : {
+            "format" : "uuid",
             "type" : "string"
           }
         } ],
