@@ -30,7 +30,7 @@ export function ExceptionsPage() {
   const queue = useExceptionQueue(date, scope.depot)
   const items = queue.data?.items ?? []
   const shown = tab === 'ALL' ? items : items.filter(i => i.status === tab)
-  const selected = items.find(i => i.id === selectedId) ?? null
+  const selected = shown.find(i => i.id === selectedId) ?? null
   const counts = queue.data?.counts
 
   return <>
@@ -42,7 +42,8 @@ export function ExceptionsPage() {
     {queue.data && counts && <>
       <div role="group" aria-label="Filter exceptions" className="segmented-control ex-tabs">
         {([['ALL', `All (${counts.all})`], ['OPEN', `Open (${counts.open})`], ['IN_PROGRESS', `In Progress (${counts.inProgress})`], ['RESOLVED', `Resolved (${counts.resolved})`]] as const).map(([key, label]) =>
-          <button key={key} type="button" className={`segmented-btn${tab === key ? ' active' : ''}`} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}
+          <button key={key} type="button" className={`segmented-btn${tab === key ? ' active' : ''}`} aria-pressed={tab === key}
+            onClick={() => { setTab(key); setSelectedId(null) }}>{label}</button>)}
       </div>
       {items.length === 0
         ? <EmptyState title="Nothing needs attention" description="Loading shortfalls, driver problems, offline review flags and store disputes for this run appear here." />
