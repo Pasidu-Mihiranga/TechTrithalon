@@ -432,3 +432,12 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Publication refuses a revision that moves orders off a trip the driver has started; an unchanged handed-over trip keeps its handover. Planning-run orders now include those on the road.
 - Device detection (`lib/device.ts`, `data-device` on `<html>`): driver phone design with a tab bar (centred on tablets), loader tablet/phone navigation, dispatcher icon rail on tablets and tab bar on phones.
 - Tests: `DeliveryWorkflowIT` (3), `driver.test.tsx` (13), `device.test.ts` (3), Playwright `driver.spec.ts`; totals API 143, web 110; lint, typecheck and build clean. Curl, SQL and Chromium journeys at 402 and 834 px on the synthetic stack.
+
+## 2026-10-03 — Step 6: driver offline mode (outbox, sync, PWA shell)
+
+- `packages/field-core` (now a workspace package): outbox, sync engine, UUIDv7 and the local projection behind storage and transport ports; web adapters are Dexie (IndexedDB, one database per driver) and the API.
+- Backend: `POST /api/v1/driver/sync` claims each client action id, applies it in device order through the delivery rules in its own transaction, and stores the result (APPLIED, DUPLICATE, CONFLICT, REJECTED, review flags, clock skew). Proof uploads are idempotent by client id. When the plan changed offline, the driver's record wins and is flagged. Migration `V20261004_0900` is additive; sync rows are kept for 90 days.
+- Every driver write goes through the outbox; screens show offline work at once and open from the saved copy without signal. Driver hooks use TanStack `networkMode: 'always'` (default mode pauses offline).
+- Figma Sync Status (offline and back online), the header pill (Offline · N, Syncing d/t, Review · N) and the offline banner. Service worker, manifest and icons in the newly approved `apps/web/public/`; the driver's last confirmed identity lets the app open offline.
+- Tests: `SyncIT` (3), field-core (10), offline web tests, Playwright `driver-offline.spec.ts`; totals API 146, web 123; lint, typecheck and build clean. Curl and SQL on the synthetic stack; service worker checked on a production build (see `docs/OFFLINE_SYNC_VERIFICATION.md`).
+

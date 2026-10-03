@@ -64,6 +64,7 @@ The repository layout is **predefined** (see the tree in [README](README.md#repo
 | React feature code | `apps/web/src/features/<feature>/` |
 | Shared React components | `apps/web/src/components/` |
 | API client, config, offline helpers | `apps/web/src/lib/` |
+| PWA files served as-is (service worker, web manifest, app icons) | `apps/web/public/` |
 | Generated API types | `apps/web/src/generated/` (never hand-edit) |
 | Web tests | next to the code as `*.test.ts(x)`; end-to-end tests in `apps/web/tests/e2e/` |
 | Python code | `apps/intelligence/techtrithalon_intelligence/<planning\|forecasting\|prediction\|features>/` |

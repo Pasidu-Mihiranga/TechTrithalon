@@ -21,7 +21,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 13 — Driver Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; real Cloudinary upload, Docker smoke and real-dataset run pending)**
-- [ ] Phase 14 — Offline & Sync
+- [x] Phase 14 — Offline & Sync **(tests, curl/SQL, Playwright offline journey and service-worker check on synthetic data; real Cloudinary upload and real-dataset run pending)**
 - [ ] Phase 14A — Driver Android App (React Native)
 - [ ] Phase 15 — Receipt Confirmation
 - [ ] Phase 16 — Live Operations
@@ -1084,18 +1084,18 @@ Field work must survive lost connectivity and replay without duplicate events.
 
 #### Backend
 
-- [ ] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
-- [ ] Preserve occurred-at and recorded-at timestamps.
+- [x] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
+- [x] Preserve occurred-at and recorded-at timestamps.
 
 #### Frontend
 
-- [ ] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
-- [ ] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
-- [ ] Show pending count, retry, reconciling, conflict, and route-updated states.
+- [x] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
+- [x] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
+- [x] Show pending count, retry, reconciling, conflict, and route-updated states.
 
 #### Database
 
-- [ ] Add sync command idempotency table and retention policy.
+- [x] Add sync command idempotency table and retention policy.
 
 #### Python / Intelligence
 
@@ -1103,11 +1103,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
+- [x] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
 
 #### Documentation
 
-- [ ] Document conflict policy and queue recovery.
+- [x] Document conflict policy and queue recovery. ([OFFLINE_SYNC_VERIFICATION.md](./OFFLINE_SYNC_VERIFICATION.md))
 
 ### Parallel Work
 
@@ -1115,9 +1115,9 @@ Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one com
 
 ### Exit Gate
 
-- [ ] Offline actions survive reload and sync exactly once.
-- [ ] Conflicts are visible without losing the field record.
-- [ ] Completed stops stand across plan versions.
+- [x] Offline actions survive reload and sync exactly once.
+- [x] Conflicts are visible without losing the field record.
+- [x] Completed stops stand across plan versions.
 
 ### Result
 
