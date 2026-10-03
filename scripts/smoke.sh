@@ -210,6 +210,12 @@ for role in STORE_MANAGER LOADER DRIVER; do
       -d '{"tempRequirement":"ambient","units":0,"weightKg":10,"volumeM3":0.05}' \
       "$API/api/v1/store/orders")" == "401" ]] || fail "unauthenticated place did not return 401"
   fi
+  if [[ "$role" == "LOADER" ]]; then
+    curl -fsS -b "$cookies" "$API/api/v1/loader/board" > /dev/null || fail "loader board failed"
+    curl -fsS -b "$cookies" "$API/api/v1/loader/issues" > /dev/null || fail "loader issues failed"
+    assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/loader/load-tasks/999999999"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/loading-issues?date=$demo_date&depot=$depot"
+  fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done
 unset SMOKE_ROLE

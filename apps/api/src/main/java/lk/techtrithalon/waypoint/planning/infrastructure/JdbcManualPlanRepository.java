@@ -112,7 +112,7 @@ class JdbcManualPlanRepository implements ManualPlanRepository {
         return db.query("SELECT * FROM trip WHERE plan_id=? AND planned_depart IS NOT NULL ORDER BY vehicle_id,trip_index", (t,i) ->
             new PublishedTrip(t.getLong("id"),t.getString("vehicle_id"),t.getInt("trip_index"),t.getString("brand"),t.getString("district"),
                 t.getTime("planned_depart").toLocalTime(),t.getInt("trip_minutes"),t.getBigDecimal("distance_km"),t.getBigDecimal("fuel_litres"),
-                t.getObject("driver_user_id",Long.class),t.getString("driver_name"),null,null,
+                t.getObject("driver_user_id",Long.class),t.getString("driver_name"),null,null,0,false,
                 db.query("SELECT order_id,seq,planned_arrival,service_start FROM stop WHERE trip_id=? ORDER BY seq",(r,j) ->
                     new PublishedTrip.Stop(r.getLong("order_id"),r.getInt("seq"),time(r.getTime("planned_arrival")),time(r.getTime("service_start"))),
                     t.getLong("id"))), planId);

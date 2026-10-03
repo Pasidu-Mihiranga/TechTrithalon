@@ -229,7 +229,7 @@ public class ManualPlanService {
             plans.supersede(current,id,now);
         }
         plans.publish(plan,user.id(),now,String.valueOf(snapshot.constraints().get("ruleVersion")));
-        freezeSchedule(user,plan,context);
+        freezeSchedule(user,plan,context,current);
         var after=plans.find(id,false).orElseThrow();
         var published=view(user,after);
         Map<String,Object> record=new LinkedHashMap<>();
@@ -242,7 +242,7 @@ public class ManualPlanService {
     }
 
     /** Persists the validated schedule, the vehicle's driver and one load task per trip. */
-    private void freezeSchedule(CurrentUser user,ManualPlan plan,PlanContext context) {
+    private void freezeSchedule(CurrentUser user,ManualPlan plan,PlanContext context,Long replacedPlanId) {
         var departures=contexts.departures(context);
         var orderIds=context.trips().stream().flatMap(t -> t.stops().stream()).map(PlanStop::orderId).toList();
         Map<Long,CustomerOrder> orders=new HashMap<>();
@@ -261,8 +261,10 @@ public class ManualPlanService {
                 lines.add(new NewLoadTask.Line(order.id(),order.ref(),order.outletId(),order.tempRequirement(),order.units(),
                     order.weightKg(),order.volumeM3(),stop.stopIndex()));
             }
+            var vehicle=context.vehicles().stream().filter(v -> v.vehicleId().equals(trip.vehicleId())).findFirst().orElseThrow();
             tasks.add(new NewLoadTask(plan.id(),plan.version(),trip.id(),plan.planDate(),plan.depot(),trip.vehicleId(),
-                trip.tripIndex(),trip.brand(),trip.district(),depart,driver.map(AssignedDriver::userId).orElse(null),lines));
+                trip.tripIndex(),trip.brand(),trip.district(),depart,driver.map(AssignedDriver::userId).orElse(null),
+                driver.map(AssignedDriver::displayName).orElse(null),vehicle.weightCapKg(),vehicle.volumeCapM3(),replacedPlanId,lines));
         }
         loadTasks.createForPublication(user,tasks);
     }
@@ -436,7 +438,7 @@ public class ManualPlanService {
             loadTasks.statusForPlan(user,plan.id()).forEach(t -> load.put(t.tripId(),t));
             published=plans.publishedTrips(plan.id()).stream().map(t -> {
                 var task=load.get(t.tripId());
-                return task==null ? t : t.withLoad(task.loadTaskId(),task.status());
+                return task==null ? t : t.withLoad(task.loadTaskId(),task.status(),task.openIssues(),task.held());
             }).toList();
         }
         return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse,fairness,published);

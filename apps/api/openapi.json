@@ -522,6 +522,552 @@
         },
         "type" : "object"
       },
+      "LoadLine" : {
+        "properties" : {
+          "carried" : {
+            "description" : "The count was carried over from the replaced manifest",
+            "type" : "boolean"
+          },
+          "checkedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "loadSeq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "loadedUnits" : {
+            "description" : "Units actually loaded; null while pending",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "pending, loaded or short",
+            "type" : "string"
+          },
+          "stopSeq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tempRequirement" : {
+            "type" : "string"
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "LoadShortfallRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "holdsVehicle" : {
+            "description" : "True holds the vehicle until the dispatcher decides",
+            "type" : "boolean"
+          },
+          "kind" : {
+            "minLength" : 1,
+            "pattern" : "MISSING|DAMAGED|WRONG_ITEM",
+            "type" : "string"
+          },
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "shortUnits" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expectedVersion", "holdsVehicle", "kind", "shortUnits" ],
+        "type" : "object"
+      },
+      "LoadTask" : {
+        "properties" : {
+          "acknowledgedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "acknowledgementRequired" : {
+            "type" : "boolean"
+          },
+          "brand" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "driverUserId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lines" : {
+            "description" : "In loading order: the last stop is loaded first",
+            "items" : {
+              "$ref" : "#/components/schemas/LoadLine"
+            },
+            "type" : "array"
+          },
+          "loadedAt" : {
+            "description" : "When the trip was marked loaded and handed to the driver",
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "planId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "planVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "plannedDepart" : {
+            "type" : "string"
+          },
+          "replacesTaskId" : {
+            "description" : "Task of the replaced version for the same vehicle and trip",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "description" : "pending, loading, loaded or superseded",
+            "type" : "string"
+          },
+          "tripId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeCapM3" : {
+            "type" : [ "number", "null" ]
+          },
+          "weightCapKg" : {
+            "type" : [ "number", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "LoadTaskCommandRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expectedVersion" ],
+        "type" : "object"
+      },
+      "LoaderBoard" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "nextDeparture" : {
+            "$ref" : "#/components/schemas/LoaderTripCard",
+            "type" : "null"
+          },
+          "openIssues" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoadingIssue"
+            },
+            "type" : "array"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "planVersion" : {
+            "description" : "Version of the current published plan; null when nothing is published",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/LoaderSummary"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoaderTripCard"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "LoaderManifestChange" : {
+        "properties" : {
+          "change" : {
+            "description" : "ADDED, REMOVED (take off the vehicle if loaded) or RESEQUENCED",
+            "type" : "string"
+          },
+          "loadedUnits" : {
+            "description" : "Units already on the vehicle from the replaced manifest",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "stopAfter" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "stopBefore" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "LoaderStop" : {
+        "properties" : {
+          "district" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoadLine"
+            },
+            "type" : "array"
+          },
+          "loadPosition" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "pending, partial or loaded (every order counted)",
+            "type" : "string"
+          },
+          "stopNumber" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "LoaderSummary" : {
+        "properties" : {
+          "openIssues" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersLoaded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersToLoad" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripsAssigned" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "LoaderTaskDetail" : {
+        "properties" : {
+          "card" : {
+            "$ref" : "#/components/schemas/LoaderTripCard"
+          },
+          "changes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoaderManifestChange"
+            },
+            "type" : "array"
+          },
+          "currentTaskId" : {
+            "description" : "When this manifest was superseded: the task that replaced it",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "handoverBlockers" : {
+            "description" : "Why the trip cannot be marked loaded yet; empty when it can",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "issues" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoadingIssue"
+            },
+            "type" : "array"
+          },
+          "replacedPlanVersion" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "stops" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LoaderStop"
+            },
+            "type" : "array"
+          },
+          "task" : {
+            "$ref" : "#/components/schemas/LoadTask"
+          }
+        },
+        "type" : "object"
+      },
+      "LoaderTripCard" : {
+        "properties" : {
+          "awaitingAcknowledgement" : {
+            "type" : "boolean"
+          },
+          "brand" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "held" : {
+            "type" : "boolean"
+          },
+          "loadTaskId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "openIssues" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersChecked" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "planVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "plannedDepart" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stopsLoaded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeCapM3" : {
+            "type" : [ "number", "null" ]
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightCapKg" : {
+            "type" : [ "number", "null" ]
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "LoadingIssue" : {
+        "properties" : {
+          "decision" : {
+            "description" : "SEND_SHORT or REPLANNED",
+            "type" : [ "string", "null" ]
+          },
+          "decisionNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "holdsVehicle" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "description" : "MISSING, DAMAGED or WRONG_ITEM",
+            "type" : "string"
+          },
+          "loadLineId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "loadTaskId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "orderedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "reportedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "reportedByName" : {
+            "type" : "string"
+          },
+          "resolvedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "resolvedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "shortUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "description" : "OPEN or RESOLVED",
+            "type" : "string"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "LoadingIssueDecisionRequest" : {
+        "properties" : {
+          "decision" : {
+            "minLength" : 1,
+            "pattern" : "SEND_SHORT|REPLANNED",
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "decision", "expectedVersion", "note" ],
+        "type" : "object"
+      },
       "LoginRequest" : {
         "properties" : {
           "password" : {
@@ -1573,6 +2119,10 @@
           "fuelLitres" : {
             "type" : "number"
           },
+          "held" : {
+            "description" : "A shortfall holds this vehicle at the dock",
+            "type" : "boolean"
+          },
           "loadStatus" : {
             "description" : "pending, loading, loaded or superseded",
             "type" : [ "string", "null" ]
@@ -1580,6 +2130,11 @@
           "loadTaskId" : {
             "format" : "int64",
             "type" : [ "integer", "null" ]
+          },
+          "openLoadingIssues" : {
+            "description" : "Loading shortfalls awaiting the dispatcher",
+            "format" : "int32",
+            "type" : "integer"
           },
           "plannedDepart" : {
             "type" : "string"
@@ -2222,6 +2777,93 @@
           "session" : [ ]
         } ],
         "tags" : [ "fleet-read-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/loading-issues" : {
+      "get" : {
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoadingIssue"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loading-issue-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/loading-issues/{id}/resolve" : {
+      "post" : {
+        "operationId" : "resolve",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadingIssueDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoadingIssue"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loading-issue-controller" ]
       }
     },
     "/api/v1/dispatcher/orders" : {
@@ -3159,6 +3801,282 @@
           "session" : [ ]
         } ],
         "tags" : [ "fleet-controller" ]
+      }
+    },
+    "/api/v1/loader/board" : {
+      "get" : {
+        "operationId" : "board",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderBoard"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/issues" : {
+      "get" : {
+        "operationId" : "issues",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/LoadingIssue"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/load-tasks/{id}" : {
+      "get" : {
+        "operationId" : "task",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderTaskDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/load-tasks/{id}/acknowledge" : {
+      "post" : {
+        "operationId" : "acknowledge_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadTaskCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderTaskDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/load-tasks/{id}/lines/{lineId}/loaded" : {
+      "post" : {
+        "operationId" : "confirmLine",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "lineId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadTaskCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderTaskDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/load-tasks/{id}/lines/{lineId}/shortfall" : {
+      "post" : {
+        "operationId" : "shortfall",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "lineId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadShortfallRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderTaskDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
+      }
+    },
+    "/api/v1/loader/load-tasks/{id}/loaded" : {
+      "post" : {
+        "operationId" : "markLoaded",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoadTaskCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LoaderTaskDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "loader-controller" ]
       }
     },
     "/api/v1/reference/calendar" : {

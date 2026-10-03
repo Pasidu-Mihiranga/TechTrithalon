@@ -29,7 +29,7 @@ class OperationalPublicationIT extends ReferenceApiTestSupport {
 
     @BeforeEach void setup() throws Exception {
         db.execute("TRUNCATE deferral_acknowledgement, deferral");
-        db.update("DELETE FROM load_line"); db.update("DELETE FROM load_task");
+        db.update("DELETE FROM loading_issue"); db.update("DELETE FROM load_line"); db.update("DELETE FROM load_task");
         db.update("DELETE FROM plan");
         db.update("DELETE FROM planning_snapshot");
         db.update("DELETE FROM audit_event");

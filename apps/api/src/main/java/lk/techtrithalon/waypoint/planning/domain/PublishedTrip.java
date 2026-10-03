@@ -16,12 +16,14 @@ public record PublishedTrip(long tripId, String vehicleId, int tripIndex, String
                             @Schema(nullable=true) String driverName,
                             @Schema(nullable=true) Long loadTaskId,
                             @Schema(nullable=true, description="pending, loading, loaded or superseded") String loadStatus,
+                            @Schema(description="Loading shortfalls awaiting the dispatcher") int openLoadingIssues,
+                            @Schema(description="A shortfall holds this vehicle at the dock") boolean held,
                             List<Stop> stops) {
     public PublishedTrip { stops = List.copyOf(stops); }
 
-    public PublishedTrip withLoad(Long taskId, String status) {
+    public PublishedTrip withLoad(Long taskId, String status, int openIssues, boolean isHeld) {
         return new PublishedTrip(tripId, vehicleId, tripIndex, brand, district, plannedDepart, tripMinutes, distanceKm,
-            fuelLitres, driverUserId, driverName, taskId, status, stops);
+            fuelLitres, driverUserId, driverName, taskId, status, openIssues, isHeld, stops);
     }
 
     public record Stop(long orderId, int seq, LocalTime plannedArrival, LocalTime serviceStart) {}

@@ -2,13 +2,16 @@ package lk.techtrithalon.waypoint.loading.application;
 
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import lk.techtrithalon.waypoint.audit.application.AuditService;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
+import lk.techtrithalon.waypoint.loading.domain.LoadLine;
 import lk.techtrithalon.waypoint.loading.domain.LoadTask;
 import lk.techtrithalon.waypoint.loading.domain.LoadTaskStatus;
+import lk.techtrithalon.waypoint.loading.domain.LoadingIssue;
 import lk.techtrithalon.waypoint.loading.domain.NewLoadTask;
 import lk.techtrithalon.waypoint.shared.error.ApiException;
 import org.springframework.http.HttpStatus;
@@ -32,7 +35,9 @@ public class LoadTaskService {
 
     /**
      * One task per published trip. Lines arrive in stop order and are loaded in reverse: the last
-     * stop goes in first (rear of the vehicle) and the first stop last, nearest the door.
+     * stop goes in first (rear of the vehicle) and the first stop last, nearest the door. When the
+     * publication replaces a version, the task for the same vehicle and trip keeps the counts already
+     * made (and their open issues) and must be acknowledged before loading continues.
      */
     @Transactional
     @PreAuthorize("hasRole('DISPATCHER')")
@@ -46,13 +51,33 @@ public class LoadTaskService {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "DUPLICATE_STOP", "A trip lists the same stop twice");
             int count = task.lines().size();
             List<Integer> loadSequence = task.lines().stream().map(l -> count - l.stopSeq() + 1).toList();
-            long id = tasks.insert(task, loadSequence, now);
+            LoadTask replaced = task.replacedPlanId() == null ? null
+                : tasks.forSlot(task.replacedPlanId(), task.vehicleId(), task.tripIndex()).orElse(null);
+            long id = tasks.insert(task, loadSequence, replaced == null ? null : replaced.id(), replaced != null, now);
+            int carried = replaced == null ? 0 : carryCounts(id, task.planVersion(), replaced);
             ids.add(id);
-            audit.record("load_task.created", user, "load_task", String.valueOf(id), null,
-                Map.of("planId", task.planId(), "planVersion", task.planVersion(), "tripId", task.tripId(),
-                    "vehicleId", task.vehicleId(), "lines", count), null);
+            Map<String, Object> record = new HashMap<>(Map.of("planId", task.planId(), "planVersion", task.planVersion(),
+                "tripId", task.tripId(), "vehicleId", task.vehicleId(), "lines", count, "carriedCounts", carried));
+            if (replaced != null) record.put("replacesTaskId", replaced.id());
+            audit.record("load_task.created", user, "load_task", String.valueOf(id), null, record, null);
         }
         return ids;
+    }
+
+    /** Orders that stay on the same vehicle and trip are already on the vehicle: keep their counts. */
+    private int carryCounts(long taskId, int planVersion, LoadTask replaced) {
+        var created = tasks.find(taskId, false).orElseThrow();
+        Map<Long, LoadLine> before = new HashMap<>();
+        replaced.lines().forEach(l -> before.put(l.orderId(), l));
+        int carried = 0;
+        for (var line : created.lines()) {
+            var old = before.get(line.orderId());
+            if (old == null || "pending".equals(old.status())) continue;
+            tasks.carryLine(line.id(), taskId, old.id(), planVersion);
+            carried++;
+        }
+        if (carried > 0) tasks.inheritStart(taskId, replaced.id());
+        return carried;
     }
 
     /** Called when a newer plan version replaces this one; the dock must work from the new tasks. */
@@ -68,7 +93,13 @@ public class LoadTaskService {
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('DISPATCHER')")
     public List<LoadTaskStatus> statusForPlan(CurrentUser user, long planId) {
-        return tasks.statusForPlan(planId);
+        List<LoadTaskStatus> result = new ArrayList<>();
+        for (var task : tasks.forPlan(planId)) {
+            var open = tasks.issuesForTask(task.id()).stream().filter(i -> "OPEN".equals(i.status())).toList();
+            result.add(new LoadTaskStatus(task.id(), task.tripId(), task.planVersion(), task.status(), open.size(),
+                open.stream().anyMatch(LoadingIssue::holdsVehicle)));
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)

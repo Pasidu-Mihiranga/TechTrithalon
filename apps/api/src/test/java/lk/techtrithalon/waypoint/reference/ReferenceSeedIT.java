@@ -69,7 +69,7 @@ class ReferenceSeedIT {
 
     @Test
     void failedImportRollsBackEverything() {
-        db.execute("TRUNCATE load_line, load_task, deferral_acknowledgement, deferral, plan_order_disposition, stop, trip, plan, planning_snapshot, customer_order, audit_event, vehicle_availability, fuel_ledger, user_session, app_user, outlet, vehicle, calendar_day, service_allowance, district_travel");
+        db.execute("TRUNCATE loading_issue, load_line, load_task, deferral_acknowledgement, deferral, plan_order_disposition, stop, trip, plan, planning_snapshot, customer_order, audit_event, vehicle_availability, fuel_ledger, user_session, app_user, outlet, vehicle, calendar_day, service_allowance, district_travel");
         var bad = new ReferenceProperties(fixtureDir("reference-fixture-bad"), true,
             properties.demoOperatingDate(), properties.expected());
 
