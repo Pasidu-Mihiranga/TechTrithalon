@@ -73,7 +73,8 @@ class JdbcOrderRepository implements OrderRepository {
     @Override
     public OrderPage search(
         LocalDate date, String depot, String outletId, String brand, String tempRequirement,
-        String status, String query, String sort, boolean ascending, int page, int size
+        String status, String query, String sort, boolean ascending, int page, int size,
+        Collection<String> permittedOutletIds
     ) {
         String sortKey = SORTS.contains(sort) ? sort : "ref";
         String direction = ascending ? "ASC" : "DESC";
@@ -82,6 +83,14 @@ class JdbcOrderRepository implements OrderRepository {
         if (date != null) { where.append(" AND order_date=?"); args.add(Date.valueOf(date)); }
         if (depot != null) { where.append(" AND depot=?"); args.add(depot); }
         if (outletId != null) { where.append(" AND outlet_id=?"); args.add(outletId); }
+        if (permittedOutletIds != null) {
+            if (permittedOutletIds.isEmpty()) where.append(" AND FALSE");
+            else {
+                where.append(" AND outlet_id IN (")
+                    .append(String.join(",", Collections.nCopies(permittedOutletIds.size(), "?"))).append(")");
+                args.addAll(permittedOutletIds);
+            }
+        }
         if (brand != null && !brand.isBlank()) { where.append(" AND brand=?"); args.add(brand); }
         if (tempRequirement != null && !tempRequirement.isBlank()) {
             where.append(" AND temp_requirement=?"); args.add(tempRequirement);

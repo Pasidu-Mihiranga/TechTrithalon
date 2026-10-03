@@ -1,6 +1,9 @@
 package lk.techtrithalon.waypoint.ordering.application;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.List;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.identity.domain.Role;
@@ -8,6 +11,7 @@ import lk.techtrithalon.waypoint.ordering.domain.CutoffInfo;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.DashboardSnapshot;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
+import lk.techtrithalon.waypoint.ordering.domain.PlanningQueueSummary;
 import lk.techtrithalon.waypoint.reference.ReferenceProperties;
 import lk.techtrithalon.waypoint.reference.application.ReferenceService;
 import lk.techtrithalon.waypoint.shared.error.ApiException;
@@ -63,13 +67,56 @@ public class OrderQueryService {
         CurrentUser user, LocalDate date, String depot, String brand, String tempRequirement, String status,
         String query, String sort, boolean ascending, int page, int size
     ) {
+        return dispatcherOrders(user, date, depot, brand, tempRequirement, status, query, sort, ascending, page, size, null);
+    }
+
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public OrderPage dispatcherOrders(
+        CurrentUser user, LocalDate date, String depot, String brand, String tempRequirement, String status,
+        String query, String sort, boolean ascending, int page, int size, String parkingConstraint
+    ) {
         LocalDate day = date == null ? referenceProperties.demoOperatingDate() : date;
         reference.day(day);
         if (depot != null && !user.canAccessDepot(depot)) throw missing();
         String selectedDepot = depot == null || depot.isBlank() ? user.depot() : depot;
+        if (parkingConstraint != null && !parkingConstraint.isBlank() && !"van_only".equals(parkingConstraint)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_FILTER", "Unsupported parking filter");
+        }
+        List<String> permittedOutlets = "van_only".equals(parkingConstraint)
+            ? reference.outlets(user, null, null).stream()
+                .filter(outlet -> "van_only".equals(outlet.parkingConstraint()))
+                .map(outlet -> outlet.outletId()).toList()
+            : null;
         return orders.search(
-            day, selectedDepot, null, brand, tempRequirement, status, query, sort, ascending, page, size
+            day, selectedDepot, null, brand, tempRequirement, status, query, sort, ascending, page, size, permittedOutlets
         );
+    }
+
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public PlanningQueueSummary planningQueueSummary(CurrentUser user, LocalDate date, String depot) {
+        LocalDate day = date == null ? referenceProperties.demoOperatingDate() : date;
+        reference.day(day);
+        String selectedDepot = depot == null || depot.isBlank() ? user.depot() : depot;
+        if (selectedDepot != null && (!user.canAccessDepot(selectedDepot) || !reference.depots(user).contains(selectedDepot))) {
+            throw missing();
+        }
+        List<String> depots = selectedDepot == null ? reference.depots(user) : List.of(selectedDepot);
+        List<CustomerOrder> queue = depots.stream()
+            .flatMap(name -> orders.findConfirmedForDateDepot(day, name).stream()).toList();
+        Set<String> vanOutlets = reference.outlets(user, null, null).stream()
+            .filter(outlet -> "van_only".equals(outlet.parkingConstraint()))
+            .map(outlet -> outlet.outletId()).collect(Collectors.toSet());
+        int ambient = 0;
+        int chilled = 0;
+        int van = 0;
+        BigDecimal volume = BigDecimal.ZERO;
+        for (CustomerOrder order : queue) {
+            if ("ambient".equals(order.tempRequirement())) ambient++;
+            if ("chilled".equals(order.tempRequirement())) chilled++;
+            if (vanOutlets.contains(order.outletId())) van++;
+            volume = volume.add(order.volumeM3());
+        }
+        return new PlanningQueueSummary(queue.size(), ambient, chilled, van, volume);
     }
 
     @PreAuthorize("hasRole('DISPATCHER')")

@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/orders/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["summary_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/orders/{id}": {
         parameters: {
             query?: never;
@@ -896,6 +912,7 @@ export interface components {
             weightKg: number;
         };
         PlanMetrics: {
+            assignedVolumeM3?: number;
             avgVolumeUtilisation?: number;
             avgWeightUtilisation?: number;
             /** Format: int32 */
@@ -975,6 +992,17 @@ export interface components {
             planned?: number | null;
             /** Format: int32 */
             total?: number | null;
+        };
+        PlanningQueueSummary: {
+            /** Format: int32 */
+            ambientOrders?: number;
+            /** Format: int32 */
+            chilledOrders?: number;
+            /** Format: int32 */
+            totalOrders?: number;
+            totalVolumeM3?: number;
+            /** Format: int32 */
+            vanOnlyOrders?: number;
         };
         PlanningSnapshot: {
             constraints?: {
@@ -1246,6 +1274,7 @@ export interface operations {
                 depot?: string;
                 brand?: string;
                 tempRequirement?: string;
+                parkingConstraint?: string;
                 status?: string;
                 q?: string;
                 sort?: string;
@@ -1266,6 +1295,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    summary_1: {
+        parameters: {
+            query?: {
+                date?: string;
+                depot?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanningQueueSummary"];
                 };
             };
         };

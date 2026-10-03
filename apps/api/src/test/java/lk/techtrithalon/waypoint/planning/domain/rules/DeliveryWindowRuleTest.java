@@ -74,6 +74,31 @@ class DeliveryWindowRuleTest {
         assertEquals("WINDOW_LATE", violations.get(0).remediationCode());
     }
 
+    @Test
+    void waitingOnFirstTripDelaysSecondTrip() {
+        // First stop arrives 04:00, waits until 07:00, and service finishes 07:15.
+        PlanTrip first = new PlanTrip(1L, "VEH001", 1, "Fresh", "Colombo",
+            List.of(new PlanStop(1L, 1L, 1, order(1L, LocalTime.of(7, 0), LocalTime.of(8, 0)), null, null)),
+            null, null, null);
+        PlanTrip second = new PlanTrip(2L, "VEH001", 2, "Fresh", "Colombo",
+            List.of(new PlanStop(2L, 2L, 1, order(2L, LocalTime.of(3, 0), LocalTime.of(7, 30)), null, null)),
+            null, null, null);
+
+        List<ConstraintViolation> violations = rule.evaluate(context(List.of(second, first)));
+
+        assertEquals(1, violations.size());
+        assertEquals("ORD-2", violations.get(0).entityId());
+        assertEquals("07:45", violations.get(0).actualValue());
+    }
+
+    @Test
+    void arrivalExactlyAtWindowClosePasses() {
+        PlanTrip trip = new PlanTrip(1L, "VEH001", 1, "Fresh", "Colombo",
+            List.of(new PlanStop(1L, 1L, 1, order(1L, LocalTime.of(3, 0), LocalTime.of(4, 0)), null, null)),
+            null, null, null);
+        assertTrue(rule.evaluate(context(List.of(trip))).isEmpty());
+    }
+
     private PlanOrder order(long id, LocalTime open, LocalTime close) {
         return new PlanOrder(
             id, "ORD-" + id, "OUT-" + id, "Fresh", "ambient",

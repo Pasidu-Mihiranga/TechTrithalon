@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import { ManualPlanRequestError, useCreateManualPlan, useEditManualPlan } from './manualPlanQueries'
+import { dispositionReplacement, ManualPlanRequestError, useCreateManualPlan, useEditManualPlan } from './manualPlanQueries'
 
 function setup<T>(hook: () => T) {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -12,6 +12,24 @@ function setup<T>(hook: () => T) {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 describe('manual plan API hooks', () => {
+  it('records deferrals without losing another trip or existing disposition, and restores to the backlog', () => {
+    const view = {
+      plan: { id: 701, lockVersion: 4 },
+      trips: [{ id: 801, vehicleId: 'SYN-V', brand: 'Fresh', district: 'Alpha', tripIndex: 1,
+        stops: [{ orderId: 501 }, { orderId: 502 }] }],
+      unassignedOrders: [{ order: { id: 503 }, disposition: 'DEFERRED', reason: 'Synthetic existing reason' }],
+    }
+    const command = dispositionReplacement(view, [{ orderId: 501, reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27' }])
+    expect(command.expectedVersion).toBe(4)
+    expect(command.trips[0].orderIds).toEqual([502])
+    expect(command.dispositions).toEqual([
+      { orderId: 503, code: 'DEFERRED', reason: 'Synthetic existing reason', nextDeliveryDate: undefined },
+      { orderId: 501, code: 'DEFERRED', reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27' },
+    ])
+    const restored = dispositionReplacement(view, [{ orderId: 503 }])
+    expect(restored.dispositions).toEqual([])
+    expect(restored.trips[0].orderIds).toEqual([501, 502])
+  })
   it('creates from a snapshot and caches the server-produced candidate', async () => {
     let body: unknown
     const view = { plan: { id: 701, lockVersion: 0, status: 'candidate' }, validation: { feasible: true } }

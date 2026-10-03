@@ -60,7 +60,7 @@ export interface PlanningStep2GenerateProps {
   candidateView?: ManualPlanView | null
   plan?: GeneratedPlan | null
   onContinueToAllocation: () => void
-  onGeneratePlan: () => Promise<void>
+  onGeneratePlan: () => Promise<boolean | void>
   onReloadPlan?: () => void
 }
 
@@ -88,52 +88,14 @@ export function PlanningStep2Generate({
     return all.filter((v) => !v.depot || v.depot.toLowerCase() === activeDepot.toLowerCase())
   }, [vehiclesQuery.data, activeDepot])
 
-  const vehiclesCount = localVehicles.length || (vehiclesQuery.data?.length ?? 0)
-
-  const [generationProgress, setGenerationProgress] = useState(0)
-  const [generationStageIdx, setGenerationStageIdx] = useState(0)
-
-  // Advanced options state
-  const [maxHours, setMaxHours] = useState('8')
-  const [serviceMin, setServiceMin] = useState('15')
-  const [coldChainStrict, setColdChainStrict] = useState(true)
-
-  const GENERATION_STAGES = [
-    'Validating confirmed orders & freezing snapshot...',
-    `Checking cold chain & vehicle capacities (${activeDepot})...`,
-    'Optimizing multi-stop routes & delivery windows...',
-    'Finalizing route sequences & fuel quotas...',
-  ]
+  const vehiclesCount = localVehicles.length
 
   async function handleStartGeneration() {
     setIsGenerating(true)
     setGenerationError(null)
-    setGenerationProgress(10)
-    setGenerationStageIdx(0)
-
-    const isTest = import.meta.env?.MODE === 'test'
-    const stepDuration = isTest ? 10 : 450
-
     try {
-      const planPromise = onGeneratePlan()
-
-      await new Promise((r) => setTimeout(r, stepDuration))
-      setGenerationProgress(38)
-      setGenerationStageIdx(1)
-
-      await new Promise((r) => setTimeout(r, stepDuration + (isTest ? 0 : 100)))
-      setGenerationProgress(72)
-      setGenerationStageIdx(2)
-
-      await new Promise((r) => setTimeout(r, stepDuration + (isTest ? 0 : 150)))
-      setGenerationProgress(94)
-      setGenerationStageIdx(3)
-
-      await planPromise
-
-      setGenerationProgress(100)
-      await new Promise((r) => setTimeout(r, isTest ? 10 : 300))
-
+      const created = await onGeneratePlan()
+      if (created === false) throw new Error('The candidate could not be created. Review the error and retry.')
       setIsPlanReady(true)
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Plan generation could not be completed.')
@@ -165,7 +127,7 @@ export function PlanningStep2Generate({
   const valMetrics = candidateView?.validation?.metrics
   const metrics = plan?.metrics
 
-  if (isPlanReady) {
+  if (candidateView || isPlanReady || plan?.status === 'ready') {
     return (
       <div className="planning-step2-container animate-fade-in">
         {/* Success / Ready Banner */}
@@ -208,7 +170,7 @@ export function PlanningStep2Generate({
             <button
               type="button"
               className="toolbar-btn"
-              onClick={() => setIsPlanReady(false)}
+              disabled
             >
               <Sliders size={14} aria-hidden="true" />
               <span>Adjust constraints</span>
@@ -239,7 +201,7 @@ export function PlanningStep2Generate({
         {/* Honest Architecture Notice */}
         <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-sm, 6px)', fontSize: '12px', color: '#475569', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Info size={16} style={{ color: '#0284c7', flexShrink: 0 }} />
-          <span><strong>Manual Planning (Phase 7):</strong> All inputs are frozen and validated by Spring Boot. Automated solver execution belongs to Phase 9. You can review vehicle capacities and adjust trip assignments manually.</span>
+          <span><strong>Manual allocation:</strong> Choose vehicles and assign whole orders to trips. Each edit is validated against frozen inputs. Route optimization is unavailable.</span>
         </div>
 
         {/* 6 KPI Cards: If real metrics exist, display them; otherwise show captured snapshot metrics */}
@@ -286,7 +248,7 @@ export function PlanningStep2Generate({
               <span className="kpi-label">Avg utilisation</span>
             </div>
             <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation * 100)}%` : (metrics ? `${metrics.avgUtilisationPct}%` : '—')}</div>
-            <div className="kpi-sub">target 85%</div>
+            <div className="kpi-sub">server-reported average</div>
           </div>
 
           <div className="kpi-tile">
@@ -294,8 +256,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box blue"><Clock size={15} /></span>
               <span className="kpi-label">On-time windows</span>
             </div>
-            <div className="kpi-value">{candidateView?.validation?.feasible !== undefined ? (candidateView.validation.feasible ? 'Compliant' : 'Violations') : (metrics ? `${metrics.onTimeWindowsPct}%` : '—')}</div>
-            <div className="kpi-sub">{candidateView ? (candidateView.validation?.feasible ? 'all constraints met' : 'review exceptions') : 'delivery adherence'}</div>
+            <div className="kpi-value">{candidateView?.validation?.feasible !== undefined ? (candidateView.validation.feasible ? 'No violations' : 'Violations') : (metrics ? `${metrics.onTimeWindowsPct}%` : '—')}</div>
+            <div className="kpi-sub">{candidateView ? (candidateView.validation?.feasible ? 'current assignments only' : 'review exceptions') : 'delivery adherence'}</div>
           </div>
         </div>
 
@@ -349,8 +311,8 @@ export function PlanningStep2Generate({
           ) : (
             <div style={{ width: '100%', padding: 'var(--space-24)' }}>
               <EmptyState
-                title="Optimization solver pending execution"
-                description={`Snapshot inputs with ${orderCount} orders (${totalVolume.toFixed(1)} m³) are frozen. Route allocation will populate here once the solver produces routes.`}
+                title="Manual allocation required"
+                description={`Snapshot inputs with ${orderCount} orders (${totalVolume.toFixed(1)} m³) are frozen. Assign orders to vehicle trips in Review allocation.`}
                 action={
                   <button
                     type="button"
@@ -379,7 +341,7 @@ export function PlanningStep2Generate({
           <div className="step2-header-block">
             <h2 className="step2-section-title">Generate Delivery Plan</h2>
             <p className="step2-section-sub">
-              The system will automatically allocate the selected orders to available vehicles and create optimized routes.
+              Create a candidate from the closed-order snapshot, then allocate whole orders to vehicle trips manually.
             </p>
           </div>
 
@@ -417,8 +379,8 @@ export function PlanningStep2Generate({
                 <span className="kpi-icon-box blue"><Clock size={15} /></span>
                 <span className="kpi-label">Windows</span>
               </div>
-              <div className="kpi-value">06:00 – 17:00</div>
-              <div className="kpi-sub">Delivery window span</div>
+              <div className="kpi-value">Per outlet</div>
+              <div className="kpi-sub">Frozen outlet windows</div>
             </div>
           </div>
 
@@ -434,7 +396,7 @@ export function PlanningStep2Generate({
                 <Sliders size={15} className="text-secondary" aria-hidden="true" />
                 <div>
                   <div className="options-title">Planning Options (Advanced)</div>
-                  <div className="options-subtitle">Operational parameters applied by constraint solver.</div>
+                  <div className="options-subtitle">Rules are enforced by the backend using frozen reference inputs.</div>
                 </div>
               </div>
               {optionsOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
@@ -442,48 +404,7 @@ export function PlanningStep2Generate({
 
             {optionsOpen && (
               <div className="options-content-body animate-slide-down">
-                <div className="options-fields-grid">
-                  <div className="option-field">
-                    <label className="field-label" htmlFor="opt-shift">Max shift duration</label>
-                    <select
-                      id="opt-shift"
-                      className="field-select"
-                      value={maxHours}
-                      onChange={(e) => setMaxHours(e.target.value)}
-                    >
-                      <option value="6">6 Hours</option>
-                      <option value="8">8 Hours (Standard)</option>
-                      <option value="10">10 Hours</option>
-                    </select>
-                  </div>
-
-                  <div className="option-field">
-                    <label className="field-label" htmlFor="opt-service">Service per stop</label>
-                    <select
-                      id="opt-service"
-                      className="field-select"
-                      value={serviceMin}
-                      onChange={(e) => setServiceMin(e.target.value)}
-                    >
-                      <option value="10">10 Minutes</option>
-                      <option value="15">15 Minutes (Default)</option>
-                      <option value="20">20 Minutes</option>
-                    </select>
-                  </div>
-
-                  <div className="option-field">
-                    <label className="field-label">Cold chain priority</label>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={coldChainStrict}
-                      className={`toggle-switch ${coldChainStrict ? 'active' : ''}`}
-                      onClick={() => setColdChainStrict(!coldChainStrict)}
-                    >
-                      <span className="toggle-thumb" />
-                    </button>
-                  </div>
-                </div>
+                <p>Shift budgets, service allowances and cold-chain requirements come from the planning snapshot. Editing these rules here is unavailable.</p>
               </div>
             )}
           </div>
@@ -561,44 +482,11 @@ export function PlanningStep2Generate({
 
             {isGenerating ? (
               <div className="step2-generating-container animate-fade-in">
-                {/* Progress Bar with Glowing Gradient */}
-                <div className="generating-bar-wrapper">
-                  <div className="generating-bar-header">
-                    <span className="generating-live-label">
-                      <Sparkles size={14} className="text-brand anim-pulse" aria-hidden="true" />
-                      <span>Optimizing Delivery Routes...</span>
-                    </span>
-                    <span className="generating-live-pct">{generationProgress}%</span>
-                  </div>
-                  <div className="generating-bar-track">
-                    <div
-                      className="generating-bar-fill"
-                      style={{ width: `${generationProgress}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Current Stage Indicator with Spinning Ring */}
-                <div className="generating-active-step">
+                <div className="generating-active-step" role="status">
                   <div className="generating-step-spinner" />
-                  <span className="generating-step-text">{GENERATION_STAGES[generationStageIdx]}</span>
+                  <span className="generating-step-text">Creating a validated manual candidate…</span>
                 </div>
-
-                {/* Real-time Constraint Verification Badges */}
-                <div className="generating-chips-row">
-                  <span className={`gen-chip ${generationProgress >= 10 ? 'active' : ''}`}>
-                    ✓ {orderCount} Orders Checked
-                  </span>
-                  <span className={`gen-chip ${generationProgress >= 38 ? 'active' : ''}`}>
-                    ✓ {chilledCount > 0 ? `${chilledCount} Reefer Constrained` : 'Cold Chain Verified'}
-                  </span>
-                  <span className={`gen-chip ${generationProgress >= 72 ? 'active' : ''}`}>
-                    ✓ {vehiclesCount} Vehicles Allocated
-                  </span>
-                  <span className={`gen-chip ${generationProgress >= 94 ? 'active' : ''}`}>
-                    ✓ Time Windows Met
-                  </span>
-                </div>
+                <p>Allocate routes in the next step after the server saves the candidate.</p>
               </div>
             ) : (
               <div className="step2-hero-action">
@@ -667,7 +555,7 @@ export function PlanningStep2Generate({
               <span className="info-callout-title">What happens next?</span>
             </div>
             <p className="info-callout-body">
-              The system will create optimized routes that start from {activeDepot.endsWith('Depot') ? activeDepot : `${activeDepot} Depot`}, considering delivery time windows, vehicle capacities, and cold chain requirements.
+              Review and assign vehicle trips that start from {activeDepot.endsWith('Depot') ? activeDepot : `${activeDepot} Depot`}, considering delivery time windows, vehicle capacities, and cold chain requirements.
             </p>
           </div>
         </div>

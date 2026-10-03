@@ -69,7 +69,9 @@ export function Sidebar({ roleLabel, items, footerItems, status }: SidebarProps)
       const next = !prev
       try {
         localStorage.setItem('waypoint:sidebar-collapsed', String(next))
-      } catch {}
+      } catch {
+        // Storage may be unavailable; keep the sidebar usable for this session.
+      }
       return next
     })
   }

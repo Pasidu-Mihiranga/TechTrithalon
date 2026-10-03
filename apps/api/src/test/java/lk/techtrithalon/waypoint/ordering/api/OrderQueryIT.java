@@ -8,8 +8,57 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import jakarta.servlet.http.Cookie;
 import lk.techtrithalon.waypoint.reference.infrastructure.ReferenceApiTestSupport;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.annotation.Transactional;
 
 class OrderQueryIT extends ReferenceApiTestSupport {
+
+    @Test
+    @Transactional
+    void planningSummaryIncludesOrdersBeyondThePageLimitAndFiltersVanOnlyOrders() throws Exception {
+        Cookie cookie = login("DSP-001", "synthetic-dispatcher-password");
+        for (int i = 0; i < 205; i++) {
+            String outlet = String.format("Q%06d", i);
+            db.update("""
+                INSERT INTO outlet(outlet_id,brand,district,depot,dock_type,parking_constraint,window_open,window_close)
+                VALUES (?,'Fresh','Alpha','Peliyagoda','street','van_only','05:00','07:30')
+                """, outlet);
+            db.update("""
+                INSERT INTO customer_order(ref,outlet_id,brand,depot,district,order_date,placed_at,confirmed_at,
+                    temp_requirement,units,weight_kg,volume_m3,status,iso_year,iso_week,updated_at)
+                SELECT ?,?,'Fresh','Peliyagoda','Alpha',order_date,placed_at,confirmed_at,
+                    'chilled',1,10,1.250,'confirmed',iso_year,iso_week,updated_at
+                FROM customer_order WHERE ref='SYN001'
+                """, "QUEUE-" + i, outlet);
+        }
+        mvc.perform(get("/api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&size=200").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(200))
+            .andExpect(jsonPath("$.total").value(207));
+        mvc.perform(get("/api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalOrders").value(207))
+            .andExpect(jsonPath("$.ambientOrders").value(1))
+            .andExpect(jsonPath("$.chilledOrders").value(206))
+            .andExpect(jsonPath("$.vanOnlyOrders").value(206))
+            .andExpect(jsonPath("$.totalVolumeM3").value(258.14));
+        mvc.perform(get("/api/v1/dispatcher/orders?date=2026-06-26&parkingConstraint=van_only&q=SYN").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.items[0].ref").value("SYN001"));
+        failure(mvc.perform(get("/api/v1/dispatcher/orders?parkingConstraint=invalid").cookie(cookie)).andReturn(),
+            400, "INVALID_FILTER");
+    }
+
+    @Test
+    @Transactional
+    void planningSummaryEnforcesSessionRoleAndDepotScope() throws Exception {
+        String path = "/api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda";
+        failure(mvc.perform(get(path)).andReturn(), 401, "UNAUTHENTICATED");
+        Cookie store = login("STM-001", "synthetic-store-password");
+        failure(mvc.perform(get(path).cookie(store)).andReturn(), 403, "FORBIDDEN");
+        db.update("UPDATE app_user SET depot='Kandy' WHERE username='DSP-001'");
+        Cookie dispatcher = login("DSP-001", "synthetic-dispatcher-password");
+        failure(mvc.perform(get(path).cookie(dispatcher)).andReturn(), 404, "NOT_FOUND");
+        mvc.perform(get("/api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Kandy").cookie(dispatcher))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalOrders").value(0));
+    }
 
     @Test
     void dispatcherReadsSeededOrdersAndHonestDashboardMetrics() throws Exception {

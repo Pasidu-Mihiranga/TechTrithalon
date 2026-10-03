@@ -64,6 +64,25 @@ describe('Planning Steps UI Components', () => {
   })
 
   describe('Step 2 Generate Plan', () => {
+    it('shows a saved candidate when it arrives after the component mounts', () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      const props = { snapshot: null, orderCount: 2, totalVolume: 3, chilledCount: 0,
+        activeDepot: 'Synthetic depot', onContinueToAllocation: vi.fn(), onGeneratePlan: vi.fn() }
+      const { rerender } = render(<QueryClientProvider client={client}><PlanningStep2Generate {...props} /></QueryClientProvider>)
+      rerender(<QueryClientProvider client={client}><PlanningStep2Generate {...props}
+        candidateView={{ plan: { id: 701, lockVersion: 2, status: 'candidate' } }} /></QueryClientProvider>)
+      expect(screen.getByRole('heading', { name: 'Plan #701 Frozen (Revision 2)' })).toBeInTheDocument()
+    })
+
+    it('keeps the candidate unready when creation fails', async () => {
+      renderWithClient(<PlanningStep2Generate snapshot={null} orderCount={2} totalVolume={3}
+        chilledCount={0} activeDepot="Synthetic depot" onContinueToAllocation={vi.fn()}
+        onGeneratePlan={vi.fn().mockResolvedValue(false)} />)
+      await userEvent.click(screen.getByRole('button', { name: /generate delivery plan/i }))
+      expect(await screen.findByText(/candidate could not be created/i)).toBeInTheDocument()
+      expect(screen.queryByText('Planning Snapshot Frozen')).not.toBeInTheDocument()
+    })
+
     it('renders 2A configuration and advances to 2B plan ready upon generation', async () => {
       const onContinue = vi.fn()
       const onGeneratePlan = vi.fn().mockResolvedValue(undefined)
@@ -218,6 +237,24 @@ describe('Planning Steps UI Components', () => {
   })
 
   describe('Step 5 Confirm & Send', () => {
+    it('reports an unavailable publication service without showing success', async () => {
+      renderWithClient(<PlanningStep5Confirm activeDepot="Synthetic depot" planDate="Synthetic day" manifestRows={[{ vehicle: 'SYN-V', driver: 'Unassigned', stops: 1, volume: '1 m³', departs: '—', bay: 'Unassigned' }]} />)
+      await userEvent.click(screen.getByRole('button', { name: /confirm & send plan/i }))
+      await userEvent.click(screen.getByRole('button', { name: /yes, send delivery plan/i }))
+      expect(await screen.findByText(/publication service is unavailable/i)).toBeInTheDocument()
+      expect(screen.queryByText('Delivery plan is locked and active')).not.toBeInTheDocument()
+    })
+
+    it('keeps a rejected publication in the confirmation dialog', async () => {
+      renderWithClient(<PlanningStep5Confirm activeDepot="Synthetic depot" planDate="Synthetic day"
+        manifestRows={[{ vehicle: 'SYN-V', driver: 'Unassigned', stops: 1, volume: '1 m³', departs: '—', bay: 'Unassigned' }]}
+        onPublishPlan={vi.fn().mockRejectedValue(new Error('Publication rejected by validator'))} />)
+      await userEvent.click(screen.getByRole('button', { name: /confirm & send plan/i }))
+      await userEvent.click(screen.getByRole('button', { name: /yes, send delivery plan/i }))
+      expect(await screen.findByText('Publication rejected by validator')).toBeInTheDocument()
+      expect(screen.queryByText('Delivery plan is locked and active')).not.toBeInTheDocument()
+    })
+
     it('renders manifest table and notification toggles, opens send modal, and displays 5B sent timeline', async () => {
       const syntheticManifest = [
         {
@@ -236,6 +273,7 @@ describe('Planning Steps UI Components', () => {
           activeDepot="Peliyagoda"
           planDate="26 Jun 2026 (Fri)"
           manifestRows={syntheticManifest}
+          onPublishPlan={vi.fn().mockResolvedValue(undefined)}
         />
       )
 

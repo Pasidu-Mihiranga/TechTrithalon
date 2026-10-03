@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
@@ -15,11 +16,12 @@ import {
   Sparkles,
   Table,
 } from 'lucide-react'
-import { Button, EmptyState, ErrorState, LoadingState } from '../../components'
+import { Button, Dialog, Input, EmptyState, ErrorState, LoadingState } from '../../components'
 import { useReferenceSummary } from '../shell/useReferenceSummary'
 import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { useOutlets } from '../../lib/referenceQueries'
-import { useDispatcherOrders } from './orderQueries'
+import { loadSelectedPlanningOrders, useDispatcherOrders, usePlanningQueueSummary } from './orderQueries'
+import { planningOrdersCsv } from './orderDisplay'
 import { api, apiReadError } from '../../lib/apiClient'
 import { PlanningStageTabs } from '../planning/PlanningStages'
 import { Step1BulkActionBar } from '../planning/Step1BulkActionBar'
@@ -30,12 +32,13 @@ import { PlanningStep4Exceptions } from '../planning/PlanningStep4Exceptions'
 import { PlanningStep5Confirm } from '../planning/PlanningStep5Confirm'
 import {
   ManualPlanRequestError,
+  dispositionReplacement,
   useCreateManualPlan,
   useEditManualPlan,
   useManualPlan,
   useManualPlans,
 } from '../planning/manualPlanQueries'
-import type { Edit } from '../planning/manualPlanQueries'
+import type { DispositionChange, Edit } from '../planning/manualPlanQueries'
 import type { components } from '../../generated/api'
 
 type Snapshot = components['schemas']['PlanningSnapshot']
@@ -61,11 +64,9 @@ export function PlanningConfirmedOrdersPage() {
   const planIdParam = searchParams.get('planId')
   const activePlanId = planIdParam ? Number(planIdParam) : null
   const stageParam = searchParams.get('step')
-  const initialStage = stageParam ? Number(stageParam) : 0
-
-  const [stage, setStageState] = useState(initialStage)
+  const requestedStage = Number(stageParam ?? 0)
+  const stage = Number.isInteger(requestedStage) && requestedStage >= 0 && requestedStage <= 4 ? requestedStage : 0
   const setStage = (s: number) => {
-    setStageState(s)
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       if (s === 0) next.delete('step')
@@ -76,9 +77,15 @@ export function PlanningConfirmedOrdersPage() {
 
   const summary = useReferenceSummary()
   const scope = useDispatcherScope()
+  const previousShellDepot = useRef(scope.depot)
+  const scopeVersion = useRef(0)
+  useEffect(() => () => { scopeVersion.current++ }, [])
   const outlets = useOutlets()
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
-  const [excludedKeys, setExcludedKeys] = useState<Set<number>>(new Set())
+  const cache = useQueryClient()
+  const [deferIds, setDeferIds] = useState<number[]>([])
+  const [deferReason, setDeferReason] = useState('')
+  const [deferNextDate, setDeferNextDate] = useState('')
   const [depots, setDepots] = useState<string[] | null>(null)
   const [depot, setDepot] = useState('')
   const [date, setDate] = useState('')
@@ -117,6 +124,8 @@ export function PlanningConfirmedOrdersPage() {
   // Authoritative manual plan hooks
   const planQuery = useManualPlan(activePlanId ?? undefined)
   const candidateView = planQuery.data ?? null
+  const excludedKeys = new Set((candidateView?.unassignedOrders ?? [])
+    .filter(item => item.disposition === 'DEFERRED' && item.order?.id != null).map(item => item.order!.id!))
   const savedPlansQuery = useManualPlans(planDate, activeDepot)
   const createManualPlan = useCreateManualPlan()
   const editManualPlan = useEditManualPlan(activePlanId ?? 0)
@@ -135,50 +144,30 @@ export function PlanningConfirmedOrdersPage() {
     size: 10,
     q: q || undefined,
     tempRequirement: tempRequirementFilter,
+    parkingConstraint: activeFilter === 'van_only' ? 'van_only' : undefined,
     status: 'confirmed',
     sort: 'ref',
     asc: true,
   })
 
-  // Full counts query for filter pills
-  const allOrdersQuery = useDispatcherOrders({
-    date: planDate,
-    depot: activeDepot,
-    page: 0,
-    size: 200,
-    status: 'confirmed',
-  })
-
-  const { normalCount, chilledCount, vanCount, totalVolume } = useMemo(() => {
-    const itemsList = allOrdersQuery.data?.items ?? []
-    let normal = 0
-    let chilled = 0
-    let van = 0
-    let vol = 0
-    for (const item of itemsList) {
-      vol += item.volumeM3 ?? 0
-      if (item.tempRequirement === 'ambient') normal++
-      if (item.tempRequirement === 'chilled') chilled++
-      const outlet = outletsMap.get(item.outletId)
-      if (outlet?.parkingConstraint === 'van_only') van++
-    }
-    return {
-      normalCount: normal,
-      chilledCount: chilled,
-      vanCount: van,
-      totalVolume: vol,
-    }
-  }, [allOrdersQuery.data?.items, outletsMap])
+  const queueSummary = usePlanningQueueSummary(planDate, activeDepot)
+  const normalCount = queueSummary.data?.ambientOrders ?? 0
+  const chilledCount = queueSummary.data?.chilledOrders ?? 0
+  const vanCount = queueSummary.data?.vanOnlyOrders ?? 0
+  const totalVolume = queueSummary.data?.totalVolumeM3 ?? 0
 
   async function checkSnapshot(id: number) {
+    const generation = scopeVersion.current
     try {
       const { data } = await api.GET('/api/v1/dispatcher/planning/snapshots/{id}/compare', { params: { path: { id } } })
+      if (generation !== scopeVersion.current) return
       if (!data) { setError('Snapshot inputs could not be checked.'); return }
       setComparison(data as unknown as Comparison)
-    } catch { setError('Snapshot inputs could not be checked. Check your connection and retry.') }
+    } catch { if (generation === scopeVersion.current) setError('Snapshot inputs could not be checked. Check your connection and retry.') }
   }
 
   async function createSnapshot(useSelection: boolean, regenerate = false) {
+    const generation = scopeVersion.current
     setSubmitting(true)
     setError(null)
     setFailure(null)
@@ -192,6 +181,7 @@ export function PlanningConfirmedOrdersPage() {
       const { data, error: apiError } = await api.POST('/api/v1/dispatcher/planning/snapshots', {
         body: { planDate, depot: activeDepot, orderIds },
       })
+      if (generation !== scopeVersion.current) return
       if (!data) {
         const code = apiError && typeof apiError === 'object' && 'code' in apiError ? String((apiError as { code?: string }).code) : undefined
         setError(code === 'ORDERS_NOT_CLOSED' ? 'Orders close at 16:00 Asia/Colombo on the day before delivery.'
@@ -202,18 +192,19 @@ export function PlanningConfirmedOrdersPage() {
       setComparison(null)
       setSnapshot(data)
       await checkSnapshot(data.id)
-    } catch { setError('The snapshot could not be created. Check your connection and retry.') }
-    finally { setSubmitting(false) }
+    } catch { if (generation === scopeVersion.current) setError('The snapshot could not be created. Check your connection and retry.') }
+    finally { if (generation === scopeVersion.current) setSubmitting(false) }
   }
 
-  async function handleGeneratePlan() {
+  async function handleGeneratePlan(changes: DispositionChange[] = []) {
+    const generation = scopeVersion.current
     setSubmitting(true)
     setError(null)
     setFailure(null)
     try {
       let snap = snapshot
-      if (!snap) {
-        const orderIds = selectedKeys.size > 0 ? [...selectedKeys].map(Number) : undefined
+      if (!snap || snap.selectionMode === 'selected') {
+        const orderIds = undefined
         const { data, error: apiError } = await api.POST('/api/v1/dispatcher/planning/snapshots', {
           body: { planDate, depot: activeDepot, orderIds },
         })
@@ -222,51 +213,72 @@ export function PlanningConfirmedOrdersPage() {
           setError(code === 'ORDERS_NOT_CLOSED' ? 'Orders close at 16:00 Asia/Colombo on the day before delivery.'
             : code === 'SELECTION_INVALID' ? 'Some selected orders are no longer eligible. Refresh and select them again.'
               : code === 'OPERATING_DAY' ? 'Choose an operating delivery day.' : 'The snapshot could not be created.')
-          return
+          return false
         }
+        if (generation !== scopeVersion.current) return false
         snap = data
         setSnapshot(snap)
       }
 
       // Create authoritative candidate from frozen snapshot
-      const created = await createManualPlan.mutateAsync({
+      let created = await createManualPlan.mutateAsync({
         snapshotId: snap.id,
         reason: 'Initial candidate created from confirmed orders snapshot',
       })
 
+      if (changes.length > 0) {
+        const result = await api.PUT('/api/v1/dispatcher/plans/{id}', {
+          params: { path: { id: created.plan.id! } }, body: dispositionReplacement(created, changes),
+        })
+        if (!result.data) throw new ManualPlanRequestError(result.response, result.error)
+        created = result.data
+        cache.setQueryData(['dispatcher', 'manual-plan', created.plan.id], created)
+        void cache.invalidateQueries({ queryKey: ['dispatcher', 'manual-plans'] })
+      }
+      if (generation !== scopeVersion.current) return false
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev)
         next.set('planId', String(created.plan.id))
         next.set('step', '1')
         return next
       })
-      setStageState(1)
+      return true
     } catch (err) {
+      if (generation !== scopeVersion.current) return false
       setFailure(err instanceof Error ? err : new Error('Candidate plan could not be created.'))
+      return false
     } finally {
-      setSubmitting(false)
+      if (generation === scopeVersion.current) setSubmitting(false)
     }
   }
 
   async function handleApplyCommand(command: Edit) {
     if (!activePlanId || !candidateView) {
       setFailure(new Error('No active candidate plan loaded. Generate or select a candidate first.'))
-      return
+      return false
     }
     if (candidateView.plan.status === 'published') {
       setFailure(new Error('Plan is locked and published. No modifications are permitted.'))
-      return
+      return false
     }
     setFailure(null)
     try {
       await editManualPlan.mutateAsync(command)
+      return true
     } catch (err) {
       setFailure(err instanceof Error ? err : new Error('The plan edit could not be applied.'))
+      return false
     }
   }
 
-  function clearScope() {
+  const clearScope = useCallback(() => {
+    scopeVersion.current++
+    setSubmitting(false)
     setSelectedKeys(new Set())
+    setDeferIds([])
+    setDeferReason('')
+    setDeferNextDate('')
+    setPage(0)
     setSnapshot(null)
     setComparison(null)
     setError(null)
@@ -277,16 +289,57 @@ export function PlanningConfirmedOrdersPage() {
       next.delete('step')
       return next
     })
-    setStageState(0)
+  }, [setSearchParams])
+
+  useEffect(() => {
+    if (previousShellDepot.current !== scope.depot) {
+      previousShellDepot.current = scope.depot
+      clearScope()
+    }
+  }, [scope.depot, clearScope])
+
+  async function includeOrders(ids: number[]) {
+    if (!candidateView) return
+    await handleApplyCommand({ operation: 'replace', body: dispositionReplacement(candidateView,
+      ids.map(orderId => ({ orderId }))) })
   }
 
   function toggleExclude(id: number) {
-    setExcludedKeys((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+    if (excludedKeys.has(id)) void includeOrders([id])
+    else setDeferIds([id])
+  }
+
+  async function confirmQueueDeferral() {
+    const changes = deferIds.map(orderId => ({ orderId, reason: deferReason.trim(),
+      nextDeliveryDate: deferNextDate || undefined }))
+    const saved = candidateView
+      ? await handleApplyCommand({ operation: 'replace', body: dispositionReplacement(candidateView, changes) })
+      : await handleGeneratePlan(changes)
+    if (saved) {
+      setDeferIds([])
+      setDeferReason('')
+      setDeferNextDate('')
+      setSelectedKeys(new Set())
+    }
+  }
+
+  async function exportSelectedOrders() {
+    const generation = scopeVersion.current
+    setError(null)
+    try {
+      const selected = await loadSelectedPlanningOrders([...selectedKeys].map(Number), planDate, activeDepot)
+      if (generation !== scopeVersion.current) return
+      const url = URL.createObjectURL(new Blob([planningOrdersCsv(selected)], { type: 'text/csv;charset=utf-8' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `selected_orders_${planDate}.csv`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch (failure) {
+      if (generation === scopeVersion.current) setError(failure instanceof Error ? failure.message : 'Selected orders could not be exported.')
+    }
   }
 
   function toggleSelectAll() {
@@ -302,12 +355,24 @@ export function PlanningConfirmedOrdersPage() {
   if (summary.isError || depotsError) return <ErrorState error={depotsError || summary.error} message="Planning dates and depots could not be loaded." />
   if (!depots?.length) return <EmptyState title="No accessible depots" description="A depot must be configured before planning." />
 
+  if (queueSummary.isPending) return <LoadingState label="Loading planning queue totals" />
+  if (queueSummary.error) return <ErrorState error={queueSummary.error} message={queueSummary.error.message} onRetry={() => void queueSummary.refetch()} />
+
   const totalOrders = ordersQuery.data?.total ?? 0
   const items = ordersQuery.data?.items ?? []
   const totalPages = Math.max(1, Math.ceil(totalOrders / 10))
 
   return (
     <div className="planning-page-container">
+      <Dialog open={deferIds.length > 0} title="Record queue deferral" onClose={() => { if (!submitting && !editManualPlan.isPending) setDeferIds([]) }}
+        footer={<Button disabled={!deferReason.trim() || submitting || editManualPlan.isPending}
+          onClick={() => void confirmQueueDeferral()}>Save deferral</Button>}>
+        <p>Every order remains in the snapshot. The server records a reason for each deferred order before it is excluded from allocation.</p>
+        <Input label="Deferral reason" value={deferReason} onChange={event => setDeferReason(event.target.value)} />
+        <Input label="Next delivery date (optional)" type="date" value={deferNextDate} onChange={event => setDeferNextDate(event.target.value)} />
+        {failure && <ErrorState message={failure.message} />}
+        {error && <ErrorState message={error} />}
+      </Dialog>
       {/* Accessible visually-hidden depot select for headless tests and screen-readers */}
       <select
         aria-label="Depot"
@@ -328,7 +393,7 @@ export function PlanningConfirmedOrdersPage() {
         <div className="planning-header-left">
           <h1 className="planning-title">Planning</h1>
           <p className="planning-subtitle">
-            {activeDepot.endsWith('Depot') ? activeDepot : `${activeDepot} Depot`} · Orders closed 16:00 · 7 late orders moved to the next run
+            {activeDepot.endsWith('Depot') ? activeDepot : `${activeDepot} Depot`} · Order cutoff 16:00 Asia/Colombo
           </p>
         </div>
         <div className="planning-header-right">
@@ -475,12 +540,12 @@ export function PlanningConfirmedOrdersPage() {
         <PlanningStep2Generate
           snapshot={snapshot}
           candidateView={candidateView}
-          orderCount={totalOrders}
+          orderCount={snapshot?.orderCount ?? queueSummary.data?.totalOrders ?? 0}
           totalVolume={totalVolume}
           chilledCount={chilledCount}
           activeDepot={activeDepot}
           onContinueToAllocation={() => setStage(2)}
-          onGeneratePlan={handleGeneratePlan}
+          onGeneratePlan={() => handleGeneratePlan()}
           onReloadPlan={() => void planQuery.refetch()}
         />
       )}
@@ -515,7 +580,7 @@ export function PlanningConfirmedOrdersPage() {
           planDate={formatDisplayDate(planDate)}
           candidateView={candidateView}
           onPublishCandidate={async (pubReason: string) => {
-            if (!activePlanId || !candidateView) return
+            if (!activePlanId || !candidateView) throw new Error('No candidate is available for publication.')
             setFailure(null)
             await editManualPlan.mutateAsync({
               operation: 'publish',
@@ -584,7 +649,7 @@ export function PlanningConfirmedOrdersPage() {
                 onClick={() => { setActiveFilter('all'); setPage(0) }}
               >
                 <span>All orders</span>
-                <span className="pill-badge">{allOrdersQuery.data?.total ?? totalOrders}</span>
+                <span className="pill-badge">{queueSummary.data?.totalOrders ?? totalOrders}</span>
               </button>
               <button
                 type="button"
@@ -797,40 +862,10 @@ export function PlanningConfirmedOrdersPage() {
           {/* Floating Bulk Action Bar (1B) */}
           <Step1BulkActionBar
             selectedCount={selectedKeys.size}
-            onExclude={() => {
-              setExcludedKeys((prev) => {
-                const next = new Set(prev)
-                for (const k of selectedKeys) next.add(Number(k))
-                return next
-              })
-            }}
-            onInclude={() => {
-              setExcludedKeys((prev) => {
-                const next = new Set(prev)
-                for (const k of selectedKeys) next.delete(Number(k))
-                return next
-              })
-            }}
-            onMoveToDeferred={() => {
-              setExcludedKeys((prev) => {
-                const next = new Set(prev)
-                for (const k of selectedKeys) next.add(Number(k))
-                return next
-              })
-              setSelectedKeys(new Set())
-            }}
-            onExportCsv={() => {
-              const selectedItems = items.filter((i) => selectedKeys.has(String(i.id)))
-              const rows = selectedItems.map((i) => `${i.ref},${i.outletId},${i.district ?? ''},${i.volumeM3},${i.tempRequirement}`)
-              const csvContent = 'data:text/csv;charset=utf-8,' + ['Order ID,Outlet,District,Volume,Type', ...rows].join('\n')
-              const encodedUri = encodeURI(csvContent)
-              const link = document.createElement('a')
-              link.setAttribute('href', encodedUri)
-              link.setAttribute('download', `selected_orders_${planDate}.csv`)
-              document.body.appendChild(link)
-              link.click()
-              document.body.removeChild(link)
-            }}
+            onExclude={() => setDeferIds([...selectedKeys].map(Number))}
+            onInclude={() => void includeOrders([...selectedKeys].map(Number))}
+            onMoveToDeferred={() => setDeferIds([...selectedKeys].map(Number))}
+            onExportCsv={() => void exportSelectedOrders()}
             onClearSelection={() => setSelectedKeys(new Set())}
           />
 
@@ -862,10 +897,10 @@ export function PlanningConfirmedOrdersPage() {
           <div className="planning-bottom-bar">
             <div className="bottom-bar-left">
               <div className="bottom-bar-metric">
-                {totalOrders} orders · {totalVolume.toFixed(1)} m³
+                {queueSummary.data?.totalOrders} confirmed orders · {totalVolume.toFixed(1)} m³
               </div>
               <div className="bottom-bar-sub">
-                {excludedKeys.size} excluded · Next, the system builds vehicle routes
+                {excludedKeys.size} recorded deferrals · Next, review manual vehicle allocation
               </div>
             </div>
             <div className="bottom-bar-right">

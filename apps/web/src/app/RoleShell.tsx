@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../features/auth/auth'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell, Button, ErrorState, Sidebar, SystemStatus, TopBar } from '../components'
 import { ChevronDown, Warehouse } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -10,6 +10,7 @@ import type { RoleConfig } from './roles'
 /** One shell for every role; the navigation comes from the role's config. */
 export function RoleShell({ role }: { role: RoleConfig }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const auth = useAuth()
   const [depot, setDepot] = useState(auth.user?.depot || 'Peliyagoda')
   const depots = useQuery({
@@ -43,7 +44,15 @@ export function RoleShell({ role }: { role: RoleConfig }) {
                   aria-label="Depot"
                   value={depot}
                   disabled={depots.isPending || depots.isError}
-                  onChange={(event) => setDepot(event.target.value)}
+                  onChange={(event) => {
+                    setDepot(event.target.value)
+                    if (location.pathname === '/dispatcher/planning' || location.pathname === '/dispatcher/manual-planning') {
+                      const search = new URLSearchParams(location.search)
+                      search.delete('planId')
+                      search.delete('step')
+                      navigate({ pathname: location.pathname, search: search.toString() }, { replace: true })
+                    }
+                  }}
                   className="topbar-depot-select"
                 >
                   {(depots.data && depots.data.length > 0 ? depots.data : ['Peliyagoda', 'Kandy']).map((name) => (

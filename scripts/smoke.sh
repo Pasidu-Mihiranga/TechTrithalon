@@ -3,8 +3,9 @@
 #   web serves  ·  web origin may call the API (CORS)  ·  Spring up  ·  Spring -> Python  ·  seeded data present
 set -euo pipefail
 
-# Use the ports from .env when present, so the script matches whatever Compose started.
-if [[ -f .env ]]; then set -a; source .env; set +a; fi
+# Use the same environment file as Compose, including isolated synthetic verification stacks.
+smoke_env_file="${SMOKE_ENV_FILE:-.env}"
+if [[ -f "$smoke_env_file" ]]; then set -a; source "$smoke_env_file"; set +a; fi
 API="${API_URL:-http://localhost:${API_PORT:-8080}}"
 WEB="${WEB_URL:-http://localhost:${WEB_PORT:-5173}}"
 INTEL="${INTELLIGENCE_URL:-http://localhost:${INTELLIGENCE_PORT:-8000}}"
@@ -88,6 +89,12 @@ PYCODE
 echo "Phase 5: planning snapshot freeze"
 depot=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&size=1" | json_field "['items'][0]['depot']")
 [[ -n "$depot" && "$depot" != "None" ]] || fail "no depot from reference"
+queue=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/summary?date=$demo_date&depot=$depot")
+(( $(echo "$queue" | json_field "['totalOrders']") > 0 )) || fail "confirmed queue is empty"
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&depot=$depot&parkingConstraint=van_only&size=1" > /dev/null
+assert_failure 400 INVALID_FILTER -b "$cookies" "$API/api/v1/dispatcher/orders?parkingConstraint=invalid"
+assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/orders/summary?date=$demo_date&depot=$depot"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/orders/summary?date=$demo_date&depot=UNKNOWN"
 snap=$(curl -fsS -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
   -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\"}" \
   "$API/api/v1/dispatcher/planning/snapshots")
@@ -131,8 +138,10 @@ dashboard=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/dashboard?date=$demo
 [[ "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "True" || "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "true" ]] || fail "ordersToPlan unavailable: $dashboard"
 orders_to_plan=$(echo "$dashboard" | json_field "['ordersToPlan']['value']")
 (( orders_to_plan > 0 )) || fail "ordersToPlan is 0: $dashboard"
-[[ "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "False" || "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "false" ]] || fail "ordersPlanned should be unavailable until Phase 7"
-order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&size=1")
+[[ "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "True" ]] || fail "persisted planned-order count should be available"
+planned_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&status=planned&size=1")
+[[ "$(echo "$dashboard" | json_field "['ordersPlanned']['value']")" == "$(echo "$planned_page" | json_field "['total']")" ]] || fail "planned-order count mismatch"
+order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&status=confirmed&size=1")
 [[ "$(echo "$order_page" | json_field "['total']")" == "$orders_to_plan" ]] || fail "orders total mismatch: $order_page vs $orders_to_plan"
 first_order_id=$(echo "$order_page" | json_field "['items'][0]['id']")
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/$first_order_id" > /dev/null

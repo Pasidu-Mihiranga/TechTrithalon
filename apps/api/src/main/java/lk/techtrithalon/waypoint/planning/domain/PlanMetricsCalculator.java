@@ -29,7 +29,8 @@ public class PlanMetricsCalculator {
                 BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                 BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                 BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
-                hardViolationCount
+                hardViolationCount,
+                BigDecimal.ZERO
             );
         }
 
@@ -43,6 +44,7 @@ public class PlanMetricsCalculator {
 
         BigDecimal totalDistanceKm = BigDecimal.ZERO;
         BigDecimal totalFuelLitres = BigDecimal.ZERO;
+        BigDecimal assignedVolumeM3 = BigDecimal.ZERO;
 
         BigDecimal sumVolumeUtilPercent = BigDecimal.ZERO;
         BigDecimal sumWeightUtilPercent = BigDecimal.ZERO;
@@ -65,9 +67,10 @@ public class PlanMetricsCalculator {
 
             for (PlanStop stop : trip.stops()) {
                 if (stop.order() != null) {
-                    assignedOrderIds.add(stop.order().id());
+                    boolean firstAssignment = assignedOrderIds.add(stop.order().id());
                     if (stop.order().volumeM3() != null) {
                         tripVolume = tripVolume.add(stop.order().volumeM3());
+                        if (firstAssignment) assignedVolumeM3 = assignedVolumeM3.add(stop.order().volumeM3());
                     }
                     if (stop.order().weightKg() != null) {
                         tripWeight = tripWeight.add(stop.order().weightKg());
@@ -133,7 +136,8 @@ public class PlanMetricsCalculator {
             totalFuelLitres.setScale(2, RoundingMode.HALF_UP),
             avgVolumeUtil,
             avgWeightUtil,
-            hardViolationCount
+            hardViolationCount,
+            assignedVolumeM3
         );
     }
 }

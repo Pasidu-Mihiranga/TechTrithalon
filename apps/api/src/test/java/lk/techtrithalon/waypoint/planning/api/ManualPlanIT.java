@@ -60,6 +60,8 @@ class ManualPlanIT extends ReferenceApiTestSupport {
         var first=add(plan,0,"Fresh",1,List.of(freshOrder));
         long firstTrip=first.path("trips").get(0).path("id").asLong();
         assertThat(first.path("trips").get(0).path("tripMinutes").asInt()).isEqualTo(31);
+        assertThat(first.path("validation").path("metrics").path("assignedVolumeM3").decimalValue())
+            .isEqualByComparingTo("1.250");
         postJson("/api/v1/dispatcher/plans/"+plan+"/trips/"+firstTrip+"/sequence",
             Map.of("expectedVersion",1,"reason","Synthetic route review","orderIds",List.of(freshOrder)),200);
         add(plan,2,"Style",2,List.of(styleOrder));

@@ -144,3 +144,12 @@ README's former “through Phase 5” status and the completion record's “Phas
 12. **Release deliverables.** Prepare a reviewable deployment configuration, seeded judge accounts and demo script/video. Public deployment, pushes, PRs and uploads require the owner's authorization under AGENTS.md; local preparation precedes that approval. Confirm dataset deployment rights and keep competition CSVs/secrets out of public source/artifacts.
 
 Each slice follows **migration → Spring → generated OpenAPI/client → UI → tests → live curl/SQL → browser/design check → work log**. Use existing modules/directories. Ask before the architecture, constraint/policy, authentication, destructive, structural and outward-facing changes listed in AGENTS.md. No approval for those future changes is inferred from this analysis.
+
+
+## Authorized repair follow-up — 2026-10-03
+
+Figma access now succeeds; no token is needed. The owner authorized the existing-work merge/push, completed at `main`/`origin/main` `561ee5f`, followed by local work on `fix/planning-data-integrity`.
+
+The first repair slice fixes the late-order count, uncapped server queue/volume metrics, server parking filtering, reasoned candidate exclusions, refresh and depot-scope invalidation, invented map locations/manifest values, simulated optimization progress and false publication success. It adds server-assigned volume and independent cross-trip-wait/window-close/budget-boundary regressions. Full lint is now clean. Fresh isolated curl, PostgreSQL and browser evidence—including manual publication with Python stopped—is recorded in [Manual Planning Verification](./MANUAL_PLANNING_VERIFICATION.md#2026-10-03--planning-integrity-follow-up).
+
+The original findings above are a historical audit baseline. Findings 2/5/7 still need the complete screen metrics/state/copy/CSV/date-switch and visual review; finding 9 still needs input-integrity/full acceptance checks. Findings 8/10/11 and later operational/intelligence requirements remain open. Candidate DEFERRED records do not implement the durable carry-forward/fairness workflow. Keep the execution order above: finish current gates, then deferral/fairness, allocation mode, loading, operational publication, delivery/offline/receipt, remaining submitted-design capabilities, and release verification. No complete Round 2 or visual sign-off is claimed.

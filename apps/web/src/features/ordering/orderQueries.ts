@@ -1,6 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../../lib/apiClient'
 
+/** Read every selected ID; a table page is never the complete selection. */
+export async function loadSelectedPlanningOrders(ids: number[], date: string, depot: string) {
+  return Promise.all(ids.map(async id => {
+    const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/{id}', { params: { path: { id } } })
+    if (error || !data) throw apiReadError(response, 'Selected orders could not be exported')
+    if (data.orderDate !== date || data.depot !== depot || data.status !== 'confirmed') {
+      throw new Error('A selected order is no longer eligible in this planning scope. Refresh the queue before exporting.')
+    }
+    return data
+  }))
+}
+
 export function useDispatcherDashboard(date?: string, depot?: string) {
   return useQuery({
     queryKey: ['dispatcher', 'dashboard', date ?? 'demo', depot],
@@ -20,6 +32,7 @@ export function useDispatcherOrders(query: {
   depot?: string
   brand?: string
   tempRequirement?: string
+  parkingConstraint?: string
   status?: string
   q?: string
   sort?: string
@@ -37,6 +50,7 @@ export function useDispatcherOrders(query: {
             depot: query.depot,
             brand: query.brand || undefined,
             tempRequirement: query.tempRequirement || undefined,
+            parkingConstraint: query.parkingConstraint || undefined,
             status: query.status || undefined,
             q: query.q || undefined,
             sort: query.sort ?? 'ref',
@@ -125,5 +139,19 @@ export function useStoreOrder(id: number) {
       return data
     },
     retry: false,
+  })
+}
+
+export function usePlanningQueueSummary(date: string, depot: string) {
+  return useQuery({
+    queryKey: ['dispatcher', 'orders', 'summary', date, depot],
+    enabled: Boolean(date && depot), retry: false,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/summary', {
+        params: { query: { date, depot } },
+      })
+      if (error || !data) throw apiReadError(response, 'Planning queue totals could not be loaded')
+      return data
+    },
   })
 }

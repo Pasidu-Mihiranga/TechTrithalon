@@ -435,3 +435,62 @@ curl -sS -D headers -o response.json -w '%{http_code}' -X PUT -b "$COOKIE_JAR" -
 curl -sS -D headers -o response.json -w '%{http_code}' -X PUT -b "$COOKIE_JAR" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' --data-binary '{"expectedVersion":0,"reason":"Synthetic malformed input","trips":[],"dispositions":[null]}' http://localhost:18082/api/v1/dispatcher/plans/2
 # HTTP 400 VALIDATION_FAILED
 ```
+
+
+## 2026-10-03 — Planning integrity follow-up
+
+The owner authorized merging and pushing the existing work. `main` and `origin/main` both point to `561ee5f`; new fixes are local on `fix/planning-data-integrity`. Figma access now works: Dispatcher metadata `412:8554` and Confirmed Orders context/screenshot `21:598` were read. No Figma write or complete visual sign-off was performed.
+
+Implemented complete server-owned confirmed-queue counts/volume, parking filtering before pagination, and server-owned assigned plan volume. Step 1 exclusions now require reasons and are persisted as candidate DEFERRED dispositions; generation retains every closed order in an all-order snapshot. Restoring exclusions returns orders to the backlog. Failed saves retain their previous state. Candidate readiness follows saved data after refresh; depot changes clear plan/step URL state, and obsolete snapshot/create responses cannot restore a previous scope.
+
+Removed the invented late-order count, map coordinates, loading-bay/departure values, volume fallback, timer-driven optimization stages and editable controls that did not affect backend rules. Manual-allocation wording now matches the implementation. Notification delivery remains unavailable and its controls are disabled. The independent delivery-window rule carries waiting time into the next trip, without changing the prescribed trip-time or fuel formula.
+
+Verification used a separate Compose project `waypoint-planning-fixes`, API `18084`, web `15176`, PostgreSQL `15434`, and Python `18004`, with only invented reference/demo test fixtures and private temporary credentials. No competition-data mutation was needed. Initial fixture SQL, browser readiness/refresh/scope failures, and the obsolete smoke expectation were corrected; final results follow.
+
+- Full PostgreSQL Testcontainers API suite: **114 tests passed**. The subsequently added exact 270/480-minute plus-one boundary test and the OpenAPI drift check also passed in the focused run. Cross-trip waiting and arrival exactly at window close pass. Required-input fallback and full S1 acceptance remain open.
+- Final web suite: **71 tests passed** across 13 files; full lint passed with **zero warnings/errors**, TypeScript passed, and the final Docker production build passed. Hosted CI has not been verified for these local changes.
+- Permanent smoke passed against the isolated stack. It now checks queue totals, van filtering, malformed-filter errors and actual persisted dashboard counts, and accepts an explicit `SMOKE_ENV_FILE`.
+- Primary browser regression passed: real van filter membership, required deferral reason/date, full snapshot accounting, persistence after reload, asynchronously loaded candidate readiness, and clearing candidate/step/deferrals on depot switches.
+- Existing manual-board browser regression passed with Python stopped: assign, reject invalid move without writes, defer, publish, reload and locked-plan behavior. Python was restored afterward.
+- Before publication, SQL matched the queue response: two confirmed orders, 1.890 m³, one ambient, one chilled, one van-only. After publication, SQL showed one planned order, one confirmed explicitly deferred order, one published plan and VEH901 fuel reservation **4.00 L**, actual **0.00 L**. DEFERRED reason/date remained persisted for 2026-06-27.
+
+### Curl commands and real responses
+
+All requests below used `curl -sS -D headers -o response.json -w '%{http_code}'`, with an explicit method. Authenticated requests used a private `$COOKIE_JAR`; mutations added `-H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' --data-binary @request.json`. Payloads were temporary JSON files, never committed. Three fixture logins returned 200; credentials/cookies are omitted. Every failed response had a stable `code`, matching `traceId`/`X-Request-Id`, and no SQL/class/stack trace leakage. The scoped fixture dispatcher belongs to Kandy; requests for Peliyagoda return 404.
+
+| Method and URL (base `http://localhost:18084`) | HTTP | Real response excerpt |
+|---|---|---|
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda` | 404 | `{"code":"NOT_FOUND","traceId":"7bb7b7e5-2c98-450c-9850-d91b1957785d"}` |
+| `GET /api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&parkingConstraint=van_only` | 404 | `{"code":"NOT_FOUND","traceId":"05d2120f-d1e1-4a89-b319-7763e8a1e07d"}` |
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda` | 200 | `{"totalOrders":2,"ambientOrders":1,"chilledOrders":1,"vanOnlyOrders":1,"totalVolumeM3":1.89}` |
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda` | 401 | `{"code":"UNAUTHENTICATED","traceId":"6717b041-6568-41dc-93e2-110404eac6d0"}` |
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda` | 403 | `{"code":"FORBIDDEN","traceId":"fb65b051-984f-4088-ab59-f8beb57d1374"}` |
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=UNKNOWN` | 404 | `{"code":"NOT_FOUND","traceId":"5da2f272-98b6-450c-b508-02c28d716096"}` |
+| `GET /api/v1/dispatcher/orders/summary?date=invalid&depot=Peliyagoda` | 400 | `{"code":"BAD_REQUEST","traceId":"2dae580c-1f51-4e84-9275-a3e72ad61722"}` |
+| `GET /api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Kandy` | 200 | `{"totalOrders":0,"ambientOrders":0,"chilledOrders":0,"vanOnlyOrders":0,"totalVolumeM3":0}` |
+| `GET /api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&status=confirmed&size=1` | 200 | `{"total":2,"refs":["SYN001"]}` |
+| `GET /api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&parkingConstraint=van_only` | 200 | `{"total":1,"refs":["SYN001"]}` |
+| `GET /api/v1/dispatcher/orders?parkingConstraint=invalid` | 400 | `{"code":"INVALID_FILTER","traceId":"c1984e43-4d4e-44b2-84e9-e91775c2eec4"}` |
+| `GET /api/v1/dispatcher/orders?parkingConstraint=van_only` | 401 | `{"code":"UNAUTHENTICATED","traceId":"e9ef459e-b7ae-41f8-bc05-b52bd04826b0"}` |
+| `GET /api/v1/dispatcher/orders?parkingConstraint=van_only` | 403 | `{"code":"FORBIDDEN","traceId":"6245ed09-0538-46b2-9e2b-ed6bc48583b4"}` |
+| `GET /v3/api-docs` | 200 | `summary, parkingConstraint, assignedVolumeM3 present` |
+| `GET /api/v1/dispatcher/orders?date=2026-06-26&depot=Peliyagoda&status=confirmed` | 200 | `{"total":2,"refs":["SYN001","SYN002"]}` |
+| `POST /api/v1/dispatcher/planning/snapshots` | 201 | `{"id":7,"orderCount":2,"selectionMode":"all"}` |
+| `POST /api/v1/dispatcher/plans` | 201 | `{"id":7,"status":"candidate","lockVersion":0,"assignedVolumeM3":0}` |
+| `POST /api/v1/dispatcher/plans/7/trips` | 422 | `{"code":"PLAN_INFEASIBLE","traceId":"8e6906bf-6fa1-4fec-b4e2-8a06d146bf2d"}` |
+| `POST /api/v1/dispatcher/plans/7/trips` | 200 | `{"id":7,"status":"candidate","lockVersion":1,"assignedVolumeM3":0.64}` |
+| `PUT /api/v1/dispatcher/plans/7` | 200 | `{"id":7,"status":"candidate","lockVersion":2,"assignedVolumeM3":0}` |
+| `GET /api/v1/dispatcher/plans/7` | 200 | `{"id":7,"status":"candidate","lockVersion":2,"assignedVolumeM3":0}` |
+| `PUT /api/v1/dispatcher/plans/7` | 409 | `{"code":"STALE_PLAN","traceId":"ada25670-1b2f-4730-ade5-ad9d0dfd88ca"}` |
+| `POST /api/v1/dispatcher/plans/7/publish` | 422 | `{"code":"ORDER_ACCOUNTING","traceId":"f5bfc296-d715-4632-afb5-72d319b2bb7e"}` |
+
+Examples of the same capture format (temporary payload and cookie paths vary):
+
+```bash
+curl -sS -D headers -o response.json -w '%{http_code}' -X GET -b "$COOKIE_JAR" 'http://localhost:18084/api/v1/dispatcher/orders/summary?date=2026-06-26&depot=Peliyagoda'
+# 200 {"totalOrders":2,"ambientOrders":1,"chilledOrders":1,"vanOnlyOrders":1,"totalVolumeM3":1.890}
+curl -sS -D headers -o response.json -w '%{http_code}' -X GET -b "$COOKIE_JAR" 'http://localhost:18084/api/v1/dispatcher/orders?parkingConstraint=invalid'
+# 400 {"code":"INVALID_FILTER","traceId":"...",...}; trace matches captured header
+```
+
+These fixes close specific audit findings; they do not complete operational deferral/fairness, loading tasks, driver dispatch, delivery/offline/receipt, intelligence promises or release gates. Full screen metrics/copy/CSV export, date-switch/error/forbidden journeys and Figma review still require follow-up. Candidate deferral remains scoped to the candidate; durable order carry-forward belongs to the next planned slice.

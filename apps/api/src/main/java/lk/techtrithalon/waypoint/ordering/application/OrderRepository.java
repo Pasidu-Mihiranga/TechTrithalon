@@ -12,7 +12,7 @@ import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 
 public interface OrderRepository {
     boolean markPlanned(long id, int expectedVersion, java.time.Instant at);
-    OrderPage search(
+    default OrderPage search(
         LocalDate date,
         String depot,
         String outletId,
@@ -24,6 +24,14 @@ public interface OrderRepository {
         boolean ascending,
         int page,
         int size
+    ) {
+        return search(date, depot, outletId, brand, tempRequirement, status, query, sort, ascending, page, size, null);
+    }
+
+    OrderPage search(
+        LocalDate date, String depot, String outletId, String brand, String tempRequirement,
+        String status, String query, String sort, boolean ascending, int page, int size,
+        Collection<String> permittedOutletIds
     );
 
     Optional<CustomerOrder> findById(long id);

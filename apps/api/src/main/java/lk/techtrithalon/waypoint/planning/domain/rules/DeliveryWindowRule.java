@@ -119,7 +119,9 @@ public class DeliveryWindowRule implements ConstraintRule {
                     ? trip.tripMinutes()
                     : tripTimeCalculator.compute(trip, travel, ctx.serviceByBrandDock());
 
-                nextAvailableDeparture = tripDepart.plusMinutes(tripMinutes);
+                // Waiting is elapsed schedule time, separate from the prescribed trip-time budget.
+                long waitMinutes = scheduledStops.stream().mapToLong(ArrivalCalculator.ScheduledStop::waitMinutes).sum();
+                nextAvailableDeparture = tripDepart.plusMinutes(tripMinutes + waitMinutes);
             }
         }
 
