@@ -73,7 +73,9 @@ public class ManualPlanService {
         var plan=editable(user,id,request.expectedVersion());
         if (request.trip().id()!=null) throw failure(HttpStatus.BAD_REQUEST,"TRIP_ID_NOT_ALLOWED","New trips must omit their ID");
         var trips=new ArrayList<>(plan.trips()); var t=request.trip();
-        trips.add(new ManualPlan.TripAssignment(0,t.vehicleId(),t.tripIndex(),t.brand(),t.district(),t.orderIds()));
+        // A new trip has no dispatcher sequence yet: its stops start in the default EDD order.
+        var sequenced=StopSequencer.defaultSequence(t.orderIds(),snapshotOrders(user,plan));
+        trips.add(new ManualPlan.TripAssignment(0,t.vehicleId(),t.tripIndex(),t.brand(),t.district(),sequenced));
         var reasons=plan.dispositions().stream().filter(d -> !t.orderIds().contains(d.orderId())).toList();
         return apply(user,plan,trips,reasons,request.reason(),null);
     }
@@ -86,10 +88,13 @@ public class ManualPlanService {
         if (request.fromTripId()!=null && (source.isEmpty() || source.get().id()!=request.fromTripId())) throw missing();
         if (request.toTripId()!=null) requireTrip(plan,request.toTripId());
         List<ManualPlan.TripAssignment> trips=new ArrayList<>();
+        var snapshotOrders=request.position()==null && request.toTripId()!=null ? snapshotOrders(user,plan) : Map.<Long,PlanOrder>of();
         for (var trip : plan.trips()) {
             var orders=new ArrayList<>(trip.orderIds()); orders.remove(request.orderId());
             if (request.toTripId()!=null && trip.id()==request.toTripId()) {
-                int position=request.position()==null?orders.size():request.position()-1;
+                // An explicit position is the dispatcher's sequence; without one the order takes its EDD slot.
+                int position=request.position()==null
+                    ? StopSequencer.defaultInsertionIndex(orders,request.orderId(),snapshotOrders) : request.position()-1;
                 if (position>orders.size()) throw failure(HttpStatus.BAD_REQUEST,"INVALID_POSITION","Position is outside the target trip");
                 orders.add(position,request.orderId());
             }
@@ -172,8 +177,13 @@ public class ManualPlanService {
         for (var d : deferred) ordering.markDeferred(user,d.orderId(),deferrals.nextRun(plan.planDate(),d.nextDeliveryDate()),d.reason());
         plans.publish(plan,user.id(),clock.instant());
         var after=plans.find(id,false).orElseThrow();
-        audit.record("plan.published",user,"plan",String.valueOf(id),plan,after,request.reason());
-        return view(user,after);
+        var published=view(user,after);
+        // The published schedule is recomputed on read; the audit event keeps the values as computed at
+        // publication until operational publication persists them on trip/stop rows.
+        Map<String,Object> record=new LinkedHashMap<>();
+        record.put("plan",after); record.put("trips",published.trips()); record.put("metrics",published.validation().metrics());
+        audit.record("plan.published",user,"plan",String.valueOf(id),plan,record,request.reason());
+        return published;
     }
     private ManualPlan editable(CurrentUser user,long id,int expected) {
         var plan=load(user,id,true);
@@ -234,16 +244,8 @@ public class ManualPlanService {
         return report;
     }
     private PlanValidationReport validateContext(PlanContext context) {
-        var report=validator.validate(context);
-        var violations=new ArrayList<>(report.violations());
-        // Carry waiting across trips; validate the actual server-computed schedule as well.
-        for (var trip : context.trips()) for (var stop : trip.stops())
-            if (stop.order().effectiveWindowClose()!=null && stop.plannedArrival().isAfter(stop.order().effectiveWindowClose()))
-                violations.add(new ConstraintViolation("DELIVERY_WINDOW",Severity.HARD,
-                    Scope.TRIP,EntityType.ORDER,stop.order().orderRef(),"Waiting on earlier stops makes this delivery late",
-                    stop.plannedArrival().toString(),stop.order().effectiveWindowClose().toString(),"RESEQUENCE_OR_DEFER",Map.of("orderId",stop.orderId())));
-        int hard=(int)violations.stream().filter(v -> v.severity()==Severity.HARD).count();
-        return new PlanValidationReport(violations,hard==0,new PlanMetricsCalculator().compute(context,hard));
+        // R8 schedules waiting across a vehicle's trips itself; the validator is the single lateness authority.
+        return validator.validate(context);
     }
     private ManualPlanView view(CurrentUser user,ManualPlan plan) {
         var context=contexts.create(snapshots.get(user,plan.snapshotId()),plan.trips());
@@ -277,6 +279,11 @@ public class ManualPlanService {
         }
         var fairness=deferrals.fairness(user,plan.planDate(),context.orders().stream().map(PlanOrder::id).toList());
         return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse,fairness);
+    }
+    private Map<Long,PlanOrder> snapshotOrders(CurrentUser user,ManualPlan plan) {
+        Map<Long,PlanOrder> orders=new HashMap<>();
+        contexts.create(snapshots.get(user,plan.snapshotId()),List.of()).orders().forEach(o -> orders.put(o.id(),o));
+        return orders;
     }
     private void requireOrder(CurrentUser user,ManualPlan plan,long orderId) {
         if (!snapshots.get(user,plan.snapshotId()).orderIds().contains(orderId)) throw missing();

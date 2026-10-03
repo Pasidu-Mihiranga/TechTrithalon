@@ -18,6 +18,8 @@ public final class ManualPlanRequests {
     public record Trip(@Positive Long id, @NotBlank @Size(max=8) String vehicleId,
                        @Min(1) @Max(2) int tripIndex, @NotBlank @Size(max=16) String brand,
                        @NotBlank @Size(max=32) String district,
+                       @Schema(description="On trip creation the stops are placed in the default EDD order "
+                           + "(effective window close, then order ID); set an explicit order with the sequence endpoint")
                        @NotNull @Size(max=100000) List<@NotNull @Positive Long> orderIds) {}
     @Schema(name="ManualPlanDispositionRequest")
     public record Disposition(@Positive long orderId, @NotBlank @Pattern(regexp="UNASSIGNED|DEFERRED") String code,
@@ -35,7 +37,8 @@ public final class ManualPlanRequests {
     @Schema(name="ManualPlanMoveRequest")
     public record Move(@NotNull @Min(0) Integer expectedVersion, @NotBlank @Size(max=500) String reason,
                        @Positive long orderId, @Positive Long fromTripId, @Positive Long toTripId,
-                       @Min(1) Integer position) {}
+                       @Schema(description="1-based stop position kept exactly as given; when omitted the order "
+                           + "takes its EDD slot and the other stops keep their order") @Min(1) Integer position) {}
     @Schema(name="ManualPlanVehicleRequest")
     public record Vehicle(@NotNull @Min(0) Integer expectedVersion, @NotBlank @Size(max=500) String reason,
                           @NotBlank @Size(max=8) String vehicleId, @Min(1) @Max(2) int tripIndex) {}

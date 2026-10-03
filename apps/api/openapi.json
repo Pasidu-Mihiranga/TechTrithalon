@@ -740,6 +740,7 @@
             "type" : "integer"
           },
           "position" : {
+            "description" : "1-based stop position kept exactly as given; when omitted the order takes its EDD slot and the other stops keep their order",
             "format" : "int32",
             "minimum" : 1,
             "type" : "integer"
@@ -831,6 +832,7 @@
             "type" : "integer"
           },
           "orderIds" : {
+            "description" : "On trip creation the stops are placed in the default EDD order (effective window close, then order ID); set an explicit order with the sequence endpoint",
             "items" : {
               "format" : "int64",
               "type" : "integer"

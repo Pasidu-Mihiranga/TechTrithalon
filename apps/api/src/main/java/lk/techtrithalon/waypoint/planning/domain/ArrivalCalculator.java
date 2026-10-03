@@ -3,8 +3,10 @@ package lk.techtrithalon.waypoint.planning.domain;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import lk.techtrithalon.waypoint.reference.domain.DistrictTravel;
 import lk.techtrithalon.waypoint.reference.domain.ServiceAllowance;
 
@@ -21,6 +23,9 @@ import lk.techtrithalon.waypoint.reference.domain.ServiceAllowance;
  * serviceStart(k) = max(arrival(k), effectiveWindow(k).open)
  * serviceEnd(k)   = serviceStart(k) + serviceAllowance(k)
  * </pre>
+ *
+ * <p><strong>COMPETITION RULE</strong> (booklet p.15): a vehicle that arrives early waits until the
+ * window opens; lateness means arrival after the window closes.
  *
  * <p><strong>Key Insight:</strong> Waiting at stop k pushes stop k+1 later, because
  * {@code serviceEnd(k)} drives the departure to the next stop, not {@code arrival(k)}.
@@ -140,8 +145,59 @@ public class ArrivalCalculator {
         return result;
     }
 
+    /** One trip of a vehicle day: when it departs, its stop schedule, and when the vehicle is free again. */
+    public record TripSchedule(PlanTrip trip, LocalTime departure, List<ScheduledStop> stops, LocalTime availableAfter) {}
+
     /**
-     * Resolves standard trip departure time based on brand and constraint parameters.
+     * The single schedule for one vehicle's day, shared by plan construction and the R8 rule.
+     *
+     * <p>Trips run in slot order. A later trip departs at its nominal start, or when the previous
+     * trip's last service ends if that is later ({@code departure + tripMinutes + waiting}).
+     * COMPETITION RULE: a vehicle "can return to the depot and reload once" (two trips), and trip time
+     * excludes the return journey because "the stated budgets already allow for it". The booklet
+     * gives no time for the return leg or the reload.
+     * WAYPOINT IMPLEMENTATION ASSUMPTION: no return or reload time is added between trips. This is an
+     * open question, not a rule; see TECHNICAL_REFERENCE section 17, "Open timing questions".
+     */
+    public List<TripSchedule> scheduleVehicleDay(
+        List<PlanTrip> vehicleTrips,
+        Function<String, DistrictTravel> travelFor,
+        Map<String, Map<String, ServiceAllowance>> serviceByBrandDock,
+        PlanConstraintParams params
+    ) {
+        if (vehicleTrips == null || vehicleTrips.isEmpty()) {
+            return List.of();
+        }
+        List<PlanTrip> ordered = new ArrayList<>(vehicleTrips);
+        ordered.sort(Comparator.comparingInt(PlanTrip::tripIndex));
+
+        List<TripSchedule> result = new ArrayList<>(ordered.size());
+        LocalTime nextAvailable = null;
+        for (PlanTrip trip : ordered) {
+            DistrictTravel travel = travelFor.apply(trip.district());
+            LocalTime departure = resolveTripDepartureTime(trip.brand(), trip.tripIndex(), params);
+            if (nextAvailable != null && nextAvailable.isAfter(departure)) {
+                departure = nextAvailable;
+            }
+            List<ScheduledStop> stops = schedule(trip, travel, serviceByBrandDock, departure);
+            int tripMinutes = (trip.tripMinutes() != null && trip.tripMinutes() > 0)
+                ? trip.tripMinutes()
+                : tripTimeCalculator.compute(trip, travel, serviceByBrandDock);
+            // Waiting is elapsed schedule time, separate from the prescribed trip-time budget.
+            long waitMinutes = stops.stream().mapToLong(ScheduledStop::waitMinutes).sum();
+            nextAvailable = departure.plusMinutes(tripMinutes + waitMinutes);
+            result.add(new TripSchedule(trip, departure, stops, nextAvailable));
+        }
+        return result;
+    }
+
+    /**
+     * Resolves the nominal trip departure time from the budget window start.
+     *
+     * <p>WAYPOINT IMPLEMENTATION ASSUMPTION: the booklet gives the Fresh budget window
+     * (3:30 AM to 8 AM) and the Style/Tech "trading day" budget, not a departure time. Waypoint
+     * departs Fresh trips at the Fresh window start and Style/Tech trips at the configured
+     * other-budget start (08:00).
      */
     public LocalTime resolveTripDepartureTime(String brand, int tripIndex, PlanConstraintParams params) {
         if (params == null) {

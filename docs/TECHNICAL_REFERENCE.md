@@ -2252,7 +2252,27 @@ Same vehicle, both trips: 101 + 112 = 213 of 270 Fresh minutes.
 A third trip is not allowed.                 ✓ booklet states 213/270
 ```
 
-> **Distance and fuel differ from time.** For `fuel_litres` the vehicle physically returns to the depot, so distance **does** include the return leg: `distance_km = 2 × depot_to_district_km + inter_stop_km × (n−1)`, `litres = distance_km / km_per_l`. This asymmetry between the time formula (no return) and the distance formula (with return) is deliberate, follows the booklet, and must be commented in the code — it looks like a bug to anyone reading it fresh.
+> **Distance and fuel differ from time.** For `fuel_litres` the vehicle physically returns to the depot, so distance **does** include the return leg: `distance_km = 2 × depot_to_district_km + inter_stop_km × (n−1)`, `litres = distance_km / km_per_l`. This is a **Waypoint implementation assumption, not a booklet rule.** The booklet only says that "route distance consumes" the weekly fuel quota; its "do not add the return journey" sentence is about trip *time*. The asymmetry is deliberate and commented in `DistanceFuelCalculator`.
+
+### Competition rules vs Waypoint assumptions
+
+| Item | Source | Status |
+|---|---|---|
+| Trip time = outbound + inter-stop × (n−1) + handling; no return journey | Booklet p.20 (101 / 112 / 213 fixtures) | **Competition rule** |
+| Fresh 270 min (3:30–8:00), Style/Tech 480 min, at most two trips | Booklet p.21 | **Competition rule** |
+| Early arrival waits until the window opens; late = arrival after window close | Booklet p.15 | **Competition rule** |
+| A vehicle "can return to the depot and reload once" | Booklet p.19 (`trip_id`) | **Competition rule**; no return or reload *time* is given |
+| Fuel distance includes the return leg (`2 × depot_to_district_km`) | — | **Waypoint assumption** |
+| Fresh trips depart at 03:30; Style/Tech trips depart at 08:00 | Budget window starts, not departure rules | **Waypoint assumption** |
+| Trip 2 departs when trip 1's last service ends (outbound + inter-stop + handling + waiting), with no return or reload time | — | **Waypoint assumption** (see open questions) |
+| Waiting is elapsed time and not counted against the 270 / 480 budgets | Formula excludes it | **Waypoint reading of the formula** (see open questions) |
+| Default stop order = EDD (effective window close, then order ID) | §19 | **Waypoint implementation choice** |
+
+### Open timing questions (owner decision needed; behaviour unchanged)
+
+1. **Return and reload between trips.** The booklet says the vehicle returns and reloads but gives no time for either. Today trip 2 can depart the moment trip 1's last service ends, so trip-2 arrival times are optimistic by at least the return leg. Options: keep as is; add `depot_to_district_freeflow_min` for the return; or add a configured reload time. Any change alters R8 results and needs approval.
+2. **Waiting and the daily budget.** R11 sums formula minutes, which exclude waiting. A vehicle can therefore pass R11 while its elapsed day runs past 08:00 (Fresh) or 16:00 (Style/Tech). R8 still rejects any stop that *arrives* after its window. Decide whether elapsed time should also be bounded by the budget window end.
+3. **Fuel distance.** Confirm whether R9 should count the return leg (current assumption) or outbound only.
 
 ---
 
@@ -2328,6 +2348,14 @@ sequence(trip) = stops sorted ascending by effectiveWindow(outlet).close
 ```
 
 The sort is deterministic and O(n log n); exact window validation remains mandatory.
+
+**Implemented** in `planning/domain/StopSequencer` (ties broken by ascending order ID; orders without a window last). It is the *default* only:
+
+- a new trip's initial orders are placed in EDD order;
+- an order moved into a trip **without** a position takes its EDD slot, and the other stops keep their order;
+- an explicit position, the full `sequence` endpoint and `PUT` replace are kept exactly as the dispatcher gave them.
+
+Every edit is rescheduled and validated by `PlanValidator` (R8 uses the shared `ArrivalCalculator.scheduleVehicleDay`), so a sequence that makes a stop late is rejected. Note that EDD minimises maximum lateness only when every stop can start on arrival; with window *opening* times and waiting it is a heuristic, which is why validation stays authoritative.
 
 ### The CP-SAT model
 

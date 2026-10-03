@@ -89,6 +89,9 @@ class ManualPlanIT extends ReferenceApiTestSupport {
         var locked=postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+freshOrder+"/defer",Map.of("expectedVersion",7,"reason","Must reject"),409);
         assertThat(locked.path("code").asText()).isEqualTo("PLAN_LOCKED");
         assertThat(db.queryForObject("SELECT count(*) FROM audit_event WHERE type='plan.published' AND actor_id IS NOT NULL",Integer.class)).isEqualTo(1);
+        // The audit trail keeps the schedule exactly as computed at publication.
+        String publishedSchedule=db.queryForObject("SELECT after_json->'trips'->0->'stops'->0->>'plannedArrival' FROM audit_event WHERE type='plan.published'",String.class);
+        assertThat(publishedSchedule).isEqualTo(published.path("trips").get(0).path("stops").get(0).path("plannedArrival").asText());
     }
     @Test void invalidMovesDuplicateAssignmentsAndPublicationLeaveNoWrites() throws Exception {
         long plan=candidate(); var a=add(plan,0,"Fresh",1,List.of(freshOrder));

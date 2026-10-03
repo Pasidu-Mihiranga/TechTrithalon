@@ -6,18 +6,20 @@ import lk.techtrithalon.waypoint.reference.domain.DistrictTravel;
 import lk.techtrithalon.waypoint.reference.domain.ServiceAllowance;
 
 /**
- * Calculates operational trip duration in minutes according to the competition booklet formula.
+ * Calculates trip duration in minutes.
  *
- * <p>Formula:
+ * <p><strong>COMPETITION RULE</strong> (booklet p.20, verified by the 101 / 112 / 213 fixtures):
  * <pre>
  * trip_minutes = depot_to_district_freeflow_min
  *              + inter_stop_freeflow_min * (stop_count - 1)
  *              + sum service_allowance_min[brand][outlet.dock_type]
  * </pre>
+ * The return journey is not added: "the stated budgets already allow for it". Waiting for a window
+ * to open is not part of the formula either, so it is not counted against the 270 / 480 budgets.
  *
- * <p><strong>Asymmetry Note:</strong> The return journey is deliberately <em>NOT</em> added
- * to trip time (the operating time budget already accounts for it per the competition booklet).
- * However, the return leg <em>IS</em> included in distance and fuel calculation.
+ * <p>Stop order never changes this value: one trip serves one district, and every inter-stop leg
+ * uses that district's constant. Distance and fuel are calculated separately, under a Waypoint
+ * assumption described in {@link DistanceFuelCalculator}.
  */
 public class TripTimeCalculator {
 

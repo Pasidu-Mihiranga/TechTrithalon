@@ -942,7 +942,10 @@ export interface components {
             fromTripId?: number;
             /** Format: int64 */
             orderId?: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 1-based stop position kept exactly as given; when omitted the order takes its EDD slot and the other stops keep their order
+             */
             position?: number;
             reason: string;
             /** Format: int64 */
@@ -966,6 +969,7 @@ export interface components {
             district: string;
             /** Format: int64 */
             id?: number;
+            /** @description On trip creation the stops are placed in the default EDD order (effective window close, then order ID); set an explicit order with the sequence endpoint */
             orderIds: number[];
             /** Format: int32 */
             tripIndex?: number;

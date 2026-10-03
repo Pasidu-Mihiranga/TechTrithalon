@@ -29,7 +29,10 @@ export interface VehicleRouteStop {
   seq: number
   ref: string
   outletName: string
+  /** Outlet's effective delivery window from the frozen reference data, or a truthful unavailable label. */
   window: string
+  /** Server-computed planned arrival for this stop, when the candidate has been scheduled. */
+  plannedArrival?: string
   volume: string
   brand: string
   isChilled?: boolean
@@ -183,7 +186,8 @@ export function PlanningStep3Allocation({
             seq: s.stopIndex ?? sIdx + 1,
             ref: s.order?.orderRef ?? `ORD-${s.orderId}`,
             outletName: s.order ? `Waypoint ${s.order.brand ?? ''} ${s.order.district ?? s.order.outletId}` : `Outlet ${s.orderId}`,
-            window: s.plannedArrival && s.serviceStart ? `${s.plannedArrival}–${s.serviceStart}` : '06:00–08:00',
+            window: formatDeliveryWindow(s.order?.effectiveWindowOpen, s.order?.effectiveWindowClose),
+            plannedArrival: s.plannedArrival ? s.plannedArrival.slice(0, 5) : undefined,
             volume: `${s.order?.volumeM3?.toFixed(1) ?? '0.0'} m³`,
             brand: s.order?.brand ?? trip.brand ?? '',
             isChilled: Boolean(s.order?.temp && (s.order.temp.toLowerCase().includes('chilled') || s.order.temp.toLowerCase().includes('reefer'))),
@@ -862,7 +866,8 @@ export function PlanningStep3Allocation({
                         <div className="stop-meta" style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '6px', marginTop: '2px' }}>
                           <span className="stop-ref">{stop.ref}</span>
                           <span>·</span>
-                          <span className="stop-window">🕒 {stop.window}</span>
+                          <span className="stop-window">🕒 Window {stop.window}</span>
+                          {stop.plannedArrival && <><span>·</span><span className="stop-arrival">Arrives {stop.plannedArrival}</span></>}
                           <span>·</span>
                           <span className="stop-vol">{stop.volume}</span>
                         </div>
@@ -1202,4 +1207,9 @@ export function PlanningStep3Allocation({
       </div>
     </div>
   )
+}
+
+/** Formats the effective window supplied by the backend; never substitutes an invented window. */
+export function formatDeliveryWindow(open?: string | null, close?: string | null) {
+  return open && close ? `${open.slice(0, 5)}–${close.slice(0, 5)}` : 'unavailable'
 }

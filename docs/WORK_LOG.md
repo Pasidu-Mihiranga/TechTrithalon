@@ -392,3 +392,11 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Web: a shared defer form (five Figma reason codes, protect and notify toggles, consequence text from server evidence) used in Step 1, Step 4 and the manual board. The Deferred Orders page now shows live data. Store home and order detail show notices. Step 5 blocks Send while orders are undecided.
 - Found and fixed my own streak bug: the imported skip now extends history when the history reaches the requested date. A regression test covers it.
 - Verification: 119 API tests (new `DeferralIT`), 76 web tests, typecheck and lint pass. Curl and SQL on an isolated real-data stack match (see `docs/DEFERRAL_VERIFICATION.md`). Smoke passes on the main stack. A browser journey and Figma review were not done; Figma MCP was not connected.
+
+## 2026-10-03 — Planning improvements from the routing audit
+
+- Step 3 no longer invents a `'06:00–08:00'` window. It shows the outlet's effective window from the backend, or "unavailable", and the planned arrival as a separate value.
+- Added `StopSequencer` (EDD: effective window close, then order ID). New trips start in EDD order, and a move without a position takes its EDD slot. Explicit positions, the `sequence` endpoint and `PUT` replace are kept as given.
+- One schedule source: `ArrivalCalculator.scheduleVehicleDay` is used by both `SnapshotPlanContextFactory` and `DeliveryWindowRule`. Removed the duplicate lateness check in `ManualPlanService`, which had reported a late stop twice.
+- Labelled competition rules vs Waypoint assumptions (fuel return leg, 03:30/08:00 departures, trip-2 departure, waiting vs budget) in Javadocs and TECHNICAL_REFERENCE §17. Open timing questions are recorded; no formula changed. The publish audit event now stores the computed schedule; freezing it on trip/stop rows is added to Phase 11.
+- Tests: `StopSequencerTest` (5), `ManualSequencingIT` (4), a publish-audit assertion, and `stopWindow.test.tsx` (3). Totals: API 128, web 79; typecheck, lint and build clean; isolated-stack curl/SQL and main smoke passed (see MANUAL_PLANNING_VERIFICATION).

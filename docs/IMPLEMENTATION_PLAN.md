@@ -912,6 +912,7 @@ Execution needs one valid current version and an auditable history.
 
 - [ ] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
 - [ ] Implement republish conflict handling, stale-version response, and version diff.
+- [ ] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
 
 #### Frontend
 
