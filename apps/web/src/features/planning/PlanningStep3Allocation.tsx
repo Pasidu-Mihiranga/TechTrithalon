@@ -29,7 +29,10 @@ export interface VehicleRouteStop {
   seq: number
   ref: string
   outletName: string
+  /** Outlet's effective delivery window from the frozen reference data, or a truthful unavailable label. */
   window: string
+  /** Server-computed planned arrival for this stop, when the candidate has been scheduled. */
+  plannedArrival?: string
   volume: string
   brand: string
   isChilled?: boolean
@@ -136,8 +139,10 @@ export function PlanningStep3Allocation({
         const isReefer = temp.includes('reefer') || temp.includes('chilled')
         const isVan = fleetVeh?.vehicleId?.toLowerCase().includes('van') || refVeh?.type?.toLowerCase().includes('van')
         const badge: 'Reefer' | 'Lorry' | 'Van' = isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry'
-        const weightCap = util?.weightLimitKg ?? refVeh?.weightCapKg ?? 3000
-        const volumeCap = util?.volumeLimitM3 ?? refVeh?.volumeCapM3 ?? 20
+        const dayUse = candidateView.vehicleUtilisation?.[trip.vehicleId ?? '']
+        const fresh = trip.brand?.toLowerCase() === 'fresh'
+        const weightCap = util?.weightLimitKg ?? fleetVeh?.weightCapKg ?? refVeh?.weightCapKg ?? 0
+        const volumeCap = util?.volumeLimitM3 ?? fleetVeh?.volumeCapM3 ?? refVeh?.volumeCapM3 ?? 0
 
         cards.push({
           id: trip.vehicleId ?? `Trip-${trip.id}`,
@@ -168,22 +173,24 @@ export function PlanningStep3Allocation({
             total: weightCap,
             unit: 'kg',
           },
+          // The vehicle-day budget for this trip's brand group, as computed by the server.
           time: {
-            used: trip.tripMinutes ?? 0,
-            total: 540,
+            used: (fresh ? dayUse?.freshMinutesUsed : dayUse?.otherMinutesUsed) ?? 0,
+            total: (fresh ? dayUse?.freshMinutesLimit : dayUse?.otherMinutesLimit) ?? 0,
             unit: 'min',
           },
           fuel: {
             remaining: trip.fuelLitres ?? 0,
-            total: refVeh?.weeklyFuelQuotaL ?? 300,
-            unit: 'L trip',
+            total: dayUse?.weeklyFuelLimitL ?? fleetVeh?.weeklyFuelQuotaL ?? refVeh?.weeklyFuelQuotaL ?? 0,
+            unit: 'L this trip · weekly quota',
           },
           accentColor: colors[idx % colors.length],
           stops: (trip.stops ?? []).map((s, sIdx) => ({
             seq: s.stopIndex ?? sIdx + 1,
             ref: s.order?.orderRef ?? `ORD-${s.orderId}`,
-            outletName: s.order ? `Waypoint ${s.order.brand ?? ''} ${s.order.district ?? s.order.outletId}` : `Outlet ${s.orderId}`,
-            window: s.plannedArrival && s.serviceStart ? `${s.plannedArrival}–${s.serviceStart}` : '06:00–08:00',
+            outletName: s.order ? `${s.order.outletId} · ${s.order.district ?? 'district unavailable'}` : `Order ${s.orderId}`,
+            window: formatDeliveryWindow(s.order?.effectiveWindowOpen, s.order?.effectiveWindowClose),
+            plannedArrival: s.plannedArrival ? s.plannedArrival.slice(0, 5) : undefined,
             volume: `${s.order?.volumeM3?.toFixed(1) ?? '0.0'} m³`,
             brand: s.order?.brand ?? trip.brand ?? '',
             isChilled: Boolean(s.order?.temp && (s.order.temp.toLowerCase().includes('chilled') || s.order.temp.toLowerCase().includes('reefer'))),
@@ -212,10 +219,14 @@ export function PlanningStep3Allocation({
             region: `${activeDepot} Fleet`,
             tripsSummary: 'Standby · Ready for routes',
             trips: [],
-            volume: { used: 0, total: refVeh?.volumeCapM3 ?? 20, unit: 'm³' },
-            weight: { used: 0, total: refVeh?.weightCapKg ?? 3000, unit: 'kg' },
-            time: { used: 0, total: 540, unit: 'min' },
-            fuel: { remaining: refVeh?.weeklyFuelQuotaL ?? 300, total: refVeh?.weeklyFuelQuotaL ?? 300, unit: 'L' },
+            volume: { used: 0, total: veh.volumeCapM3 ?? refVeh?.volumeCapM3 ?? 0, unit: 'm³' },
+            weight: { used: 0, total: veh.weightCapKg ?? refVeh?.weightCapKg ?? 0, unit: 'kg' },
+            time: { used: 0, total: 0, unit: 'min' },
+            fuel: {
+              remaining: 0,
+              total: candidateView.vehicleUtilisation?.[veh.vehicleId ?? '']?.weeklyFuelLimitL ?? veh.weeklyFuelQuotaL ?? refVeh?.weeklyFuelQuotaL ?? 0,
+              unit: 'L this trip · weekly quota',
+            },
             accentColor: '#94a3b8',
             stops: [],
           })
@@ -235,7 +246,7 @@ export function PlanningStep3Allocation({
     return list.slice(0, 14).map((v, i) => {
       const isReefer = v.temp?.toLowerCase() === 'reefer'
       const isVan = v.type?.toLowerCase() === 'van'
-      const weightTons = Math.round((v.weightCapKg ?? 3000) / 1000)
+      const weightTons = Math.round((v.weightCapKg ?? 0) / 1000)
 
       return {
         id: v.vehicleId,
@@ -245,10 +256,10 @@ export function PlanningStep3Allocation({
         region: v.depot ? `${v.depot} Depot Fleet` : 'Depot Fleet',
         tripsSummary: 'Standby · Ready for routes',
         trips: [],
-        volume: { used: 0, total: v.volumeCapM3 ?? 20, unit: 'm³' },
-        weight: { used: 0, total: v.weightCapKg ?? 3000, unit: 'kg' },
-        time: { used: 0, total: 360, unit: 'min' },
-        fuel: { remaining: v.weeklyFuelQuotaL ?? 300, total: v.weeklyFuelQuotaL ?? 300, unit: 'L quota' },
+        volume: { used: 0, total: v.volumeCapM3 ?? 0, unit: 'm³' },
+        weight: { used: 0, total: v.weightCapKg ?? 0, unit: 'kg' },
+        time: { used: 0, total: 0, unit: 'min' },
+        fuel: { remaining: 0, total: v.weeklyFuelQuotaL ?? 0, unit: 'L this trip · weekly quota' },
         accentColor: colors[i % colors.length],
         stops: [],
       }
@@ -290,8 +301,9 @@ export function PlanningStep3Allocation({
 
   const activeVehicle = displayVehicles.find((v) => v.id === selectedVehicleId) || processedVehicles[0] || displayVehicles[0]
 
-  const allocatedVehiclesCount = displayVehicles.filter((v) => v.volume.used > 0).length
-  const totalOrdersPlaced = displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
+  const serverMetrics = candidateView?.validation?.metrics
+  const allocatedVehiclesCount = serverMetrics?.vehiclesUsed ?? displayVehicles.filter((v) => v.volume.used > 0).length
+  const totalOrdersPlaced = serverMetrics?.ordersAssigned ?? displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
 
   // Map representation of all routes
   const allRoutesForMap = useMemo(() => {
@@ -491,8 +503,8 @@ export function PlanningStep3Allocation({
     const fleetList = candidateView?.fleet?.map((f) => ({
       vehicleId: f.vehicleId!,
       temp: f.temp,
-      volumeCapM3: realVehicles.find((r) => r.vehicleId === f.vehicleId)?.volumeCapM3 ?? 20,
-      weightCapKg: realVehicles.find((r) => r.vehicleId === f.vehicleId)?.weightCapKg ?? 3000,
+      volumeCapM3: f.volumeCapM3 ?? realVehicles.find((r) => r.vehicleId === f.vehicleId)?.volumeCapM3 ?? 0,
+      weightCapKg: f.weightCapKg ?? realVehicles.find((r) => r.vehicleId === f.vehicleId)?.weightCapKg ?? 0,
     })) ?? realVehicles
     return fleetList.filter((v) => v.vehicleId !== activeVehicle.id)
   }, [candidateView?.fleet, realVehicles, activeVehicle])
@@ -773,7 +785,7 @@ export function PlanningStep3Allocation({
                             <div className="util-bar-fill green" style={{ width: `${timePct}%` }} />
                           </div>
                           <span className="util-metric-vals">
-                            {v.time ? `${v.time.used} / ${v.time.total} min` : '0 / 360 min'}
+                            {v.time && v.time.total > 0 ? `${v.time.used} / ${v.time.total} min` : 'Time budget unavailable'}
                           </span>
                         </div>
 
@@ -784,12 +796,12 @@ export function PlanningStep3Allocation({
                             <div
                               className="util-bar-fill amber"
                               style={{
-                                width: v.fuel ? `${Math.min(100, Math.round((v.fuel.remaining / v.fuel.total) * 100))}%` : '100%',
+                                width: v.fuel && v.fuel.total > 0 ? `${Math.min(100, Math.round((v.fuel.remaining / v.fuel.total) * 100))}%` : '0%',
                               }}
                             />
                           </div>
                           <span className="util-metric-vals">
-                            {v.fuel ? `${v.fuel.remaining} / ${v.fuel.total} L left` : '300 / 300 L left'}
+                            {v.fuel && v.fuel.total > 0 ? `${v.fuel.remaining} / ${v.fuel.total} ${v.fuel.unit}` : 'Fuel quota unavailable'}
                           </span>
                         </div>
                       </div>
@@ -861,7 +873,8 @@ export function PlanningStep3Allocation({
                         <div className="stop-meta" style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '6px', marginTop: '2px' }}>
                           <span className="stop-ref">{stop.ref}</span>
                           <span>·</span>
-                          <span className="stop-window">🕒 {stop.window}</span>
+                          <span className="stop-window">🕒 Window {stop.window}</span>
+                          {stop.plannedArrival && <><span>·</span><span className="stop-arrival">Arrives {stop.plannedArrival}</span></>}
                           <span>·</span>
                           <span className="stop-vol">{stop.volume}</span>
                         </div>
@@ -1201,4 +1214,9 @@ export function PlanningStep3Allocation({
       </div>
     </div>
   )
+}
+
+/** Formats the effective window supplied by the backend; never substitutes an invented window. */
+export function formatDeliveryWindow(open?: string | null, close?: string | null) {
+  return open && close ? `${open.slice(0, 5)}–${close.slice(0, 5)}` : 'unavailable'
 }

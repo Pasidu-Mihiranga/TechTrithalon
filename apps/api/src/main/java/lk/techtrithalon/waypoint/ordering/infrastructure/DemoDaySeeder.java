@@ -117,9 +117,13 @@ public class DemoDaySeeder implements ApplicationRunner {
             INSERT INTO customer_order (
               ref, outlet_id, brand, depot, district, order_date, placed_at, confirmed_at,
               temp_requirement, units, weight_kg, volume_m3, status, iso_year, iso_week,
-              placed_by, version, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, NULL, 0, ?)
-            ON CONFLICT (ref) DO NOTHING
+              placed_by, version, updated_at, source_deferred_yesterday, source_days_since_served
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, NULL, 0, ?, ?, ?)
+            ON CONFLICT (ref) DO UPDATE SET
+              source_deferred_yesterday = EXCLUDED.source_deferred_yesterday,
+              source_days_since_served = EXCLUDED.source_days_since_served
+            WHERE customer_order.source_deferred_yesterday IS NULL
+              AND customer_order.source_days_since_served IS NULL
             """,
             required(row, "order_ref"),
             outletId,
@@ -135,8 +139,25 @@ public class DemoDaySeeder implements ApplicationRunner {
             new BigDecimal(required(row, "order_volume_m3")),
             isoYear,
             isoWeek,
-            placedAt
+            placedAt,
+            optionalFlag(row, "deferred_yesterday"),
+            optionalInt(row, "days_since_last_served")
         );
+    }
+
+    private static Boolean optionalFlag(Map<String, String> row, String column) {
+        String value = row.get(column);
+        if (value == null || value.isBlank()) return null;
+        return switch (value.trim()) {
+            case "1", "true" -> Boolean.TRUE;
+            case "0", "false" -> Boolean.FALSE;
+            default -> throw new IllegalArgumentException("Invalid " + column + ": " + value);
+        };
+    }
+
+    private static Integer optionalInt(Map<String, String> row, String column) {
+        String value = row.get(column);
+        return value == null || value.isBlank() ? null : Integer.valueOf(value.trim());
     }
 
     private void insertAvailability(Map<String, String> row, LocalDate day, long actorId) {

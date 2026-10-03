@@ -4034,3 +4034,13 @@ th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }
 }
 
 
+
+/* Deferral decision: toggles and the consequence panel (Figma defer dialog 4A+). */
+.check-field { display: flex; align-items: flex-start; gap: var(--space-8); font-size: var(--font-body-s-size); color: var(--color-text-primary); }
+.check-field input { margin-top: var(--space-2); accent-color: var(--color-brand-primary); }
+.consequence-panel { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-12); border-radius: var(--radius-sm); background: var(--color-status-warning-soft); color: var(--color-text-primary); font-size: var(--font-body-s-size); }
+.consequence-panel h4 { margin: 0; font-size: var(--font-body-s-medium-size); font-weight: var(--font-body-s-medium-weight); }
+.consequence-panel ul { margin: 0; padding-left: var(--space-16); display: flex; flex-direction: column; gap: var(--space-4); }
+.consequence-panel.neutral { background: var(--color-bg-subtle); }
+.defer-fields { display: flex; flex-direction: column; gap: var(--space-12); }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin-top: var(--space-12); font-size: var(--font-body-s-size); color: var(--color-text-secondary); }

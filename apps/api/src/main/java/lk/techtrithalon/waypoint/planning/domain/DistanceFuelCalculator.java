@@ -5,16 +5,21 @@ import java.math.RoundingMode;
 import lk.techtrithalon.waypoint.reference.domain.DistrictTravel;
 
 /**
- * Calculates operational distance and fuel consumption according to the competition booklet.
+ * Calculates trip distance and fuel from the frozen district travel table.
  *
- * <p>Formula:
  * <pre>
  * distance_km = 2 * depot_to_district_km + inter_stop_km * (stop_count - 1)
  * fuel_litres = distance_km / vehicle.km_per_l
  * </pre>
  *
- * <p><strong>Asymmetry Note:</strong> Unlike trip time, distance and fuel <em>INCLUDE</em>
- * the physical return leg to the depot (2 * depot_to_district_km).
+ * <p><strong>COMPETITION RULE:</strong> the booklet says only that "route distance consumes" the
+ * weekly fuel quota, and gives {@code depot_to_district_km}, {@code inter_stop_km} and
+ * {@code km_per_l}. It does not give a distance or fuel formula.
+ *
+ * <p><strong>WAYPOINT IMPLEMENTATION ASSUMPTION:</strong> the vehicle drives back to the depot, so
+ * the outbound distance is counted twice. The booklet's trip-<em>time</em> rule excludes the return
+ * journey ("the stated budgets already allow for it"); that statement is about time, not fuel.
+ * Changing this assumption changes R9 results and needs the owner's approval (AGENTS.md section 2).
  */
 public class DistanceFuelCalculator {
 

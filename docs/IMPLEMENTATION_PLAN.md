@@ -6,7 +6,7 @@ This is the daily build plan for a **nine-member team**. It answers what to buil
 
 Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The current foundation and manual path have implementation evidence, but open gates below must be closed before advancing the release. See the [Round 2 requirements audit](./ROUND2_REQUIREMENTS_AUDIT.md).
 
-- [ ] Phase 0 — Repository & Development Foundation **(local stack verified; hosted CI pending and current web lint fails)**
+- [ ] Phase 0 — Repository & Development Foundation **(local stack verified, web lint now clean; hosted CI run on GitHub pending)**
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
@@ -15,7 +15,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; waiting and timing boundaries verified; input integrity/full acceptance keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
-- [ ] Phase 8 — Deferral & Fairness
+- [ ] Phase 8 — Deferral & Fairness **(functional gate verified by tests, curl and SQL; browser journey and Figma review pending)**
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [ ] Phase 11 — Plan Publication & Versioning
@@ -35,6 +35,8 @@ Check a phase only after its exit gate passes in the running system; documentati
 **Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
 
 **Evidence reconciliation, 2026-10-03:** the completion record later includes PostgreSQL, curl and browser evidence for the ordering corrections, so Phase 4's functional gate is restored. Fresh checks passed 110 API tests, 66 web tests, typecheck, build and three Python tests; full web lint failed with three errors. Current five-step UI inspection found hard-coded operational copy, client-computed totals, ineffective van-only filtering and exclusions not used by snapshot creation. Phase 3A/5 therefore stay open. Phase 6 code and timing fixtures exist, but full boundary/input/cross-trip evidence is incomplete. Phase 7 retains its verified functional-board status; operational loading/driver handoff remains Phase 11+. See [the full audit and execution order](./ROUND2_REQUIREMENTS_AUDIT.md). No new mutation/browser verification or Figma visual sign-off is claimed by this audit.
+
+**Step 1 evidence, 2026-10-03:** Step 2/3 planning metrics (available vehicles, frozen order count/volume, per-trip utilisation and stop count, used vehicles/orders) are now server-owned. Fresh runs: 115 API tests, 73 web tests, clean typecheck and lint. Curl on an isolated stack matched SQL (85 orders, 409.864 m³, 28 available vehicles). Hosted CI, Figma visual sign-off and date/error/forbidden journeys remain open.
 
 **Repair evidence, 2026-10-03:** existing work was merged/pushed to `main` at `561ee5f`; fixes are local on `fix/planning-data-integrity`. Figma reads now succeed. Server queue totals/van filtering, recorded candidate deferrals, candidate refresh/scope clearing, truthful manual progress/maps/publication, and independent waiting-time validation have fresh synthetic curl/SQL/browser evidence. Full API suite: 114 passed, plus the newly added budget-boundary/contract check; web: 71 passed, clean lint/typecheck and Docker build. Required-input integrity, full S1, remaining screen/business metrics and visual/state review keep earlier gates open. See [verification details](./MANUAL_PLANNING_VERIFICATION.md#2026-10-03--planning-integrity-follow-up). Later phases remain in the audit's dependency order; none is silently skipped.
 
@@ -395,7 +397,7 @@ The dispatcher experience is the most fully designed part of the product (21 Fig
 
 - [x] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
 - [x] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
-- [ ] All counts and KPIs computed server-side; the UI never derives business numbers. *(Reopened 2026-10-03: current planning queue and confirmation screens calculate totals/category counts locally; server summaries must cover the exact scope.)*
+- [x] All counts and KPIs computed server-side; the UI never derives business numbers. *(Re-closed 2026-10-03: queue summary, plan volume, per-trip load, available vehicles, order totals and used vehicles/orders all come from the API; curl and SQL match. See the Step 1 record in the work log.)*
 
 #### Frontend — Dispatcher (Figma, class A)
 
@@ -733,16 +735,16 @@ Capacity shortfalls need durable reasons and repeat-skip protection.
 
 #### Backend
 
-- [ ] Record reasons, rule evidence, previous operating-day deferral, days since last served, protect-next-run, and notifications.
-- [ ] Require explicit reason and record who decided.
+- [x] Record reasons, rule evidence, previous operating-day deferral, days since last served, protect-next-run, and notifications. *(Store notices with acknowledgement; days since last served comes from imported scenario data until delivery records exist.)*
+- [x] Require explicit reason and record who decided.
 
 #### Frontend
 
-- [ ] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice.
+- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests pass; browser journey and Figma visual review pending.)*
 
 #### Database
 
-- [ ] Add append-only deferral and notification records with indexes for outlet history.
+- [x] Add append-only deferral and notification records with indexes for outlet history.
 
 #### Python / Intelligence
 
@@ -750,11 +752,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test two consecutive operating days, protected carry-forward, missing reason, store visibility, and audit history.
+- [x] Test two consecutive operating days, protected carry-forward, missing reason, store visibility, and audit history.
 
 #### Documentation
 
-- [ ] Document deferral policy and reason-code mapping to Figma.
+- [x] Document deferral policy and reason-code mapping to Figma. *([Deferral verification](./DEFERRAL_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -762,9 +764,13 @@ Deferral history service, notification display, and UI dialog can proceed in par
 
 ### Exit Gate
 
-- [ ] A repeated skip is visible and justified.
-- [ ] Protected orders carry forward.
-- [ ] Store manager sees a clear deferral notice.
+- [x] A repeated skip is visible and justified.
+- [x] Protected orders carry forward.
+- [x] Store manager sees a clear deferral notice.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). Browser and Figma checks are still pending.
 
 ### Result
 
@@ -906,6 +912,7 @@ Execution needs one valid current version and an auditable history.
 
 - [ ] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
 - [ ] Implement republish conflict handling, stale-version response, and version diff.
+- [ ] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
 
 #### Frontend
 
@@ -1611,7 +1618,8 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
 | 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
-| 8–22 | Pending; optional/conditional phases retain their scope labels | — |
+| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl and SQL; browser/Figma pending | 2026-10-03 |
+| 9–22 | Pending; optional/conditional phases retain their scope labels | — |
 
 - Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.

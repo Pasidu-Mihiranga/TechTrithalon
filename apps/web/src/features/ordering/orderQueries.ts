@@ -6,7 +6,7 @@ export async function loadSelectedPlanningOrders(ids: number[], date: string, de
   return Promise.all(ids.map(async id => {
     const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/{id}', { params: { path: { id } } })
     if (error || !data) throw apiReadError(response, 'Selected orders could not be exported')
-    if (data.orderDate !== date || data.depot !== depot || data.status !== 'confirmed') {
+    if (data.planningDate !== date || data.depot !== depot || (data.status !== 'confirmed' && data.status !== 'deferred')) {
       throw new Error('A selected order is no longer eligible in this planning scope. Refresh the queue before exporting.')
     }
     return data

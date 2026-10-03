@@ -130,6 +130,9 @@ export function PlanningStep5Confirm({
     ? `${candidateView.validation.metrics.totalFuelLitres} L`
     : '—'
 
+  // The server refuses publication while any order is neither on a trip nor explicitly deferred.
+  const undecidedOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition !== 'DEFERRED')
+
   async function handleSendPlan() {
     setPublishing(true)
     setLocalPublishError(null)
@@ -166,7 +169,7 @@ export function PlanningStep5Confirm({
               <CheckCircle size={16} className="text-success" />
               <span>
                 {candidateView
-                  ? `Plan #${candidateView.plan.id} published and locked. Fuel quota reserved.`
+                  ? `Plan #${candidateView.plan.id} published and locked. Fuel quota reserved; deferred orders moved to their next run.`
                   : `Plan sent to ${activeDepot || 'Peliyagoda'} teams`}
               </span>
             </div>
@@ -615,6 +618,13 @@ export function PlanningStep5Confirm({
                 </div>
               )}
 
+              {undecidedOrders.length > 0 && (
+                <div className="alert-card alert-danger" role="alert" style={{ marginTop: 'var(--space-12)' }}>
+                  <strong>Not ready: </strong>
+                  <span>{undecidedOrders.map(item => item.order?.orderRef).join(', ')} must be assigned or deferred with a reason before publication.</span>
+                </div>
+              )}
+
               <p className="confirm-warning-text">
                 ⚠️ Sending will lock this delivery plan and commit vehicle fuel quotas. The plan cannot be modified or re-optimised after publication.
               </p>
@@ -651,7 +661,7 @@ export function PlanningStep5Confirm({
               <button
                 type="button"
                 className="btn-primary-yellow"
-                disabled={publishing || (candidateView != null && !publishReason.trim())}
+                disabled={publishing || (candidateView != null && (!publishReason.trim() || undecidedOrders.length > 0))}
                 onClick={() => void handleSendPlan()}
               >
                 <Send size={15} aria-hidden="true" />

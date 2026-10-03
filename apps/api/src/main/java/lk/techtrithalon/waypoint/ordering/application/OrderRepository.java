@@ -12,6 +12,8 @@ import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 
 public interface OrderRepository {
     boolean markPlanned(long id, int expectedVersion, java.time.Instant at);
+    /** Moves a confirmed or carried order to a later planning run; false when it changed meanwhile. */
+    boolean markDeferred(long id, int expectedVersion, LocalDate nextPlanningDate, java.time.Instant at);
     default OrderPage search(
         LocalDate date,
         String depot,
@@ -40,6 +42,7 @@ public interface OrderRepository {
 
     List<CustomerOrder> findByIds(Collection<Long> ids);
 
+    /** Orders eligible for the planning run on {@code date}: confirmed, or carried forward by a deferral. */
     List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot);
 
     long countByDateDepotStatus(LocalDate date, String depot, String status);

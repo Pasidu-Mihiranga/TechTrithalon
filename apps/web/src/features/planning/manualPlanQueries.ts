@@ -58,7 +58,14 @@ export type Edit =
   | { operation: 'defer' | 'restore'; orderId: number; body: Schema['ManualPlanDeferRequest'] }
   | { operation: 'publish'; body: Schema['ManualPlanCommandRequest'] }
 
-export type DispositionChange = { orderId: number; reason?: string; nextDeliveryDate?: string }
+export type DispositionChange = {
+  orderId: number
+  reason?: string
+  nextDeliveryDate?: string
+  reasonCode?: Schema['ManualPlanDispositionRequest']['reasonCode']
+  protectNextRun?: boolean
+  notifyStore?: boolean
+}
 
 /** Preserve the full snapshot and other work while recording exclusions as reasoned deferrals. */
 export function dispositionReplacement(view: ManualPlanView, changes: DispositionChange[]): Schema['ManualPlanReplaceRequest'] {
@@ -74,9 +81,13 @@ export function dispositionReplacement(view: ManualPlanView, changes: Dispositio
     })),
     dispositions: [
       ...(view.unassignedOrders ?? []).filter(item => item.order?.id != null && item.reason && !changedIds.has(item.order.id))
-        .map(item => ({ orderId: item.order!.id, code: item.disposition!, reason: item.reason!, nextDeliveryDate: item.nextDeliveryDate })),
+        .map(item => ({
+          orderId: item.order!.id, code: item.disposition!, reason: item.reason!, nextDeliveryDate: item.nextDeliveryDate,
+          reasonCode: item.reasonCode ?? undefined, protectNextRun: item.protectNextRun, notifyStore: item.notifyStore,
+        })),
       ...changes.filter(change => change.reason).map(change => ({
         orderId: change.orderId, code: 'DEFERRED', reason: change.reason!, nextDeliveryDate: change.nextDeliveryDate,
+        reasonCode: change.reasonCode ?? 'OTHER', protectNextRun: change.protectNextRun ?? true, notifyStore: change.notifyStore ?? true,
       })),
     ],
   }
@@ -92,6 +103,8 @@ function useSavedPlan() {
       void cache.invalidateQueries({ queryKey: ['dispatcher', 'dashboard'] })
       void cache.invalidateQueries({ queryKey: ['store', 'orders'] })
       void cache.invalidateQueries({ queryKey: ['dispatcher', 'fleet'] })
+      void cache.invalidateQueries({ queryKey: ['dispatcher', 'deferrals'] })
+      void cache.invalidateQueries({ queryKey: ['store', 'deferrals'] })
     }
   }
 }

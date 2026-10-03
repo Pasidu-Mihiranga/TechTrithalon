@@ -16,7 +16,7 @@ import {
   Sparkles,
   Table,
 } from 'lucide-react'
-import { Button, Dialog, Input, EmptyState, ErrorState, LoadingState } from '../../components'
+import { Button, Dialog, EmptyState, ErrorState, LoadingState } from '../../components'
 import { useReferenceSummary } from '../shell/useReferenceSummary'
 import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { useOutlets } from '../../lib/referenceQueries'
@@ -39,6 +39,8 @@ import {
   useManualPlans,
 } from '../planning/manualPlanQueries'
 import type { DispositionChange, Edit } from '../planning/manualPlanQueries'
+import { useOrderFairness } from '../planning/deferralQueries'
+import { DeferDecisionFields, EMPTY_DEFER_DECISION, deferDecisionBody, deferDecisionReady, type DeferDecision } from '../planning/DeferDecisionFields'
 import type { components } from '../../generated/api'
 
 type Snapshot = components['schemas']['PlanningSnapshot']
@@ -84,8 +86,7 @@ export function PlanningConfirmedOrdersPage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
   const cache = useQueryClient()
   const [deferIds, setDeferIds] = useState<number[]>([])
-  const [deferReason, setDeferReason] = useState('')
-  const [deferNextDate, setDeferNextDate] = useState('')
+  const [deferDecision, setDeferDecision] = useState<DeferDecision>(EMPTY_DEFER_DECISION)
   const [depots, setDepots] = useState<string[] | null>(null)
   const [depot, setDepot] = useState('')
   const [date, setDate] = useState('')
@@ -145,11 +146,12 @@ export function PlanningConfirmedOrdersPage() {
     q: q || undefined,
     tempRequirement: tempRequirementFilter,
     parkingConstraint: activeFilter === 'van_only' ? 'van_only' : undefined,
-    status: 'confirmed',
+    status: 'confirmed,deferred',
     sort: 'ref',
     asc: true,
   })
 
+  const deferFairness = useOrderFairness(planDate, deferIds)
   const queueSummary = usePlanningQueueSummary(planDate, activeDepot)
   const normalCount = queueSummary.data?.ambientOrders ?? 0
   const chilledCount = queueSummary.data?.chilledOrders ?? 0
@@ -276,8 +278,7 @@ export function PlanningConfirmedOrdersPage() {
     setSubmitting(false)
     setSelectedKeys(new Set())
     setDeferIds([])
-    setDeferReason('')
-    setDeferNextDate('')
+    setDeferDecision(EMPTY_DEFER_DECISION)
     setPage(0)
     setSnapshot(null)
     setComparison(null)
@@ -310,15 +311,13 @@ export function PlanningConfirmedOrdersPage() {
   }
 
   async function confirmQueueDeferral() {
-    const changes = deferIds.map(orderId => ({ orderId, reason: deferReason.trim(),
-      nextDeliveryDate: deferNextDate || undefined }))
+    const changes = deferIds.map(orderId => ({ orderId, ...deferDecisionBody(deferDecision) }))
     const saved = candidateView
       ? await handleApplyCommand({ operation: 'replace', body: dispositionReplacement(candidateView, changes) })
       : await handleGeneratePlan(changes)
     if (saved) {
       setDeferIds([])
-      setDeferReason('')
-      setDeferNextDate('')
+      setDeferDecision(EMPTY_DEFER_DECISION)
       setSelectedKeys(new Set())
     }
   }
@@ -365,11 +364,12 @@ export function PlanningConfirmedOrdersPage() {
   return (
     <div className="planning-page-container">
       <Dialog open={deferIds.length > 0} title="Record queue deferral" onClose={() => { if (!submitting && !editManualPlan.isPending) setDeferIds([]) }}
-        footer={<Button disabled={!deferReason.trim() || submitting || editManualPlan.isPending}
+        footer={<Button disabled={!deferDecisionReady(deferDecision) || submitting || editManualPlan.isPending}
           onClick={() => void confirmQueueDeferral()}>Save deferral</Button>}>
         <p>Every order remains in the snapshot. The server records a reason for each deferred order before it is excluded from allocation.</p>
-        <Input label="Deferral reason" value={deferReason} onChange={event => setDeferReason(event.target.value)} />
-        <Input label="Next delivery date (optional)" type="date" value={deferNextDate} onChange={event => setDeferNextDate(event.target.value)} />
+        <DeferDecisionFields idPrefix="queue-defer" value={deferDecision} onChange={setDeferDecision}
+          fairness={deferFairness.data ?? []}
+          orderLabel={id => (ordersQuery.data?.items ?? []).find(order => order.id === id)?.ref ?? `Order ${id}`} />
         {failure && <ErrorState message={failure.message} />}
         {error && <ErrorState message={error} />}
       </Dialog>

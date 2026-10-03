@@ -8,6 +8,7 @@ import { useReferenceSummary } from '../shell/useReferenceSummary'
 import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { ManualPlanRequestError, useCreateManualPlan, useEditManualPlan, useManualPlan, useManualPlans } from './manualPlanQueries'
 import type { ManualPlanView } from './manualPlanQueries'
+import { DEFER_REASONS, deferReasonLabel, type DeferReasonCode } from './deferralReasons'
 
 type Edit = Parameters<ReturnType<typeof useEditManualPlan>['mutateAsync']>[0]
 const text = (data: FormData, key: string) => String(data.get(key) ?? '').trim()
@@ -137,11 +138,17 @@ export function ManualPlanningBoard() {
       </Card>
       <Card><h2>Unassigned and deferred orders</h2>
         {(view.unassignedOrders ?? []).map(item => <div key={item.order?.id}>
-          <h3>{item.order?.orderRef} · {item.disposition}</h3><p>{item.reason || 'A reason is required before publication.'}{item.nextDeliveryDate ? ` · next delivery ${item.nextDeliveryDate}` : ''}</p>
+          <h3>{item.order?.orderRef} · {item.disposition}</h3><p>{item.reason || 'Assign or defer this order before publication.'}{item.reasonCode ? ` · ${deferReasonLabel(item.reasonCode)}` : ''}{item.nextDeliveryDate ? ` · next delivery ${item.nextDeliveryDate}` : ''}{item.decidedByName ? ` · recorded by ${item.decidedByName}` : ''}</p>
+          <FairnessNote fairness={view.fairness?.[String(item.order?.id)]} />
           <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget)
-            void apply({ operation: 'defer', orderId: item.order!.id!, body: { ...command, nextDeliveryDate: text(data, 'nextDate') || undefined } })
+            void apply({ operation: 'defer', orderId: item.order!.id!, body: { ...command, nextDeliveryDate: text(data, 'nextDate') || undefined,
+              reasonCode: text(data, 'reasonCode') as DeferReasonCode, protectNextRun: data.get('protect') === 'on', notifyStore: data.get('notify') === 'on' } })
           }}>
+            <Select label={`Deferral reason for ${item.order?.orderRef}`} name="reasonCode" required placeholder="Choose a reason"
+              defaultValue={item.reasonCode ?? ''} options={DEFER_REASONS.map(reason => ({ value: reason.code, label: reason.label }))} />
             <Input label={`Next delivery for ${item.order?.orderRef}`} name="nextDate" type="date" defaultValue={item.nextDeliveryDate} />
+            <label className="check-field"><input type="checkbox" name="protect" defaultChecked={item.protectNextRun ?? true} /> Protect on the next run</label>
+            <label className="check-field"><input type="checkbox" name="notify" defaultChecked={item.notifyStore ?? true} /> Notify the store manager</label>
             <Button type="submit" disabled={blocked}>Defer {item.order?.orderRef}</Button>
           </form>
           {item.disposition === 'DEFERRED' ? <Button variant="secondary" disabled={blocked} onClick={() => void apply({ operation: 'restore', orderId: item.order!.id!, body: command })}>Restore {item.order?.orderRef}</Button> : null}
@@ -154,6 +161,16 @@ export function ManualPlanningBoard() {
       <Button disabled={blocked} loading={edit.isPending} onClick={() => void apply({ operation: 'publish', body: command })}>Publish manual plan</Button>
     </> : !selectedId ? <EmptyState title="Choose or create a candidate" description="Freeze all confirmed orders after cutoff to start manual planning." /> : null}
   </>
+}
+
+function FairnessNote({ fairness }: { fairness?: NonNullable<ManualPlanView['fairness']>[string] }) {
+  if (!fairness) return null
+  const notes = [
+    fairness.protectedThisRun ? `Protected: carried from ${fairness.carriedFromDate}` : null,
+    fairness.deferredPreviousOperatingDay ? `Skipped ${fairness.priorConsecutiveDeferrals} operating day(s) in a row${fairness.evidenceSource?.includes('source') ? ' (includes imported data)' : ''}` : null,
+    fairness.daysSinceLastServed != null ? `${fairness.daysSinceLastServed} days since last served (imported data)` : null,
+  ].filter(Boolean)
+  return notes.length ? <p className="field-hint">{notes.join(' · ')}</p> : null
 }
 
 function TripUtilisation({ load }: { load: NonNullable<ManualPlanView['utilisation']>[string] }) {

@@ -9,11 +9,17 @@ import java.util.Map;
 public record ManualPlanView(@Schema(requiredMode=Schema.RequiredMode.REQUIRED) ManualPlan plan,
                              PlanValidationReport validation, List<PlanTrip> trips,
                              List<UnassignedOrder> unassignedOrders, List<PlanVehicle> fleet,
-                             Map<Long, TripLoad> utilisation, Map<String, VehicleUse> vehicleUtilisation) {
+                             Map<Long, TripLoad> utilisation, Map<String, VehicleUse> vehicleUtilisation,
+                             @Schema(description="Repeat-skip evidence for every order in the run, keyed by order ID")
+                             Map<Long, OrderFairness> fairness) {
     public record UnassignedOrder(PlanOrder order, String disposition, String reason,
-                                  java.time.LocalDate nextDeliveryDate) {}
+                                  java.time.LocalDate nextDeliveryDate,
+                                  @Schema(nullable=true) String reasonCode, boolean protectNextRun, boolean notifyStore,
+                                  @Schema(nullable=true) String decidedByName,
+                                  @Schema(nullable=true) java.time.Instant decidedAt) {}
     public record TripLoad(BigDecimal volumeUsedM3, BigDecimal volumeLimitM3,
-                           BigDecimal weightUsedKg, BigDecimal weightLimitKg) {}
+                           BigDecimal weightUsedKg, BigDecimal weightLimitKg,
+                           BigDecimal volumeUtilisationPct, int stopCount) {}
     public record VehicleUse(int freshMinutesUsed, int freshMinutesLimit,
                              int otherMinutesUsed, int otherMinutesLimit,
                              BigDecimal fuelCommittedBeforeL, BigDecimal fuelForPlanL, BigDecimal weeklyFuelLimitL) {}

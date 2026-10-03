@@ -14,5 +14,26 @@ public record ManualPlan(long id, long snapshotId, LocalDate planDate, String de
                                  String district, List<Long> orderIds) {
         public TripAssignment { orderIds = List.copyOf(orderIds); }
     }
-    public record OrderDisposition(long orderId, String code, String reason, LocalDate nextDeliveryDate) {}
+    /**
+     * Why an order is not on a trip. DEFERRED carries the Figma reason code, the protect/notify
+     * choices and who decided; publication turns it into append-only deferral history.
+     */
+    public record OrderDisposition(long orderId, String code, String reason, LocalDate nextDeliveryDate,
+                                   String reasonCode, boolean protectNextRun, boolean notifyStore,
+                                   Long decidedBy, String decidedByName, Instant decidedAt) {
+        public OrderDisposition(long orderId, String code, String reason, LocalDate nextDeliveryDate) {
+            this(orderId, code, reason, nextDeliveryDate, null, true, true, null, null, null);
+        }
+        /** Same decision, ignoring who recorded it. */
+        public boolean sameDecision(OrderDisposition other) {
+            return other != null && orderId == other.orderId && code.equals(other.code) && reason.equals(other.reason)
+                && java.util.Objects.equals(nextDeliveryDate, other.nextDeliveryDate)
+                && java.util.Objects.equals(reasonCode, other.reasonCode)
+                && protectNextRun == other.protectNextRun && notifyStore == other.notifyStore;
+        }
+        public OrderDisposition decidedBy(long actor, String actorName, Instant at) {
+            return new OrderDisposition(orderId, code, reason, nextDeliveryDate, reasonCode, protectNextRun, notifyStore,
+                actor, actorName, at);
+        }
+    }
 }

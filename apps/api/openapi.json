@@ -174,8 +174,22 @@
             "format" : "int64",
             "type" : [ "integer", "null" ]
           },
+          "planningDate" : {
+            "description" : "Planning run the order belongs to; later than orderDate after a published deferral",
+            "format" : "date",
+            "type" : "string"
+          },
           "ref" : {
             "type" : "string"
+          },
+          "sourceDaysSinceServed" : {
+            "description" : "Days since last served, supplied with imported scenario data",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "sourceDeferredYesterday" : {
+            "description" : "Deferred-yesterday flag supplied with imported scenario data",
+            "type" : [ "boolean", "null" ]
           },
           "status" : {
             "type" : "string"
@@ -271,6 +285,129 @@
             "$ref" : "#/components/schemas/Metric"
           }
         },
+        "type" : "object"
+      },
+      "DeferralRecord" : {
+        "properties" : {
+          "acknowledgedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "brand" : {
+            "type" : "string"
+          },
+          "consecutiveDeferrals" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "currentOrderStatus" : {
+            "description" : "Current order status; filled by the service, not stored",
+            "type" : [ "string", "null" ]
+          },
+          "decidedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "decidedByName" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "evidence" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "nextPlanningDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "notifyStore" : {
+            "type" : "boolean"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "planId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "protectNextRun" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "type" : "string"
+          },
+          "recordedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "ruleCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "tempRequirement" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "brand", "consecutiveDeferrals", "decidedAt", "decidedByName", "depot", "evidence", "id", "nextPlanningDate", "notifyStore", "orderId", "orderRef", "outletId", "planDate", "planId", "protectNextRun", "reason", "reasonCode", "recordedAt", "tempRequirement" ],
+        "type" : "object"
+      },
+      "DeferralRun" : {
+        "properties" : {
+          "deferredOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DeferralRecord"
+            },
+            "type" : "array"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "protectedNextRun" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "repeatSkips" : {
+            "description" : "Deferrals that extend a consecutive skip",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "storesAcknowledged" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "storesNotified" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "deferredOrders", "depot", "items", "planDate", "protectedNextRun", "repeatSkips", "storesAcknowledged", "storesNotified" ],
         "type" : "object"
       },
       "DistrictTravel" : {
@@ -528,9 +665,22 @@
             "format" : "date",
             "type" : "string"
           },
+          "notifyStore" : {
+            "description" : "Defaults to true",
+            "type" : "boolean"
+          },
+          "protectNextRun" : {
+            "description" : "Defaults to true",
+            "type" : "boolean"
+          },
           "reason" : {
             "maxLength" : 500,
             "minLength" : 0,
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "description" : "Required when deferring; ignored on restore",
+            "pattern" : "CAPACITY|NO_REEFER|WINDOW_CONFLICT|VAN_ACCESS|OTHER",
             "type" : "string"
           }
         },
@@ -548,13 +698,26 @@
             "format" : "date",
             "type" : "string"
           },
+          "notifyStore" : {
+            "description" : "Defaults to true",
+            "type" : "boolean"
+          },
           "orderId" : {
             "format" : "int64",
             "type" : "integer"
           },
+          "protectNextRun" : {
+            "description" : "Defaults to true",
+            "type" : "boolean"
+          },
           "reason" : {
             "maxLength" : 500,
             "minLength" : 0,
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "description" : "Required for DEFERRED",
+            "pattern" : "CAPACITY|NO_REEFER|WINDOW_CONFLICT|VAN_ACCESS|OTHER",
             "type" : "string"
           }
         },
@@ -577,6 +740,7 @@
             "type" : "integer"
           },
           "position" : {
+            "description" : "1-based stop position kept exactly as given; when omitted the order takes its EDD slot and the other stops keep their order",
             "format" : "int32",
             "minimum" : 1,
             "type" : "integer"
@@ -668,6 +832,7 @@
             "type" : "integer"
           },
           "orderIds" : {
+            "description" : "On trip creation the stops are placed in the default EDD order (effective window close, then order ID); set an explicit order with the sequence endpoint",
             "items" : {
               "format" : "int64",
               "type" : "integer"
@@ -720,6 +885,13 @@
       },
       "ManualPlanView" : {
         "properties" : {
+          "fairness" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/OrderFairness"
+            },
+            "description" : "Repeat-skip evidence for every order in the run, keyed by order ID",
+            "type" : "object"
+          },
           "fleet" : {
             "items" : {
               "$ref" : "#/components/schemas/PlanVehicle"
@@ -780,18 +952,85 @@
           "code" : {
             "type" : "string"
           },
+          "decidedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "decidedBy" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "decidedByName" : {
+            "type" : "string"
+          },
           "nextDeliveryDate" : {
             "format" : "date",
             "type" : "string"
+          },
+          "notifyStore" : {
+            "type" : "boolean"
           },
           "orderId" : {
             "format" : "int64",
             "type" : "integer"
           },
+          "protectNextRun" : {
+            "type" : "boolean"
+          },
           "reason" : {
+            "type" : "string"
+          },
+          "reasonCode" : {
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "OrderFairness" : {
+        "properties" : {
+          "carriedForward" : {
+            "description" : "Carried into this run by an earlier published deferral",
+            "type" : "boolean"
+          },
+          "carriedFromDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "carriedReasonCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "daysSinceLastServed" : {
+            "description" : "From imported scenario data; null when not supplied",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "deferredPreviousOperatingDay" : {
+            "description" : "Outlet was deferred on the previous operating day (history or source data)",
+            "type" : "boolean"
+          },
+          "evidenceSource" : {
+            "description" : "history, source, history+source or none: where the repeat-skip evidence came from",
+            "type" : "string"
+          },
+          "lastDeferralDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "priorConsecutiveDeferrals" : {
+            "description" : "Consecutive operating days the outlet was skipped up to the previous run",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "protectedThisRun" : {
+            "description" : "Carried forward with protect-on-next-run set",
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "carriedForward", "deferredPreviousOperatingDay", "evidenceSource", "orderId", "priorConsecutiveDeferrals", "protectedThisRun" ],
         "type" : "object"
       },
       "OrderPage" : {
@@ -894,6 +1133,10 @@
           "assignedVolumeM3" : {
             "type" : "number"
           },
+          "availableVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "avgVolumeUtilisation" : {
             "type" : "number"
           },
@@ -917,6 +1160,13 @@
           },
           "totalFuelLitres" : {
             "type" : "number"
+          },
+          "totalOrderVolumeM3" : {
+            "type" : "number"
+          },
+          "totalOrders" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "tripsUsed" : {
             "format" : "int32",
@@ -1279,10 +1529,17 @@
       },
       "TripLoad" : {
         "properties" : {
+          "stopCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "volumeLimitM3" : {
             "type" : "number"
           },
           "volumeUsedM3" : {
+            "type" : "number"
+          },
+          "volumeUtilisationPct" : {
             "type" : "number"
           },
           "weightLimitKg" : {
@@ -1296,6 +1553,13 @@
       },
       "UnassignedOrder" : {
         "properties" : {
+          "decidedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "decidedByName" : {
+            "type" : [ "string", "null" ]
+          },
           "disposition" : {
             "type" : "string"
           },
@@ -1303,11 +1567,20 @@
             "format" : "date",
             "type" : "string"
           },
+          "notifyStore" : {
+            "type" : "boolean"
+          },
           "order" : {
             "$ref" : "#/components/schemas/PlanOrder"
           },
+          "protectNextRun" : {
+            "type" : "boolean"
+          },
           "reason" : {
             "type" : "string"
+          },
+          "reasonCode" : {
+            "type" : [ "string", "null" ]
           }
         },
         "type" : "object"
@@ -1546,6 +1819,87 @@
           "session" : [ ]
         } ],
         "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/deferrals" : {
+      "get" : {
+        "operationId" : "forRun",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeferralRun"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "deferral-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/deferrals/fairness" : {
+      "get" : {
+        "operationId" : "fairness",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "orderIds",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/OrderFairness"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "deferral-controller" ]
       }
     },
     "/api/v1/dispatcher/fleet" : {
@@ -2806,6 +3160,60 @@
           "session" : [ ]
         } ],
         "tags" : [ "store-order-controller" ]
+      }
+    },
+    "/api/v1/store/deferrals" : {
+      "get" : {
+        "operationId" : "storeNotices",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DeferralRecord"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "deferral-controller" ]
+      }
+    },
+    "/api/v1/store/deferrals/{id}/acknowledge" : {
+      "post" : {
+        "operationId" : "acknowledge",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DeferralRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "deferral-controller" ]
       }
     },
     "/api/v1/store/orders" : {

@@ -27,5 +27,6 @@ public record SecurityProperties(
     /** Initial accounts, one per role. Passwords always come from the environment, never from the repository. */
     public record Seed(boolean enabled, Account dispatcher, Account storeManager, Account loader, Account driver) {}
 
-    public record Account(String username, String displayName, String password, String outletId, String depot) {}
+    /** {@code vehicleId} links a driver account to the vehicle it drives; blank for other roles. */
+    public record Account(String username, String displayName, String password, String outletId, String depot, String vehicleId) {}
 }

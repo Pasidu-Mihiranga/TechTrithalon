@@ -367,3 +367,44 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Added standard CSV quoting for commas, quotes and line breaks, preserving backend volumes without computing business totals. Request failures and changed eligibility now display an error instead of exporting a partial selection.
 - Regression tests cover IDs across pages, CSV escaping, changed status and failed reads. TypeScript and full lint passed. The complete web suite passed 73 tests across 14 files; the production build passed with its existing bundle-size advisory. Queue-summary failures also retain their typed error for forbidden-state rendering and offer a retry. No backend contract/schema/constraint change was made, and no new live browser-export verification is claimed.
 - The first phase remains open for remaining screen metrics, date/error/forbidden journeys and Figma review. No later phase was started or marked complete.
+
+## 2026-10-03 — Round 2 scope review and agent cost rules
+
+- Read the booklet's Hackathon section (requirements and scoring weights), the implementation plan, the Round 2 audit, README, work log and the design documentation's loader/driver/store screen lists.
+- Confirmed that loading, delivery, receipt, sync, exceptions and notification modules, and `packages/field-core`, are still empty placeholders.
+- Added a Round 2 execution order (nine steps, each with a complexity rating) and token-saving rules to `CLAUDE.md`. Owner decision: Part A covers the Round 2 requirements (steps 1–9) and comes first. Part B covers the remaining phases (automatic planning, explainability, Android APK, forecasting/ML, capacity, hardening), which follow in order. No deadline-driven scope cuts.
+- No application code, schema or contract was changed.
+
+
+## 2026-10-03 — Step 1: planning metrics owned by the server
+
+- Reviewed the uncommitted planning diff. It adds server fields for available vehicles, order totals and volume, and per-trip utilisation and stop count. Step 2 and Step 3 now read them instead of querying vehicles or counting locally.
+- Fixed a Step 2 utilisation bar that could get an invalid width, and made Step 3's bottom bar use the server's used-vehicle and assigned-order counts.
+- Regenerated the OpenAPI contract and TypeScript client. Extended `ManualPlanIT` with assertions for the new fields.
+- Verification: 115 API tests, 73 web tests, typecheck and lint all pass. Curl on an isolated stack matched PostgreSQL (85 orders, 409.864 m³, 28 available vehicles), with 401/403/404/422 failure checks. The isolated stack was removed and the main stack rebuilt.
+- Marked the server-side metrics checkbox done in the plan. Hosted CI, Figma visual sign-off and date/error/forbidden journeys stay open, so the phase gates are not closed.
+
+## 2026-10-03 — Step 2: durable deferrals, carry-forward and store notices
+
+- Added append-only `deferral` and `deferral_acknowledgement` tables. Added `customer_order.planning_date` (the run an order belongs to), imported fairness facts from the scenario CSV, and reason code, flags and decider on candidate dispositions. The migration is additive.
+- Publication now records each deferral with its evidence, moves the order to the next operating run, and refuses unexplained backlog. Queue, snapshot and dashboard read carried orders. Fairness (previous-day skip, consecutive streak, protected carry-forward) is derived per order and returned with the plan.
+- New endpoints: dispatcher run history with server totals; store notices and acknowledgement. Contract and client regenerated.
+- Web: a shared defer form (five Figma reason codes, protect and notify toggles, consequence text from server evidence) used in Step 1, Step 4 and the manual board. The Deferred Orders page now shows live data. Store home and order detail show notices. Step 5 blocks Send while orders are undecided.
+- Found and fixed my own streak bug: the imported skip now extends history when the history reaches the requested date. A regression test covers it.
+- Verification: 119 API tests (new `DeferralIT`), 76 web tests, typecheck and lint pass. Curl and SQL on an isolated real-data stack match (see `docs/DEFERRAL_VERIFICATION.md`). Smoke passes on the main stack. A browser journey and Figma review were not done; Figma MCP was not connected.
+
+## 2026-10-03 — Planning improvements from the routing audit
+
+- Step 3 no longer invents a `'06:00–08:00'` window. It shows the outlet's effective window from the backend, or "unavailable", and the planned arrival as a separate value.
+- Added `StopSequencer` (EDD: effective window close, then order ID). New trips start in EDD order, and a move without a position takes its EDD slot. Explicit positions, the `sequence` endpoint and `PUT` replace are kept as given.
+- One schedule source: `ArrivalCalculator.scheduleVehicleDay` is used by both `SnapshotPlanContextFactory` and `DeliveryWindowRule`. Removed the duplicate lateness check in `ManualPlanService`, which had reported a late stop twice.
+- Labelled competition rules vs Waypoint assumptions (fuel return leg, 03:30/08:00 departures, trip-2 departure, waiting vs budget) in Javadocs and TECHNICAL_REFERENCE §17. Open timing questions are recorded; no formula changed. The publish audit event now stores the computed schedule; freezing it on trip/stop rows is added to Phase 11.
+- Tests: `StopSequencerTest` (5), `ManualSequencingIT` (4), a publish-audit assertion, and `stopWindow.test.tsx` (3). Totals: API 128, web 79; typecheck, lint and build clean; isolated-stack curl/SQL and main smoke passed (see MANUAL_PLANNING_VERIFICATION).
+
+## 2026-10-03 — Browser verification and UI integration of the deferral work
+
+- Added `deferral.spec.ts` (Playwright, isolated stack only) and ran it with the existing specs on real demo data. The browser found a missing consequence panel in the queue defer dialog before a plan exists, so the fairness-by-order read endpoint was added (curl and `DeferralIT` cover it).
+- Deferred Orders is now a list plus "Deferral record" panel with filters, search and paging, matching Figma frame `48:4944` where the data exists. Assign/Keep and the feasibility cards are left for the explainability phase.
+- Removed the hard-coded Exceptions badge and the invented capacity, time, fuel and outlet-name defaults in Step 3, and added a guard test.
+- Updated stale e2e selectors (depot label, planning heading, snapshot persistence check). Still failing and unrelated: login Tab order, and `/dispatcher/planning` at 375 px (14 px overflow).
+- API 128 tests, web 80 tests, typecheck, lint, build and main-stack smoke pass.

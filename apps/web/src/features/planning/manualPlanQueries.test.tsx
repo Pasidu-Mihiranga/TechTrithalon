@@ -17,14 +17,14 @@ describe('manual plan API hooks', () => {
       plan: { id: 701, lockVersion: 4 },
       trips: [{ id: 801, vehicleId: 'SYN-V', brand: 'Fresh', district: 'Alpha', tripIndex: 1,
         stops: [{ orderId: 501 }, { orderId: 502 }] }],
-      unassignedOrders: [{ order: { id: 503 }, disposition: 'DEFERRED', reason: 'Synthetic existing reason' }],
+      unassignedOrders: [{ order: { id: 503 }, disposition: 'DEFERRED', reason: 'Synthetic existing reason', reasonCode: 'CAPACITY', protectNextRun: false, notifyStore: true }],
     }
-    const command = dispositionReplacement(view, [{ orderId: 501, reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27' }])
+    const command = dispositionReplacement(view, [{ orderId: 501, reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27', reasonCode: 'VAN_ACCESS' }])
     expect(command.expectedVersion).toBe(4)
     expect(command.trips[0].orderIds).toEqual([502])
     expect(command.dispositions).toEqual([
-      { orderId: 503, code: 'DEFERRED', reason: 'Synthetic existing reason', nextDeliveryDate: undefined },
-      { orderId: 501, code: 'DEFERRED', reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27' },
+      { orderId: 503, code: 'DEFERRED', reason: 'Synthetic existing reason', nextDeliveryDate: undefined, reasonCode: 'CAPACITY', protectNextRun: false, notifyStore: true },
+      { orderId: 501, code: 'DEFERRED', reason: 'Synthetic queue reason', nextDeliveryDate: '2026-06-27', reasonCode: 'VAN_ACCESS', protectNextRun: true, notifyStore: true },
     ])
     const restored = dispositionReplacement(view, [{ orderId: 503 }])
     expect(restored.dispositions).toEqual([])

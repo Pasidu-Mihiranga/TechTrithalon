@@ -62,10 +62,9 @@ public class SnapshotPlanContextFactory {
         PlanConstraintParams params=new PlanConstraintParams(constraints.path("maxTripsPerVehicleDay").asInt(),
             (int)Duration.between(freshStart,freshEnd).toMinutes(),(int)Duration.between(otherStart,otherEnd).toMinutes(),
             freshStart,freshEnd,otherStart,otherEnd);
-        List<PlanTrip> trips=new ArrayList<>();
-        Map<String,LocalTime> availableAfter=new HashMap<>();
-        for (var assignment : assignments.stream().sorted(Comparator.comparing(ManualPlan.TripAssignment::vehicleId)
-                .thenComparingInt(ManualPlan.TripAssignment::tripIndex)).toList()) {
+        // Build each trip's frozen-input metrics, then take stop times from the single vehicle-day schedule.
+        Map<String,List<PlanTrip>> byVehicle=new java.util.TreeMap<>();
+        for (var assignment : assignments) {
             PlanVehicle vehicle=vehicleMap.get(assignment.vehicleId());
             if (vehicle==null) throw invalid("The selected vehicle is not in the snapshot");
             DistrictTravel district=travel.get(assignment.district());
@@ -79,16 +78,17 @@ public class SnapshotPlanContextFactory {
                 stops.add(new PlanStop(0,id,stops.size()+1,order,null,null));
             }
             PlanTrip raw=new PlanTrip(assignment.id(),assignment.vehicleId(),assignment.tripIndex(),assignment.brand(),assignment.district(),stops,null,null,null);
-            int minutes=time.compute(raw,district,service);
             var fuel=distance.compute(raw,district,vehicle);
-            LocalTime departure=arrivals.resolveTripDepartureTime(raw.brand(),raw.tripIndex(),params);
-            LocalTime previous=availableAfter.get(raw.vehicleId());
-            if (previous!=null && previous.isAfter(departure)) departure=previous;
-            var schedule=arrivals.schedule(raw,district,service,departure);
-            long waiting=schedule.stream().mapToLong(ArrivalCalculator.ScheduledStop::waitMinutes).sum();
-            availableAfter.put(raw.vehicleId(),departure.plusMinutes(minutes+waiting));
-            trips.add(new PlanTrip(raw.id(),raw.vehicleId(),raw.tripIndex(),raw.brand(),raw.district(),
-                schedule.stream().map(ArrivalCalculator.ScheduledStop::stop).toList(),minutes,fuel.distanceKm(),fuel.fuelLitres()));
+            byVehicle.computeIfAbsent(raw.vehicleId(),k -> new ArrayList<>()).add(new PlanTrip(raw.id(),raw.vehicleId(),raw.tripIndex(),
+                raw.brand(),raw.district(),stops,time.compute(raw,district,service),fuel.distanceKm(),fuel.fuelLitres()));
+        }
+        List<PlanTrip> trips=new ArrayList<>();
+        for (var vehicleTrips : byVehicle.values()) {
+            for (var day : arrivals.scheduleVehicleDay(vehicleTrips,travel::get,service,params)) {
+                PlanTrip t=day.trip();
+                trips.add(new PlanTrip(t.id(),t.vehicleId(),t.tripIndex(),t.brand(),t.district(),
+                    day.stops().stream().map(ArrivalCalculator.ScheduledStop::stop).toList(),t.tripMinutes(),t.distanceKm(),t.fuelLitres()));
+            }
         }
         return new PlanContext(snapshot.planDate(),snapshot.depot(),orders,vehicles,trips,travel,service,committed,calendar,params);
     }

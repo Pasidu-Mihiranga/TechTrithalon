@@ -68,6 +68,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/deferrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["forRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/deferrals/fairness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["fairness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/fleet": {
         parameters: {
             query?: never;
@@ -548,6 +580,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/store/deferrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["storeNotices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/store/deferrals/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acknowledge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/store/orders": {
         parameters: {
             query?: never;
@@ -668,7 +732,19 @@ export interface components {
             placedAt?: string;
             /** Format: int64 */
             placedBy?: number | null;
+            /**
+             * Format: date
+             * @description Planning run the order belongs to; later than orderDate after a published deferral
+             */
+            planningDate?: string;
             ref: string;
+            /**
+             * Format: int32
+             * @description Days since last served, supplied with imported scenario data
+             */
+            sourceDaysSinceServed?: number | null;
+            /** @description Deferred-yesterday flag supplied with imported scenario data */
+            sourceDeferredYesterday?: boolean | null;
             status?: string;
             tempRequirement?: string;
             /** Format: int32 */
@@ -703,6 +779,61 @@ export interface components {
             planningProgress?: components["schemas"]["PlanningProgress"];
             tripAttention?: components["schemas"]["AttentionItem"][];
             tripsReady?: components["schemas"]["Metric"];
+        };
+        DeferralRecord: {
+            /** Format: date-time */
+            acknowledgedAt?: string | null;
+            brand: string;
+            /** Format: int32 */
+            consecutiveDeferrals: number;
+            /** @description Current order status; filled by the service, not stored */
+            currentOrderStatus?: string | null;
+            /** Format: date-time */
+            decidedAt: string;
+            decidedByName: string;
+            depot: string;
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            id: number;
+            /** Format: date */
+            nextPlanningDate: string;
+            notifyStore: boolean;
+            /** Format: int64 */
+            orderId: number;
+            orderRef: string;
+            outletId: string;
+            /** Format: date */
+            planDate: string;
+            /** Format: int64 */
+            planId: number;
+            protectNextRun: boolean;
+            reason: string;
+            reasonCode: string;
+            /** Format: date-time */
+            recordedAt: string;
+            ruleCode?: string | null;
+            tempRequirement: string;
+        };
+        DeferralRun: {
+            /** Format: int32 */
+            deferredOrders: number;
+            depot: string;
+            items: components["schemas"]["DeferralRecord"][];
+            /** Format: date */
+            planDate: string;
+            /** Format: int32 */
+            protectedNextRun: number;
+            /**
+             * Format: int32
+             * @description Deferrals that extend a consecutive skip
+             */
+            repeatSkips: number;
+            /** Format: int32 */
+            storesAcknowledged: number;
+            /** Format: int32 */
+            storesNotified: number;
         };
         DistrictTravel: {
             depot?: string;
@@ -798,15 +929,27 @@ export interface components {
             expectedVersion: number;
             /** Format: date */
             nextDeliveryDate?: string;
+            /** @description Defaults to true */
+            notifyStore?: boolean;
+            /** @description Defaults to true */
+            protectNextRun?: boolean;
             reason: string;
+            /** @description Required when deferring; ignored on restore */
+            reasonCode?: string;
         };
         ManualPlanDispositionRequest: {
             code: string;
             /** Format: date */
             nextDeliveryDate?: string;
+            /** @description Defaults to true */
+            notifyStore?: boolean;
             /** Format: int64 */
             orderId?: number;
+            /** @description Defaults to true */
+            protectNextRun?: boolean;
             reason: string;
+            /** @description Required for DEFERRED */
+            reasonCode?: string;
         };
         ManualPlanMoveRequest: {
             /** Format: int32 */
@@ -815,7 +958,10 @@ export interface components {
             fromTripId?: number;
             /** Format: int64 */
             orderId?: number;
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 1-based stop position kept exactly as given; when omitted the order takes its EDD slot and the other stops keep their order
+             */
             position?: number;
             reason: string;
             /** Format: int64 */
@@ -839,6 +985,7 @@ export interface components {
             district: string;
             /** Format: int64 */
             id?: number;
+            /** @description On trip creation the stops are placed in the default EDD order (effective window close, then order ID); set an explicit order with the sequence endpoint */
             orderIds: number[];
             /** Format: int32 */
             tripIndex?: number;
@@ -853,6 +1000,10 @@ export interface components {
             vehicleId: string;
         };
         ManualPlanView: {
+            /** @description Repeat-skip evidence for every order in the run, keyed by order ID */
+            fairness?: {
+                [key: string]: components["schemas"]["OrderFairness"];
+            };
             fleet?: components["schemas"]["PlanVehicle"][];
             plan: components["schemas"]["ManualPlan"];
             trips?: components["schemas"]["PlanTrip"][];
@@ -873,11 +1024,46 @@ export interface components {
         };
         OrderDisposition: {
             code?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            /** Format: int64 */
+            decidedBy?: number;
+            decidedByName?: string;
             /** Format: date */
             nextDeliveryDate?: string;
+            notifyStore?: boolean;
             /** Format: int64 */
             orderId?: number;
+            protectNextRun?: boolean;
             reason?: string;
+            reasonCode?: string;
+        };
+        OrderFairness: {
+            /** @description Carried into this run by an earlier published deferral */
+            carriedForward: boolean;
+            /** Format: date */
+            carriedFromDate?: string | null;
+            carriedReasonCode?: string | null;
+            /**
+             * Format: int32
+             * @description From imported scenario data; null when not supplied
+             */
+            daysSinceLastServed?: number | null;
+            /** @description Outlet was deferred on the previous operating day (history or source data) */
+            deferredPreviousOperatingDay: boolean;
+            /** @description history, source, history+source or none: where the repeat-skip evidence came from */
+            evidenceSource: string;
+            /** Format: date */
+            lastDeferralDate?: string | null;
+            /** Format: int64 */
+            orderId: number;
+            /**
+             * Format: int32
+             * @description Consecutive operating days the outlet was skipped up to the previous run
+             */
+            priorConsecutiveDeferrals: number;
+            /** @description Carried forward with protect-on-next-run set */
+            protectedThisRun: boolean;
         };
         OrderPage: {
             items?: components["schemas"]["CustomerOrder"][];
@@ -913,6 +1099,8 @@ export interface components {
         };
         PlanMetrics: {
             assignedVolumeM3?: number;
+            /** Format: int32 */
+            availableVehicles?: number;
             avgVolumeUtilisation?: number;
             avgWeightUtilisation?: number;
             /** Format: int32 */
@@ -923,6 +1111,9 @@ export interface components {
             ordersUnassigned?: number;
             totalDistanceKm?: number;
             totalFuelLitres?: number;
+            totalOrderVolumeM3?: number;
+            /** Format: int32 */
+            totalOrders?: number;
             /** Format: int32 */
             tripsUsed?: number;
             /** Format: int32 */
@@ -1066,17 +1257,26 @@ export interface components {
             vehicleId?: string;
         };
         TripLoad: {
+            /** Format: int32 */
+            stopCount?: number;
             volumeLimitM3?: number;
             volumeUsedM3?: number;
+            volumeUtilisationPct?: number;
             weightLimitKg?: number;
             weightUsedKg?: number;
         };
         UnassignedOrder: {
+            /** Format: date-time */
+            decidedAt?: string | null;
+            decidedByName?: string | null;
             disposition?: string;
             /** Format: date */
             nextDeliveryDate?: string;
+            notifyStore?: boolean;
             order?: components["schemas"]["PlanOrder"];
+            protectNextRun?: boolean;
             reason?: string;
+            reasonCode?: string | null;
         };
         UserResponse: {
             depot?: string;
@@ -1216,6 +1416,52 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DashboardSnapshot"];
+                };
+            };
+        };
+    };
+    forRun: {
+        parameters: {
+            query: {
+                date: string;
+                depot?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DeferralRun"];
+                };
+            };
+        };
+    };
+    fairness: {
+        parameters: {
+            query: {
+                date: string;
+                orderIds: number[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OrderFairness"][];
                 };
             };
         };
@@ -2025,6 +2271,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CutoffInfo"];
+                };
+            };
+        };
+    };
+    storeNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DeferralRecord"][];
+                };
+            };
+        };
+    };
+    acknowledge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DeferralRecord"];
                 };
             };
         };

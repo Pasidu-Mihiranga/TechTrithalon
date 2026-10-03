@@ -23,11 +23,12 @@ class ManualPlanIT extends ReferenceApiTestSupport {
     private long snapshot;
     @BeforeEach void setup() throws Exception {
         reset(audit);
+        db.execute("TRUNCATE deferral_acknowledgement, deferral");
         db.update("DELETE FROM plan");
         db.update("DELETE FROM planning_snapshot");
         db.update("DELETE FROM audit_event");
         db.update("DELETE FROM fuel_ledger");
-        db.update("UPDATE customer_order SET status='confirmed',version=0 WHERE ref IN ('SYN001','SYN002')");
+        db.update("UPDATE customer_order SET status='confirmed',version=0,planning_date=order_date WHERE ref IN ('SYN001','SYN002')");
         db.update("UPDATE outlet SET parking_constraint='normal' WHERE outlet_id='OUT901'");
         db.update("UPDATE app_user SET depot=NULL WHERE username='DSP-001'");
         dispatcher=login("DSP-001","synthetic-dispatcher-password");
@@ -62,11 +63,18 @@ class ManualPlanIT extends ReferenceApiTestSupport {
         assertThat(first.path("trips").get(0).path("tripMinutes").asInt()).isEqualTo(31);
         assertThat(first.path("validation").path("metrics").path("assignedVolumeM3").decimalValue())
             .isEqualByComparingTo("1.250");
+        var metrics=first.path("validation").path("metrics");
+        assertThat(metrics.path("totalOrders").asInt()).isEqualTo(2);
+        assertThat(metrics.path("availableVehicles").asInt()).isPositive();
+        assertThat(metrics.path("totalOrderVolumeM3").decimalValue()).isGreaterThanOrEqualTo(metrics.path("assignedVolumeM3").decimalValue());
+        var load=first.path("utilisation").get(String.valueOf(firstTrip));
+        assertThat(load.path("stopCount").asInt()).isEqualTo(1);
+        assertThat(load.path("volumeUtilisationPct").decimalValue()).isPositive();
         postJson("/api/v1/dispatcher/plans/"+plan+"/trips/"+firstTrip+"/sequence",
             Map.of("expectedVersion",1,"reason","Synthetic route review","orderIds",List.of(freshOrder)),200);
         add(plan,2,"Style",2,List.of(styleOrder));
         postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+styleOrder+"/defer",
-            Map.of("expectedVersion",3,"reason","Synthetic deferred delivery","nextDeliveryDate","2026-06-27"),200);
+            Map.of("expectedVersion",3,"reason","Synthetic deferred delivery","nextDeliveryDate","2026-06-27","reasonCode","CAPACITY"),200);
         postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+styleOrder+"/restore",
             Map.of("expectedVersion",4,"reason","Synthetic restore"),200);
         var restored=read(plan);
@@ -81,6 +89,9 @@ class ManualPlanIT extends ReferenceApiTestSupport {
         var locked=postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+freshOrder+"/defer",Map.of("expectedVersion",7,"reason","Must reject"),409);
         assertThat(locked.path("code").asText()).isEqualTo("PLAN_LOCKED");
         assertThat(db.queryForObject("SELECT count(*) FROM audit_event WHERE type='plan.published' AND actor_id IS NOT NULL",Integer.class)).isEqualTo(1);
+        // The audit trail keeps the schedule exactly as computed at publication.
+        String publishedSchedule=db.queryForObject("SELECT after_json->'trips'->0->'stops'->0->>'plannedArrival' FROM audit_event WHERE type='plan.published'",String.class);
+        assertThat(publishedSchedule).isEqualTo(published.path("trips").get(0).path("stops").get(0).path("plannedArrival").asText());
     }
     @Test void invalidMovesDuplicateAssignmentsAndPublicationLeaveNoWrites() throws Exception {
         long plan=candidate(); var a=add(plan,0,"Fresh",1,List.of(freshOrder));

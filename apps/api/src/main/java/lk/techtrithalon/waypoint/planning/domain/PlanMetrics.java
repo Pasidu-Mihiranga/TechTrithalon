@@ -15,5 +15,8 @@ public record PlanMetrics(
     BigDecimal avgVolumeUtilisation,
     BigDecimal avgWeightUtilisation,
     int hardViolationCount,
-    BigDecimal assignedVolumeM3
+    BigDecimal assignedVolumeM3,
+    int availableVehicles,
+    int totalOrders,
+    BigDecimal totalOrderVolumeM3
 ) {}

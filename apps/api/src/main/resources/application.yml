@@ -66,6 +66,8 @@ app:
         username: ${SEED_DRIVER_USERNAME:DRV-001}
         display-name: ${SEED_DRIVER_NAME:Driver}
         password: ${SEED_DRIVER_PASSWORD:}
+        # The demo driver drives this vehicle (a Peliyagoda reefer van available on the demo day).
+        vehicle-id: ${SEED_DRIVER_VEHICLE:VEH036}
   reference:
     data-dir: ${REFERENCE_DATA_DIR:../../dataset/data/General Data}
     seed-on-startup: ${REFERENCE_SEED_ON_STARTUP:true}

@@ -494,3 +494,20 @@ curl -sS -D headers -o response.json -w '%{http_code}' -X GET -b "$COOKIE_JAR" '
 ```
 
 These fixes close specific audit findings; they do not complete operational deferral/fairness, loading tasks, driver dispatch, delivery/offline/receipt, intelligence promises or release gates. Full screen metrics/copy/CSV export, date-switch/error/forbidden journeys and Figma review still require follow-up. Candidate deferral remains scoped to the candidate; durable order carry-forward belongs to the next planned slice.
+
+## 2026-10-03 — Default sequencing, single lateness source, labelled assumptions
+
+Isolated stack (API 18092, real demo data, demo clock 2026-06-25T11:00Z), removed afterwards. Error bodies carried `traceId` equal to `X-Request-Id`.
+
+| Call | Status | Result |
+|---|---|---|
+| `POST /plans/1/trips` with orders supplied as 08:00, 07:30, 07:30 closes | 200 | Stored in EDD order (07:30 id 1, 07:30 id 5, 08:00 id 3); 88 min, 32.0 km |
+| `POST /plans/1/trips/1/sequence` with the reverse order | 200 | Explicit order kept; arrivals recomputed (03:54 → 05:54 → 06:18); still 88 min, 32.0 km |
+| `POST /plans/1/moves` without position (07:30 order) | 200 | Inserted at its EDD slot (first); the dispatcher's order of the other three kept |
+| `sequence` with stale version / missing stop / unknown trip | 409 / 400 / 404 | `STALE_PLAN` / `INVALID_SEQUENCE` / `NOT_FOUND` |
+| `sequence` anonymous / as store manager | 401 / 403 | `UNAUTHENTICATED` / `FORBIDDEN` |
+| `PUT` then `POST /plans/1/publish` | 200 | Published; SQL `stop` order 14, 3, 5, 1 |
+
+SQL: the `plan.published` audit event holds 1 trip, first stop planned arrival 03:54 (matches the API) and `ordersAssigned` 4. `/v3/api-docs` carries the new sequencing descriptions. Main-stack smoke passed after rebuild.
+
+A window-violating reorder could not be produced from real demo data (Colombo Fresh windows close at 07:30–08:00), so it is covered by `ManualSequencingIT` on synthetic data: rejected with exactly one `DELIVERY_WINDOW` violation (arrival 05:36 against 05:20) and nothing saved.

@@ -173,11 +173,11 @@ public class PlanningSnapshotService {
                 "One or more selected orders were not found for this depot");
         }
         for (CustomerOrder order : found) {
-            if (!"confirmed".equals(order.status())) {
+            if (!"confirmed".equals(order.status()) && !"deferred".equals(order.status())) {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "SELECTION_INVALID",
-                    "Only confirmed orders may enter a planning snapshot");
+                    "Only confirmed or carried-forward orders may enter a planning snapshot");
             }
-            if (!day.equals(order.orderDate()) || !depot.equals(order.depot())) {
+            if (!day.equals(order.planningDate()) || !depot.equals(order.depot())) {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "SELECTION_INVALID",
                     "Selected orders must match the plan date and depot");
             }

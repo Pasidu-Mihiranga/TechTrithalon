@@ -2,7 +2,6 @@ package lk.techtrithalon.waypoint.planning.domain.rules;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +14,6 @@ import lk.techtrithalon.waypoint.planning.domain.PlanOrder;
 import lk.techtrithalon.waypoint.planning.domain.PlanTrip;
 import lk.techtrithalon.waypoint.planning.domain.Scope;
 import lk.techtrithalon.waypoint.planning.domain.Severity;
-import lk.techtrithalon.waypoint.planning.domain.TripTimeCalculator;
 import lk.techtrithalon.waypoint.reference.domain.DistrictTravel;
 
 /**
@@ -26,7 +24,6 @@ public class DeliveryWindowRule implements ConstraintRule {
     public static final String CODE = "DELIVERY_WINDOW";
 
     private final ArrivalCalculator arrivalCalculator = new ArrivalCalculator();
-    private final TripTimeCalculator tripTimeCalculator = new TripTimeCalculator();
 
     @Override
     public String code() {
@@ -59,35 +56,11 @@ public class DeliveryWindowRule implements ConstraintRule {
         List<ConstraintViolation> violations = new ArrayList<>();
 
         for (List<PlanTrip> vehicleTrips : tripsByVehicle.values()) {
-            vehicleTrips.sort(Comparator.comparingInt(PlanTrip::tripIndex));
-
-            LocalTime nextAvailableDeparture = null;
-
-            for (PlanTrip trip : vehicleTrips) {
-                DistrictTravel travel = ctx.travelByDistrict() != null ? ctx.travelByDistrict().get(trip.district()) : null;
-                if (travel == null && ctx.travelByDistrict() != null && trip.district() != null) {
-                    for (Map.Entry<String, DistrictTravel> entry : ctx.travelByDistrict().entrySet()) {
-                        if (entry.getKey().equalsIgnoreCase(trip.district())) {
-                            travel = entry.getValue();
-                            break;
-                        }
-                    }
-                }
-
-                LocalTime nominalDeparture = arrivalCalculator.resolveTripDepartureTime(trip.brand(), trip.tripIndex(), ctx.constraintParams());
-                LocalTime tripDepart = nominalDeparture;
-                if (nextAvailableDeparture != null && nextAvailableDeparture.isAfter(tripDepart)) {
-                    tripDepart = nextAvailableDeparture;
-                }
-
-                List<ArrivalCalculator.ScheduledStop> scheduledStops = arrivalCalculator.schedule(
-                    trip,
-                    travel,
-                    ctx.serviceByBrandDock(),
-                    tripDepart
-                );
-
-                for (ArrivalCalculator.ScheduledStop scheduledStop : scheduledStops) {
+            List<ArrivalCalculator.TripSchedule> day = arrivalCalculator.scheduleVehicleDay(
+                vehicleTrips, district -> travelFor(ctx, district), ctx.serviceByBrandDock(), ctx.constraintParams());
+            for (ArrivalCalculator.TripSchedule tripSchedule : day) {
+                PlanTrip trip = tripSchedule.trip();
+                for (ArrivalCalculator.ScheduledStop scheduledStop : tripSchedule.stops()) {
                     if (scheduledStop.isLate()) {
                         PlanOrder order = scheduledStop.stop().order();
                         String orderRef = order != null ? order.orderRef() : String.valueOf(scheduledStop.stop().orderId());
@@ -114,17 +87,19 @@ public class DeliveryWindowRule implements ConstraintRule {
                         ));
                     }
                 }
-
-                int tripMinutes = (trip.tripMinutes() != null && trip.tripMinutes() > 0)
-                    ? trip.tripMinutes()
-                    : tripTimeCalculator.compute(trip, travel, ctx.serviceByBrandDock());
-
-                // Waiting is elapsed schedule time, separate from the prescribed trip-time budget.
-                long waitMinutes = scheduledStops.stream().mapToLong(ArrivalCalculator.ScheduledStop::waitMinutes).sum();
-                nextAvailableDeparture = tripDepart.plusMinutes(tripMinutes + waitMinutes);
             }
         }
 
         return violations;
+    }
+
+    private static DistrictTravel travelFor(PlanContext ctx, String district) {
+        if (ctx.travelByDistrict() == null || district == null) return null;
+        DistrictTravel travel = ctx.travelByDistrict().get(district);
+        if (travel != null) return travel;
+        for (Map.Entry<String, DistrictTravel> entry : ctx.travelByDistrict().entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(district)) return entry.getValue();
+        }
+        return null;
     }
 }

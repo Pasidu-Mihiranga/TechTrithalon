@@ -29,12 +29,14 @@ public class ManualPlanService {
     private final ReferenceService reference;
     private final Clock clock;
     private final OrderCommandService ordering;
+    private final DeferralService deferrals;
     private final PlanValidator validator=new PlanValidator();
     public ManualPlanService(ManualPlanRepository plans,PlanningSnapshotService snapshots,SnapshotPlanContextFactory contexts,
-                             AuditService audit,FleetService fleet,ReferenceService reference,Clock clock,OrderCommandService ordering) {
+                             AuditService audit,FleetService fleet,ReferenceService reference,Clock clock,OrderCommandService ordering,
+                             DeferralService deferrals) {
         this.plans=plans; this.snapshots=snapshots; this.contexts=contexts; this.audit=audit;
         this.fleet=fleet; this.reference=reference; this.clock=clock;
-        this.ordering=ordering;
+        this.ordering=ordering; this.deferrals=deferrals;
     }
     @Transactional
     public ManualPlanView create(CurrentUser user,long snapshotId,String reason) {
@@ -61,7 +63,9 @@ public class ManualPlanService {
         var plan=editable(user,id,request.expectedVersion());
         var trips=request.trips().stream().map(t -> new ManualPlan.TripAssignment(t.id()==null?0:t.id(),t.vehicleId(),
             t.tripIndex(),t.brand(),t.district(),t.orderIds())).toList();
-        var reasons=request.dispositions().stream().map(d -> new ManualPlan.OrderDisposition(d.orderId(),d.code(),d.reason(),d.nextDeliveryDate())).toList();
+        var reasons=request.dispositions().stream().map(d -> new ManualPlan.OrderDisposition(d.orderId(),d.code(),d.reason(),d.nextDeliveryDate(),
+            "DEFERRED".equals(d.code())?d.reasonCode():null,!Boolean.FALSE.equals(d.protectNextRun()),!Boolean.FALSE.equals(d.notifyStore()),
+            null,null,null)).toList();
         return apply(user,plan,trips,reasons,request.reason(),null);
     }
     @Transactional
@@ -69,7 +73,9 @@ public class ManualPlanService {
         var plan=editable(user,id,request.expectedVersion());
         if (request.trip().id()!=null) throw failure(HttpStatus.BAD_REQUEST,"TRIP_ID_NOT_ALLOWED","New trips must omit their ID");
         var trips=new ArrayList<>(plan.trips()); var t=request.trip();
-        trips.add(new ManualPlan.TripAssignment(0,t.vehicleId(),t.tripIndex(),t.brand(),t.district(),t.orderIds()));
+        // A new trip has no dispatcher sequence yet: its stops start in the default EDD order.
+        var sequenced=StopSequencer.defaultSequence(t.orderIds(),snapshotOrders(user,plan));
+        trips.add(new ManualPlan.TripAssignment(0,t.vehicleId(),t.tripIndex(),t.brand(),t.district(),sequenced));
         var reasons=plan.dispositions().stream().filter(d -> !t.orderIds().contains(d.orderId())).toList();
         return apply(user,plan,trips,reasons,request.reason(),null);
     }
@@ -82,10 +88,13 @@ public class ManualPlanService {
         if (request.fromTripId()!=null && (source.isEmpty() || source.get().id()!=request.fromTripId())) throw missing();
         if (request.toTripId()!=null) requireTrip(plan,request.toTripId());
         List<ManualPlan.TripAssignment> trips=new ArrayList<>();
+        var snapshotOrders=request.position()==null && request.toTripId()!=null ? snapshotOrders(user,plan) : Map.<Long,PlanOrder>of();
         for (var trip : plan.trips()) {
             var orders=new ArrayList<>(trip.orderIds()); orders.remove(request.orderId());
             if (request.toTripId()!=null && trip.id()==request.toTripId()) {
-                int position=request.position()==null?orders.size():request.position()-1;
+                // An explicit position is the dispatcher's sequence; without one the order takes its EDD slot.
+                int position=request.position()==null
+                    ? StopSequencer.defaultInsertionIndex(orders,request.orderId(),snapshotOrders) : request.position()-1;
                 if (position>orders.size()) throw failure(HttpStatus.BAD_REQUEST,"INVALID_POSITION","Position is outside the target trip");
                 orders.add(position,request.orderId());
             }
@@ -120,7 +129,9 @@ public class ManualPlanService {
             throw failure(HttpStatus.UNPROCESSABLE_ENTITY,"DEFERRAL_DATE","A deferral date must be a later operating day");
         var trips=plan.trips().stream().map(t -> withOrders(t,t.orderIds().stream().filter(o -> o!=orderId).toList())).toList();
         var reasons=new ArrayList<>(plan.dispositions()); reasons.removeIf(d -> d.orderId()==orderId);
-        reasons.add(new ManualPlan.OrderDisposition(orderId,restore?"UNASSIGNED":"DEFERRED",request.reason(),restore?null:request.nextDeliveryDate()));
+        reasons.add(restore ? new ManualPlan.OrderDisposition(orderId,"UNASSIGNED",request.reason(),null)
+            : new ManualPlan.OrderDisposition(orderId,"DEFERRED",request.reason(),request.nextDeliveryDate(),request.reasonCode(),
+                !Boolean.FALSE.equals(request.protectNextRun()),!Boolean.FALSE.equals(request.notifyStore()),null,null,null));
         return apply(user,plan,trips,reasons,request.reason(),null);
     }
     @Transactional
@@ -144,6 +155,9 @@ public class ManualPlanService {
         var accounted=plan.dispositions().stream().map(ManualPlan.OrderDisposition::orderId).collect(java.util.stream.Collectors.toSet());
         if (context.orders().stream().anyMatch(o -> !assigned.contains(o.id()) && !accounted.contains(o.id())))
             throw failure(HttpStatus.UNPROCESSABLE_ENTITY,"ORDER_ACCOUNTING","Every unassigned order needs an explicit reason");
+        // Publication closes the run: an order left off every trip must be explicitly deferred to a later run.
+        if (plan.dispositions().stream().anyMatch(d -> !"DEFERRED".equals(d.code())))
+            throw failure(HttpStatus.UNPROCESSABLE_ENTITY,"ORDER_NOT_DEFERRED","Assign or explicitly defer every order before publication");
         fleet.lockPlanningFuel(user,plan.trips().stream().map(ManualPlan.TripAssignment::vehicleId).distinct().sorted().toList(),plan.planDate());
         requireFresh(user,plan.snapshotId());
         Map<String,BigDecimal> committed=new HashMap<>();
@@ -158,10 +172,18 @@ public class ManualPlanService {
         for (var trip : context.trips()) if (!trip.stops().isEmpty()) usage.merge(trip.vehicleId(),trip.fuelLitres(),BigDecimal::add);
         fleet.commitPlanningFuel(user,usage,plan.planDate());
         ordering.markPlanned(user,assigned.stream().sorted().toList(),request.reason());
+        var deferred=plan.dispositions().stream().sorted(Comparator.comparingLong(ManualPlan.OrderDisposition::orderId)).toList();
+        deferrals.recordPublished(user,plan,deferred);
+        for (var d : deferred) ordering.markDeferred(user,d.orderId(),deferrals.nextRun(plan.planDate(),d.nextDeliveryDate()),d.reason());
         plans.publish(plan,user.id(),clock.instant());
         var after=plans.find(id,false).orElseThrow();
-        audit.record("plan.published",user,"plan",String.valueOf(id),plan,after,request.reason());
-        return view(user,after);
+        var published=view(user,after);
+        // The published schedule is recomputed on read; the audit event keeps the values as computed at
+        // publication until operational publication persists them on trip/stop rows.
+        Map<String,Object> record=new LinkedHashMap<>();
+        record.put("plan",after); record.put("trips",published.trips()); record.put("metrics",published.validation().metrics());
+        audit.record("plan.published",user,"plan",String.valueOf(id),plan,record,request.reason());
+        return published;
     }
     private ManualPlan editable(CurrentUser user,long id,int expected) {
         var plan=load(user,id,true);
@@ -184,7 +206,16 @@ public class ManualPlanService {
             throw failure(HttpStatus.BAD_REQUEST,"DUPLICATE_TRIP","Each trip ID must occur once");
         Set<Long> assigned=new HashSet<>(); trips.forEach(t -> assigned.addAll(t.orderIds()));
         Set<Long> dispositions=new HashSet<>();
+        Map<Long,ManualPlan.OrderDisposition> previous=new HashMap<>(); plan.dispositions().forEach(d -> previous.put(d.orderId(),d));
+        var now=clock.instant();
+        reasons=reasons.stream().map(d -> {
+            var before=previous.get(d.orderId());
+            if (d.sameDecision(before) && before.decidedBy()!=null) return before;
+            return d.decidedBy(user.id(),user.displayName(),now);
+        }).toList();
         for (var d : reasons) {
+            if ("DEFERRED".equals(d.code()) && d.reasonCode()==null)
+                throw failure(HttpStatus.BAD_REQUEST,"REASON_CODE_REQUIRED","Choose a deferral reason");
             requireOrder(user,plan,d.orderId());
             if (!dispositions.add(d.orderId()) || assigned.contains(d.orderId()))
                 throw failure(HttpStatus.UNPROCESSABLE_ENTITY,"ORDER_ACCOUNTING","An order cannot be both assigned and deferred or have two reasons");
@@ -205,7 +236,7 @@ public class ManualPlanService {
         if (info==null) return result;
         var violations=new ArrayList<>(result.validation().violations()); violations.add(info);
         return new ManualPlanView(result.plan(),new PlanValidationReport(violations,true,result.validation().metrics()),
-            result.trips(),result.unassignedOrders(),result.fleet(),result.utilisation(),result.vehicleUtilisation());
+            result.trips(),result.unassignedOrders(),result.fleet(),result.utilisation(),result.vehicleUtilisation(),result.fairness());
     }
     private PlanValidationReport requireFeasible(PlanContext context) {
         var report=validateContext(context);
@@ -213,16 +244,8 @@ public class ManualPlanService {
         return report;
     }
     private PlanValidationReport validateContext(PlanContext context) {
-        var report=validator.validate(context);
-        var violations=new ArrayList<>(report.violations());
-        // Carry waiting across trips; validate the actual server-computed schedule as well.
-        for (var trip : context.trips()) for (var stop : trip.stops())
-            if (stop.order().effectiveWindowClose()!=null && stop.plannedArrival().isAfter(stop.order().effectiveWindowClose()))
-                violations.add(new ConstraintViolation("DELIVERY_WINDOW",Severity.HARD,
-                    Scope.TRIP,EntityType.ORDER,stop.order().orderRef(),"Waiting on earlier stops makes this delivery late",
-                    stop.plannedArrival().toString(),stop.order().effectiveWindowClose().toString(),"RESEQUENCE_OR_DEFER",Map.of("orderId",stop.orderId())));
-        int hard=(int)violations.stream().filter(v -> v.severity()==Severity.HARD).count();
-        return new PlanValidationReport(violations,hard==0,new PlanMetricsCalculator().compute(context,hard));
+        // R8 schedules waiting across a vehicle's trips itself; the validator is the single lateness authority.
+        return validator.validate(context);
     }
     private ManualPlanView view(CurrentUser user,ManualPlan plan) {
         var context=contexts.create(snapshots.get(user,plan.snapshotId()),plan.trips());
@@ -230,13 +253,20 @@ public class ManualPlanService {
         Set<Long> assigned=new HashSet<>(); context.trips().forEach(t -> t.stops().forEach(s -> assigned.add(s.orderId())));
         Map<Long,ManualPlan.OrderDisposition> reasons=new HashMap<>(); plan.dispositions().forEach(d -> reasons.put(d.orderId(),d));
         var unassigned=context.orders().stream().filter(o -> !assigned.contains(o.id())).map(o -> {
-            var d=reasons.get(o.id()); return new ManualPlanView.UnassignedOrder(o,d==null?"UNASSIGNED":d.code(),d==null?null:d.reason(),d==null?null:d.nextDeliveryDate());
+            var d=reasons.get(o.id());
+            return d==null ? new ManualPlanView.UnassignedOrder(o,"UNASSIGNED",null,null,null,true,true,null,null)
+                : new ManualPlanView.UnassignedOrder(o,d.code(),d.reason(),d.nextDeliveryDate(),d.reasonCode(),d.protectNextRun(),
+                    d.notifyStore(),d.decidedByName(),d.decidedAt());
         }).toList();
         Map<Long,ManualPlanView.TripLoad> loads=new LinkedHashMap<>();
         for (var trip : context.trips()) {
             var vehicle=context.vehicles().stream().filter(v -> v.vehicleId().equals(trip.vehicleId())).findFirst().orElseThrow();
-            loads.put(trip.id(),new ManualPlanView.TripLoad(trip.stops().stream().map(s -> s.order().volumeM3()).reduce(BigDecimal.ZERO,BigDecimal::add),
-                vehicle.volumeCapM3(),trip.stops().stream().map(s -> s.order().weightKg()).reduce(BigDecimal.ZERO,BigDecimal::add),vehicle.weightCapKg()));
+            var volume=trip.stops().stream().map(s -> s.order().volumeM3()).reduce(BigDecimal.ZERO,BigDecimal::add);
+            var volumePct=vehicle.volumeCapM3()!=null && vehicle.volumeCapM3().signum()>0
+                ? volume.multiply(BigDecimal.valueOf(100)).divide(vehicle.volumeCapM3(),2,java.math.RoundingMode.HALF_UP) : null;
+            loads.put(trip.id(),new ManualPlanView.TripLoad(volume,
+                vehicle.volumeCapM3(),trip.stops().stream().map(s -> s.order().weightKg()).reduce(BigDecimal.ZERO,BigDecimal::add),vehicle.weightCapKg(),
+                volumePct,trip.stops().size()));
         }
         Map<String,ManualPlanView.VehicleUse> vehicleUse=new LinkedHashMap<>();
         for (var vehicle : context.vehicles()) {
@@ -247,7 +277,13 @@ public class ManualPlanService {
                 context.fuelCommittedThisWeek().getOrDefault(vehicle.vehicleId(),BigDecimal.ZERO),
                 trips.stream().map(PlanTrip::fuelLitres).reduce(BigDecimal.ZERO,BigDecimal::add),vehicle.weeklyFuelQuotaL()));
         }
-        return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse);
+        var fairness=deferrals.fairness(user,plan.planDate(),context.orders().stream().map(PlanOrder::id).toList());
+        return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse,fairness);
+    }
+    private Map<Long,PlanOrder> snapshotOrders(CurrentUser user,ManualPlan plan) {
+        Map<Long,PlanOrder> orders=new HashMap<>();
+        contexts.create(snapshots.get(user,plan.snapshotId()),List.of()).orders().forEach(o -> orders.put(o.id(),o));
+        return orders;
     }
     private void requireOrder(CurrentUser user,ManualPlan plan,long orderId) {
         if (!snapshots.get(user,plan.snapshotId()).orderIds().contains(orderId)) throw missing();
