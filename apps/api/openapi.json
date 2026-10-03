@@ -1327,6 +1327,44 @@
         },
         "type" : "object"
       },
+      "FleetOverview" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "idleVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inWorkshopVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "onRouteVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "unrecordedVehicles" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicles" : {
+            "items" : {
+              "$ref" : "#/components/schemas/VehicleRow"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "FleetVehicle" : {
         "properties" : {
           "availabilityNote" : {
@@ -4060,6 +4098,32 @@
         },
         "type" : "object"
       },
+      "VehicleRow" : {
+        "properties" : {
+          "driverName" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stopsDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicle" : {
+            "$ref" : "#/components/schemas/FleetVehicle"
+          }
+        },
+        "type" : "object"
+      },
       "VehicleUse" : {
         "properties" : {
           "freshMinutesLimit" : {
@@ -4463,6 +4527,43 @@
                     "$ref" : "#/components/schemas/FleetVehicle"
                   },
                   "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "fleet-read-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/fleet/overview" : {
+      "get" : {
+        "operationId" : "overview",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FleetOverview"
                 }
               }
             },

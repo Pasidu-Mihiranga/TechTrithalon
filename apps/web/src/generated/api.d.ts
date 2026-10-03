@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/fleet/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/fleet/{vehicleId}": {
         parameters: {
             query?: never;
@@ -1811,6 +1827,22 @@ export interface components {
             /** @description What was decided and why */
             note?: string;
         };
+        FleetOverview: {
+            /** Format: date */
+            date?: string;
+            depot?: string;
+            /** Format: int32 */
+            idleVehicles?: number;
+            /** Format: int32 */
+            inWorkshopVehicles?: number;
+            /** Format: int32 */
+            onRouteVehicles?: number;
+            /** Format: int32 */
+            totalVehicles?: number;
+            /** Format: int32 */
+            unrecordedVehicles?: number;
+            vehicles?: components["schemas"]["VehicleRow"][];
+        };
         FleetVehicle: {
             availabilityNote?: string | null;
             availabilityRecorded?: boolean;
@@ -2923,6 +2955,17 @@ export interface components {
             /** Format: int64 */
             version?: number;
         };
+        VehicleRow: {
+            driverName?: string;
+            state?: string;
+            /** Format: int32 */
+            stops?: number;
+            /** Format: int32 */
+            stopsDone?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicle?: components["schemas"]["FleetVehicle"];
+        };
         VehicleUse: {
             /** Format: int32 */
             freshMinutesLimit?: number;
@@ -3174,6 +3217,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FleetVehicle"][];
+                };
+            };
+        };
+    };
+    overview: {
+        parameters: {
+            query: {
+                date?: string;
+                depot: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FleetOverview"];
                 };
             };
         };

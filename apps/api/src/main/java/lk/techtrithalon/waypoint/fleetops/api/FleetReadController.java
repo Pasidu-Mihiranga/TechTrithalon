@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.util.List;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lk.techtrithalon.waypoint.fleetops.application.FleetService;
+import lk.techtrithalon.waypoint.fleetops.application.FleetOverviewService;
 import lk.techtrithalon.waypoint.fleetops.domain.FleetVehicle;
+import lk.techtrithalon.waypoint.fleetops.domain.FleetOverview;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.reference.ReferenceProperties;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,11 +21,20 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "session")
 class FleetReadController {
     private final FleetService service;
+    private final FleetOverviewService overviewService;
     private final ReferenceProperties reference;
 
-    FleetReadController(FleetService service, ReferenceProperties reference) {
+    FleetReadController(FleetService service, FleetOverviewService overviewService, ReferenceProperties reference) {
         this.service = service;
+        this.overviewService = overviewService;
         this.reference = reference;
+    }
+
+    @GetMapping("/overview")
+    FleetOverview overview(@AuthenticationPrincipal CurrentUser user,
+                           @RequestParam(required = false) LocalDate date,
+                           @RequestParam String depot) {
+        return overviewService.overview(user, date == null ? reference.demoOperatingDate() : date, depot);
     }
 
     @GetMapping

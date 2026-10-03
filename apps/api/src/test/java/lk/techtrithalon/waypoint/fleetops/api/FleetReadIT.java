@@ -52,4 +52,27 @@ class FleetReadIT extends ReferenceApiTestSupport {
         failure(mvc.perform(get("/api/v1/dispatcher/fleet/UNKNOWN?date=2026-06-26").cookie(cookie)).andReturn(),
             404, "NOT_FOUND");
     }
+
+    @Test
+    void overviewUsesPersistedAvailabilityAndRespectsDepotScope() throws Exception {
+        Cookie dispatcher = login("DSP-001", "synthetic-dispatcher-password");
+        int persisted = db.queryForObject("SELECT count(*) FROM vehicle WHERE depot='Peliyagoda'", Integer.class);
+        mvc.perform(get("/api/v1/dispatcher/fleet/overview?date=2026-06-26&depot=Peliyagoda").cookie(dispatcher))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalVehicles").value(persisted))
+            .andExpect(jsonPath("$.idleVehicles").value(1))
+            .andExpect(jsonPath("$.onRouteVehicles").value(0))
+            .andExpect(jsonPath("$.inWorkshopVehicles").value(0))
+            .andExpect(jsonPath("$.vehicles[0].vehicle.vehicleId").value("VEH901"))
+            .andExpect(jsonPath("$.vehicles[0].state").value("idle"));
+        mvc.perform(get("/api/v1/dispatcher/fleet/overview?date=2026-06-26&depot=Kandy").cookie(dispatcher))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.unrecordedVehicles").value(1));
+        failure(mvc.perform(get("/api/v1/dispatcher/fleet/overview?date=2026-06-26&depot=UNKNOWN").cookie(dispatcher)).andReturn(),
+            404, "NOT_FOUND");
+        failure(mvc.perform(get("/api/v1/dispatcher/fleet/overview?date=2026-06-26&depot=Peliyagoda").cookie(login("STM-001", "synthetic-store-password"))).andReturn(),
+            403, "FORBIDDEN");
+        failure(mvc.perform(get("/api/v1/dispatcher/fleet/overview?date=2026-06-26&depot=Peliyagoda")).andReturn(),
+            401, "UNAUTHENTICATED");
+    }
 }
