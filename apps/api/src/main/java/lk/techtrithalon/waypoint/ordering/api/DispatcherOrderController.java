@@ -1,12 +1,14 @@
 package lk.techtrithalon.waypoint.ordering.api;
 
 import java.time.LocalDate;
+import java.util.List;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.ordering.application.OrderQueryService;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
 import lk.techtrithalon.waypoint.ordering.domain.DashboardSnapshot;
 import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
+import lk.techtrithalon.waypoint.ordering.domain.DistrictDemand;
 import lk.techtrithalon.waypoint.ordering.domain.PlanningQueueSummary;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,6 +55,15 @@ class DispatcherOrderController {
     @GetMapping("/orders/{id}")
     CustomerOrder order(@AuthenticationPrincipal CurrentUser user, @PathVariable long id) {
         return service.dispatcherOrder(user, id);
+    }
+
+    @GetMapping("/orders/districts")
+    List<DistrictDemand> districts(
+        @AuthenticationPrincipal CurrentUser user,
+        @RequestParam(required = false) LocalDate date,
+        @RequestParam(required = false) String depot
+    ) {
+        return service.planningQueueByDistrict(user, date, depot);
     }
 
     @GetMapping("/orders/summary")

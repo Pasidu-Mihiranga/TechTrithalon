@@ -155,3 +155,17 @@ export function usePlanningQueueSummary(date: string, depot: string) {
     },
   })
 }
+
+/** The planning queue grouped by district, computed by the server for the exact date and depot. */
+export function useDistrictDemand(date?: string, depot?: string) {
+  return useQuery({
+    queryKey: ['dispatcher', 'orders', 'districts', date, depot],
+    enabled: Boolean(date && depot),
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/orders/districts', { params: { query: { date, depot } } })
+      if (error || !data) throw apiReadError(response, 'District demand could not be loaded')
+      return data
+    },
+    retry: false,
+  })
+}

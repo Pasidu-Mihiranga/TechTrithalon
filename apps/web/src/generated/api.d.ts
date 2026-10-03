@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/orders/districts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["districts_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/orders/summary": {
         parameters: {
             query?: never;
@@ -628,6 +644,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reference/geography": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["geography"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reference/outlets": {
         parameters: {
             query?: never;
@@ -995,6 +1027,42 @@ export interface components {
             /** Format: int32 */
             storesNotified: number;
         };
+        Depot: {
+            /** @description Why this point, and how approximate it is */
+            basis: string;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lng: number;
+            name: string;
+        };
+        District: {
+            /** @description Serving depot; null for districts outside the competition data */
+            depot?: string | null;
+            district: string;
+            /** @description GeoJSON Polygon or MultiPolygon */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /** @description [lng, lat] inside the largest part of the district, for its label */
+            labelPoint: number[];
+            /** @description True when the competition data serves this district */
+            served: boolean;
+        };
+        DistrictDemand: {
+            /** Format: int32 */
+            ambientOrders: number;
+            /** Format: int32 */
+            carriedOrders: number;
+            /** Format: int32 */
+            chilledOrders: number;
+            district: string;
+            /** Format: int32 */
+            orders: number;
+            /** Format: int32 */
+            vanOnlyOrders: number;
+            volumeM3: number;
+        };
         DistrictTravel: {
             depot?: string;
             depotToDistrictKm?: number;
@@ -1036,6 +1104,23 @@ export interface components {
             recorded?: boolean;
             remainingLitres?: number | null;
             vehicleId?: string;
+        };
+        GeographyView: {
+            attribution: string;
+            depots: components["schemas"]["Depot"][];
+            districts: components["schemas"]["District"][];
+            links: components["schemas"]["Link"][];
+        };
+        Link: {
+            depot: string;
+            depotToDistrictKm: number;
+            /** Format: int32 */
+            depotToDistrictMinutes: number;
+            district: string;
+            interStopKm: number;
+            /** Format: int32 */
+            interStopMinutes: number;
+            roadClass: string;
         };
         LoadLine: {
             /** @description The count was carried over from the replaced manifest */
@@ -1419,6 +1504,10 @@ export interface components {
             /** @description Published and superseded plans: the schedule, driver and load task frozen at publication. Empty for candidates */
             published?: components["schemas"]["PublishedTrip"][];
             trips?: components["schemas"]["PlanTrip"][];
+            /** @description Orders not yet on any trip, counted per district by the server */
+            unassignedByDistrict?: {
+                [key: string]: number;
+            };
             unassignedOrders?: components["schemas"]["UnassignedOrder"][];
             utilisation?: {
                 [key: string]: components["schemas"]["TripLoad"];
@@ -2099,6 +2188,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["OrderPage"];
+                };
+            };
+        };
+    };
+    districts_1: {
+        parameters: {
+            query?: {
+                date?: string;
+                depot?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DistrictDemand"][];
                 };
             };
         };
@@ -2877,6 +2989,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["DistrictTravel"][];
+                };
+            };
+        };
+    };
+    geography: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["GeographyView"];
                 };
             };
         };

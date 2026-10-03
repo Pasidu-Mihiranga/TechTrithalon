@@ -132,6 +132,8 @@ export function PlanningConfirmedOrdersPage() {
   const createManualPlan = useCreateManualPlan()
   const editManualPlan = useEditManualPlan(activePlanId ?? 0)
 
+  // The list is filtered by district through the same server-side search the search box uses.
+  const districtNames = useMemo(() => new Set((Array.isArray(outlets.data) ? outlets.data : []).map(o => o.district)), [outlets.data])
   const outletsMap = useMemo(() => {
     const list = Array.isArray(outlets.data) ? outlets.data : []
     return new Map(list.map((o) => [o.outletId, o]))
@@ -728,6 +730,10 @@ export function PlanningConfirmedOrdersPage() {
                 }}
                 excludedKeys={excludedKeys}
                 totalCount={totalOrders}
+                planDate={planDate}
+                depot={activeDepot}
+                activeDistrict={districtNames.has(q) ? q : null}
+                onSelectDistrict={(district) => { setQ(district ?? ''); setPage(0) }}
               />
             ) : (
               ordersQuery.isPending ? (

@@ -390,7 +390,7 @@ public class ManualPlanService {
         if (info==null) return result;
         var violations=new ArrayList<>(result.validation().violations()); violations.add(info);
         return new ManualPlanView(result.plan(),new PlanValidationReport(violations,true,result.validation().metrics()),
-            result.trips(),result.unassignedOrders(),result.fleet(),result.utilisation(),result.vehicleUtilisation(),result.fairness(),result.published());
+            result.trips(),result.unassignedOrders(),result.fleet(),result.utilisation(),result.vehicleUtilisation(),result.fairness(),result.published(),result.unassignedByDistrict());
     }
     private PlanValidationReport requireFeasible(PlanContext context) {
         var report=validateContext(context);
@@ -441,7 +441,9 @@ public class ManualPlanService {
                 return task==null ? t : t.withLoad(task.loadTaskId(),task.status(),task.openIssues(),task.held());
             }).toList();
         }
-        return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse,fairness,published);
+        Map<String,Integer> unassignedByDistrict=new java.util.TreeMap<>();
+        unassigned.forEach(u -> unassignedByDistrict.merge(u.order().district(),1,Integer::sum));
+        return new ManualPlanView(plan,report,context.trips(),unassigned,context.vehicles(),loads,vehicleUse,fairness,published,unassignedByDistrict);
     }
     private Map<Long,PlanOrder> snapshotOrders(CurrentUser user,ManualPlan plan) {
         Map<Long,PlanOrder> orders=new HashMap<>();

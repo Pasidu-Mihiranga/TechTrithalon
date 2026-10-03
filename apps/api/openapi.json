@@ -410,6 +410,89 @@
         "required" : [ "deferredOrders", "depot", "items", "planDate", "protectedNextRun", "repeatSkips", "storesAcknowledged", "storesNotified" ],
         "type" : "object"
       },
+      "Depot" : {
+        "properties" : {
+          "basis" : {
+            "description" : "Why this point, and how approximate it is",
+            "type" : "string"
+          },
+          "lat" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "lng" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "basis", "lat", "lng", "name" ],
+        "type" : "object"
+      },
+      "District" : {
+        "properties" : {
+          "depot" : {
+            "description" : "Serving depot; null for districts outside the competition data",
+            "type" : [ "string", "null" ]
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "geometry" : {
+            "additionalProperties" : { },
+            "description" : "GeoJSON Polygon or MultiPolygon",
+            "type" : "object"
+          },
+          "labelPoint" : {
+            "description" : "[lng, lat] inside the largest part of the district, for its label",
+            "items" : {
+              "format" : "double",
+              "type" : "number"
+            },
+            "type" : "array"
+          },
+          "served" : {
+            "description" : "True when the competition data serves this district",
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "district", "geometry", "labelPoint", "served" ],
+        "type" : "object"
+      },
+      "DistrictDemand" : {
+        "properties" : {
+          "ambientOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "carriedOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "chilledOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vanOnlyOrders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "ambientOrders", "carriedOrders", "chilledOrders", "district", "orders", "vanOnlyOrders", "volumeM3" ],
+        "type" : "object"
+      },
       "DistrictTravel" : {
         "properties" : {
           "depot" : {
@@ -520,6 +603,62 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "GeographyView" : {
+        "properties" : {
+          "attribution" : {
+            "type" : "string"
+          },
+          "depots" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Depot"
+            },
+            "type" : "array"
+          },
+          "districts" : {
+            "items" : {
+              "$ref" : "#/components/schemas/District"
+            },
+            "type" : "array"
+          },
+          "links" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Link"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "attribution", "depots", "districts", "links" ],
+        "type" : "object"
+      },
+      "Link" : {
+        "properties" : {
+          "depot" : {
+            "type" : "string"
+          },
+          "depotToDistrictKm" : {
+            "type" : "number"
+          },
+          "depotToDistrictMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "interStopKm" : {
+            "type" : "number"
+          },
+          "interStopMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "roadClass" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "depot", "depotToDistrictKm", "depotToDistrictMinutes", "district", "interStopKm", "interStopMinutes", "roadClass" ],
         "type" : "object"
       },
       "LoadLine" : {
@@ -1482,6 +1621,14 @@
               "$ref" : "#/components/schemas/PlanTrip"
             },
             "type" : "array"
+          },
+          "unassignedByDistrict" : {
+            "additionalProperties" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "description" : "Orders not yet on any trip, counted per district by the server",
+            "type" : "object"
           },
           "unassignedOrders" : {
             "items" : {
@@ -2972,6 +3119,46 @@
         "tags" : [ "dispatcher-order-controller" ]
       }
     },
+    "/api/v1/dispatcher/orders/districts" : {
+      "get" : {
+        "operationId" : "districts_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DistrictDemand"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-order-controller" ]
+      }
+    },
     "/api/v1/dispatcher/orders/summary" : {
       "get" : {
         "operationId" : "summary_1",
@@ -4156,6 +4343,27 @@
                     "$ref" : "#/components/schemas/DistrictTravel"
                   },
                   "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "reference-read-controller" ]
+      }
+    },
+    "/api/v1/reference/geography" : {
+      "get" : {
+        "operationId" : "geography",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GeographyView"
                 }
               }
             },

@@ -29,3 +29,19 @@ export function useVehicles() {
     retry: false,
   })
 }
+
+export type Geography = import('../generated/api').components['schemas']['GeographyView']
+
+/** Public district boundaries, town-level depot points and district travel figures (no outlet locations). */
+export function useGeography() {
+  return useQuery({
+    queryKey: ['reference', 'geography'],
+    queryFn: async () => {
+      const { data, response } = await api.GET('/api/v1/reference/geography')
+      if (!response.ok || !data) throw readError(response)
+      return data
+    },
+    retry: false,
+    staleTime: 60 * 60 * 1000,
+  })
+}
