@@ -45,7 +45,7 @@ class IdentitySeeder implements ApplicationRunner {
             create(Role.STORE_MANAGER, seed.storeManager());
             create(Role.LOADER, seed.loader());
             create(Role.DRIVER, seed.driver());
-            if (!isBlank(seed.driver().vehicleId())) users.linkVehicleIfUnset(seed.driver().username(), seed.driver().vehicleId());
+            if (!isBlank(seed.driver().vehicleId())) linkDriverVehicle(seed.driver());
         });
     }
 
@@ -61,6 +61,15 @@ class IdentitySeeder implements ApplicationRunner {
         users.insert(new UserAccount(0, account.username(), account.displayName(), encoder.encode(account.password()),
             role, blankToNull(account.outletId()), blankToNull(account.depot()), true));
         log.info("Created {} account '{}'", role, account.username());
+    }
+
+    private void linkDriverVehicle(SecurityProperties.Account driver) {
+        try {
+            users.linkVehicleIfUnset(driver.username(), driver.vehicleId());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new IllegalStateException("SEED_DRIVER_VEHICLE " + driver.vehicleId()
+                + " is not a known vehicle, or another active driver is already linked to it", e);
+        }
     }
 
     private static boolean isBlank(String s) { return s == null || s.isBlank(); }

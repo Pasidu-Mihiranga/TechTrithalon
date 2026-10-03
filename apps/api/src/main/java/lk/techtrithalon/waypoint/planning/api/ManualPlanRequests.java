@@ -11,7 +11,10 @@ public final class ManualPlanRequests {
     /** Figma defer-dialog reasons: capacity, no reefer, window conflict, van access, other (free text). */
     public static final String REASON_CODES="CAPACITY|NO_REEFER|WINDOW_CONFLICT|VAN_ACCESS|OTHER";
     @Schema(name="ManualPlanCreateRequest")
-    public record Create(@NotNull @Positive Long snapshotId, @NotBlank @Size(max=500) String reason) {}
+    public record Create(@NotNull @Positive Long snapshotId, @NotBlank @Size(max=500) String reason,
+                         @Schema(description="Only when the run already has a published version: 'published' (default) "
+                             + "starts the revision from a copy of its trips, 'empty' starts with every order unassigned")
+                         @Pattern(regexp="published|empty") String startFrom) {}
     @Schema(name="ManualPlanCommandRequest")
     public record Command(@NotNull @Min(0) Integer expectedVersion, @NotBlank @Size(max=500) String reason) {}
     @Schema(name="ManualPlanTripRequest")

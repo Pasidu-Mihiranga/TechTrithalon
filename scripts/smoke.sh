@@ -124,6 +124,9 @@ plan_id=$(echo "$candidate" | json_field "['plan']['id']")
 [[ "$(echo "$candidate" | json_field "['plan']['status']")" == "candidate" ]] || fail "manual plan was not persisted as a candidate"
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id" > /dev/null
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans?date=$demo_date&depot=$depot" > /dev/null
+changes=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id/changes")
+[[ "$(echo "$changes" | json_field "['planId']")" == "$plan_id" ]] || fail "plan changes did not describe the candidate: $changes"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/plans/999999999/changes"
 assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/plans/$plan_id"
 assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/plans/999999999"
 assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \

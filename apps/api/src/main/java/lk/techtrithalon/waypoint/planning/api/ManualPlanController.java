@@ -7,6 +7,7 @@ import java.util.List;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.planning.application.ManualPlanService;
 import lk.techtrithalon.waypoint.planning.domain.ManualPlanView;
+import lk.techtrithalon.waypoint.planning.domain.PlanChanges;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,7 @@ class ManualPlanController {
     ManualPlanController(ManualPlanService service) { this.service=service; }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     ManualPlanView create(@AuthenticationPrincipal CurrentUser user,@Valid @RequestBody ManualPlanRequests.Create request) {
-        return service.create(user,request.snapshotId(),request.reason());
+        return service.create(user,request.snapshotId(),request.reason(),request.startFrom());
     }
     @GetMapping("/{id}")
     ManualPlanView get(@AuthenticationPrincipal CurrentUser user,@PathVariable long id) { return service.get(user,id); }
@@ -53,6 +54,8 @@ class ManualPlanController {
     @PostMapping("/{id}/orders/{orderId}/restore")
     ManualPlanView restore(@AuthenticationPrincipal CurrentUser user,@PathVariable long id,@PathVariable long orderId,
                            @Valid @RequestBody ManualPlanRequests.Defer request) { return service.defer(user,id,orderId,request,true); }
+    @GetMapping("/{id}/changes")
+    PlanChanges changes(@AuthenticationPrincipal CurrentUser user,@PathVariable long id) { return service.changes(user,id); }
     @PostMapping("/{id}/publish")
     ManualPlanView publish(@AuthenticationPrincipal CurrentUser user,@PathVariable long id,@Valid @RequestBody ManualPlanRequests.Command request) {
         return service.publish(user,id,request);

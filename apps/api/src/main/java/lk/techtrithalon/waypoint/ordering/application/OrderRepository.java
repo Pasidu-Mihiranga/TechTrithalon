@@ -44,6 +44,8 @@ public interface OrderRepository {
 
     /** Orders eligible for the planning run on {@code date}: confirmed, or carried forward by a deferral. */
     List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot);
+    /** Every order still in a run: confirmed, carried forward, or planned by its current published version. */
+    List<CustomerOrder> findInPlanningRun(LocalDate date, String depot);
 
     long countByDateDepotStatus(LocalDate date, String depot, String status);
 

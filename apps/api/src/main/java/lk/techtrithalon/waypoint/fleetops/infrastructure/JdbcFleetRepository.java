@@ -31,6 +31,10 @@ class JdbcFleetRepository implements FleetRepository {
             RETURNING vehicle_id
             """,(rs,i) -> rs.getString(1),id,year,week,amount,amount,quota,quota).isEmpty();
     }
+    public boolean releasePlanningFuel(String id,int year,int week,BigDecimal amount) {
+        return db.update("UPDATE fuel_ledger SET litres_committed=litres_committed-? WHERE vehicle_id=? AND iso_year=? AND iso_week=? AND litres_committed>=?",
+            amount,id,year,week,amount)==1;
+    }
     private static final RowMapper<VehicleAvailability> AVAILABILITY = (rs,i) -> new VehicleAvailability(
         rs.getString("vehicle_id"),rs.getDate("date").toLocalDate(),rs.getString("status"),rs.getString("note"),
         rs.getLong("version"),rs.getTimestamp("updated_at").toInstant(),rs.getLong("updated_by"),true);

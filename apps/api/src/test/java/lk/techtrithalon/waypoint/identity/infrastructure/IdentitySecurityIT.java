@@ -51,7 +51,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
     "app.security.seed.store-manager.password=synthetic-store-password",
     "app.security.seed.store-manager.outlet-id=OUT901",
     "app.security.seed.loader.password=synthetic-loader-password",
-    "app.security.seed.driver.password=synthetic-driver-password"
+    "app.security.seed.driver.password=synthetic-driver-password",
+    "app.security.seed.driver.vehicle-id=VEH901"
 })
 @AutoConfigureMockMvc
 @Import(IdentitySecurityIT.Probes.class)

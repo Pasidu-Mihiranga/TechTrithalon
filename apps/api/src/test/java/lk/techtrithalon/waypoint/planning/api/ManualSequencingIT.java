@@ -30,6 +30,7 @@ class ManualSequencingIT extends ReferenceApiTestSupport {
     @BeforeEach void setup() throws Exception {
         clock.current = Instant.parse("2026-06-25T11:00:00Z");
         db.execute("TRUNCATE deferral_acknowledgement, deferral");
+        db.update("DELETE FROM load_line"); db.update("DELETE FROM load_task");
         db.update("DELETE FROM plan");
         db.update("DELETE FROM planning_snapshot");
         db.update("""

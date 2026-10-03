@@ -103,6 +103,8 @@ public class OrderCommandService {
         for (long id : ids.stream().distinct().sorted().toList()) {
             var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
             if (!user.canAccessDepot(before.depot())) throw new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found");
+            // A revised plan keeps orders the previous version already planned.
+            if ("planned".equals(before.status())) continue;
             if (!orders.markPlanned(id,before.version(),clock.instant()))
                 throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","An order changed during publication; reload before retrying");
             audit.record("order.planned",user,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),reason);

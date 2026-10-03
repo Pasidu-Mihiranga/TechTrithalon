@@ -45,7 +45,10 @@ public class SnapshotPlanContextFactory {
             vehicles.add(new PlanVehicle(id,row.path("type").asText(),row.path("temp").asText(),
                 row.path("weightCapKg").decimalValue(),row.path("volumeCapM3").decimalValue(),row.path("depot").asText(),
                 row.path("kmPerL").decimalValue(),quota,row.path("availabilityStatus").isNull()?null:row.path("availabilityStatus").asText()));
-            committed.put(id,row.path("fuelRemainingL").isNumber()?quota.subtract(row.path("fuelRemainingL").decimalValue()):BigDecimal.ZERO);
+            BigDecimal ledger=row.path("fuelRemainingL").isNumber()?quota.subtract(row.path("fuelRemainingL").decimalValue()):BigDecimal.ZERO;
+            // A revision replaces the current published version's reservation instead of adding to it.
+            BigDecimal replaced=row.path("fuelReservedByCurrentPlanL").isNumber()?row.path("fuelReservedByCurrentPlanL").decimalValue():BigDecimal.ZERO;
+            committed.put(id,ledger.subtract(replaced).max(BigDecimal.ZERO));
         }
         Map<String,PlanVehicle> vehicleMap=new HashMap<>(); vehicles.forEach(v -> vehicleMap.put(v.vehicleId(),v));
         List<DistrictTravel> travelRows=mapper.convertValue(reference.path("districtTravel"),new TypeReference<>() {});
@@ -91,6 +94,17 @@ public class SnapshotPlanContextFactory {
             }
         }
         return new PlanContext(snapshot.planDate(),snapshot.depot(),orders,vehicles,trips,travel,service,committed,calendar,params);
+    }
+
+    /** Departure of each trip from the same vehicle-day schedule that produced its stop times. */
+    public Map<Long,LocalTime> departures(PlanContext context) {
+        Map<String,List<PlanTrip>> byVehicle=new TreeMap<>();
+        context.trips().forEach(t -> byVehicle.computeIfAbsent(t.vehicleId(),k -> new ArrayList<>()).add(t));
+        Map<Long,LocalTime> result=new HashMap<>();
+        for (var vehicleTrips : byVehicle.values())
+            for (var day : arrivals.scheduleVehicleDay(vehicleTrips,context.travelByDistrict()::get,context.serviceByBrandDock(),context.constraintParams()))
+                result.put(day.trip().id(),day.departure());
+        return result;
     }
 
     private static ApiException invalid(String message) {

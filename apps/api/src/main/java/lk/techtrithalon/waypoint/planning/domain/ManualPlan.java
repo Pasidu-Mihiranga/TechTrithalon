@@ -1,5 +1,6 @@
 package lk.techtrithalon.waypoint.planning.domain;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -8,6 +9,13 @@ import java.util.List;
 public record ManualPlan(long id, long snapshotId, LocalDate planDate, String depot, int version,
                          String status, int lockVersion, long createdBy, Instant createdAt,
                          Instant updatedAt, Long publishedBy, Instant publishedAt,
+                         @Schema(description="The published plan this candidate revises; null for the first version of a run", nullable=true)
+                         Long basedOnPlanId,
+                         @Schema(description="Set when a later version replaced this published plan", nullable=true)
+                         Long supersededByPlanId,
+                         @Schema(nullable=true) Instant supersededAt,
+                         @Schema(description="Rule set the published schedule was validated with", nullable=true)
+                         String ruleVersion,
                          List<TripAssignment> trips, List<OrderDisposition> dispositions) {
     public ManualPlan { trips = List.copyOf(trips); dispositions = List.copyOf(dispositions); }
     public record TripAssignment(long id, String vehicleId, int tripIndex, String brand,

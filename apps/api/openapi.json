@@ -543,6 +543,11 @@
       },
       "ManualPlan" : {
         "properties" : {
+          "basedOnPlanId" : {
+            "description" : "The published plan this candidate revises; null for the first version of a run",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
           "createdAt" : {
             "format" : "date-time",
             "type" : "string"
@@ -580,12 +585,25 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "ruleVersion" : {
+            "description" : "Rule set the published schedule was validated with",
+            "type" : [ "string", "null" ]
+          },
           "snapshotId" : {
             "format" : "int64",
             "type" : "integer"
           },
           "status" : {
             "type" : "string"
+          },
+          "supersededAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "supersededByPlanId" : {
+            "description" : "Set when a later version replaced this published plan",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
           },
           "trips" : {
             "items" : {
@@ -649,6 +667,11 @@
           "snapshotId" : {
             "format" : "int64",
             "type" : "integer"
+          },
+          "startFrom" : {
+            "description" : "Only when the run already has a published version: 'published' (default) starts the revision from a copy of its trips, 'empty' starts with every order unassigned",
+            "pattern" : "published|empty",
+            "type" : "string"
           }
         },
         "required" : [ "reason", "snapshotId" ],
@@ -901,6 +924,13 @@
           "plan" : {
             "$ref" : "#/components/schemas/ManualPlan"
           },
+          "published" : {
+            "description" : "Published and superseded plans: the schedule, driver and load task frozen at publication. Empty for candidates",
+            "items" : {
+              "$ref" : "#/components/schemas/PublishedTrip"
+            },
+            "type" : "array"
+          },
           "trips" : {
             "items" : {
               "$ref" : "#/components/schemas/PlanTrip"
@@ -943,6 +973,32 @@
           "value" : {
             "format" : "int32",
             "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "OrderChange" : {
+        "properties" : {
+          "after" : {
+            "$ref" : "#/components/schemas/Placement",
+            "type" : "null"
+          },
+          "before" : {
+            "$ref" : "#/components/schemas/Placement",
+            "type" : "null"
+          },
+          "change" : {
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -1126,6 +1182,61 @@
           }
         },
         "required" : [ "tempRequirement", "units", "volumeM3", "weightKg" ],
+        "type" : "object"
+      },
+      "Placement" : {
+        "properties" : {
+          "seq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanChanges" : {
+        "properties" : {
+          "basePlanId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "baseVersion" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "firstVersion" : {
+            "type" : "boolean"
+          },
+          "orders" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OrderChange"
+            },
+            "type" : "array"
+          },
+          "planId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/Summary"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TripChange"
+            },
+            "type" : "array"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
         "type" : "object"
       },
       "PlanMetrics" : {
@@ -1440,6 +1551,63 @@
         "required" : [ "id", "orderCount" ],
         "type" : "object"
       },
+      "PublishedTrip" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "distanceKm" : {
+            "type" : "number"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "driverUserId" : {
+            "description" : "Null when no active driver account is linked to the vehicle",
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "fuelLitres" : {
+            "type" : "number"
+          },
+          "loadStatus" : {
+            "description" : "pending, loading, loaded or superseded",
+            "type" : [ "string", "null" ]
+          },
+          "loadTaskId" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "plannedDepart" : {
+            "type" : "string"
+          },
+          "stops" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Stop"
+            },
+            "type" : "array"
+          },
+          "tripId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ReferenceSummary" : {
         "properties" : {
           "calendarDays" : {
@@ -1484,6 +1652,62 @@
         },
         "type" : "object"
       },
+      "Stop" : {
+        "properties" : {
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "plannedArrival" : {
+            "type" : "string"
+          },
+          "seq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "serviceStart" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Summary" : {
+        "properties" : {
+          "added" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "driversChanged" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "moved" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "removed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "resequenced" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripsAdded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripsRemoved" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "unchanged" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "SystemHealth" : {
         "properties" : {
           "intelligence" : {
@@ -1516,6 +1740,27 @@
               "type" : "integer"
             },
             "type" : "array"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TripChange" : {
+        "properties" : {
+          "change" : {
+            "type" : "string"
+          },
+          "driverAfter" : {
+            "type" : [ "string", "null" ]
+          },
+          "driverBefore" : {
+            "type" : [ "string", "null" ]
           },
           "tripIndex" : {
             "format" : "int32",
@@ -2403,6 +2648,36 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/changes" : {
+      "get" : {
+        "operationId" : "changes",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PlanChanges"
                 }
               }
             },

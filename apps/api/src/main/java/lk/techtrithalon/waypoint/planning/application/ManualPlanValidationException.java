@@ -11,5 +11,9 @@ public class ManualPlanValidationException extends ApiException {
         super(HttpStatus.UNPROCESSABLE_ENTITY,"PLAN_INFEASIBLE","The edit violates planning constraints; nothing was saved");
         this.report=report;
     }
+    public ManualPlanValidationException(PlanValidationReport report,String code,String message) {
+        super(HttpStatus.UNPROCESSABLE_ENTITY,code,message);
+        this.report=report;
+    }
     @Override public Map<String,Object> properties() { return Map.of("violations",report.violations(),"metrics",report.metrics()); }
 }

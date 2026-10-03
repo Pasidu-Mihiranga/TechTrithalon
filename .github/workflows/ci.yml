@@ -85,6 +85,7 @@ jobs:
       EXPECTED_DISTRICTS: '2'
       EXPECTED_SERVICE_ALLOWANCES: '9'
       SEED_STORE_MANAGER_OUTLET: OUT901
+      SEED_DRIVER_VEHICLE: VEH901
       COOKIE_SECURE: 'false'
     steps:
       - uses: actions/checkout@v4
@@ -96,6 +97,7 @@ jobs:
           from pathlib import Path
           config = Path('.env')
           text = config.read_text().replace('SEED_STORE_MANAGER_OUTLET=OUT001', 'SEED_STORE_MANAGER_OUTLET=OUT901')
+          text = text.replace('SEED_DRIVER_VEHICLE=VEH036', 'SEED_DRIVER_VEHICLE=VEH901')
           for role in ['DISPATCHER', 'STORE_MANAGER', 'LOADER', 'DRIVER']:
               text = text.replace(f'SEED_{role}_PASSWORD=', f'SEED_{role}_PASSWORD={secrets.token_urlsafe(24)}')
           config.write_text(text)
