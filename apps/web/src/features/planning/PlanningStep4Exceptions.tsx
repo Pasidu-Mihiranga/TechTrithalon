@@ -33,11 +33,8 @@ export interface PlanningExceptionItem {
 }
 
 export interface PlanningStep4ExceptionsProps {
-  exceptions?: PlanningExceptionItem[]
-  onResolveException?: (id: string, action: string) => void
-  onDeferOrder?: (id: string, reason: string, nextDate: string) => void
   onContinueToConfirm: () => void
-  candidateView?: ManualPlanView | null
+  candidateView: ManualPlanView
   failure?: Error | null
   onApplyCommand?: (edit: Edit) => Promise<boolean | void>
   onReloadPlan?: () => void
@@ -45,9 +42,6 @@ export interface PlanningStep4ExceptionsProps {
 }
 
 export function PlanningStep4Exceptions({
-  exceptions: initialExceptions = [],
-  onResolveException,
-  onDeferOrder,
   onContinueToConfirm,
   candidateView,
   failure,
@@ -55,8 +49,6 @@ export function PlanningStep4Exceptions({
   onReloadPlan,
   actionPending = false,
 }: PlanningStep4ExceptionsProps) {
-  // Test/synthetic mock fallback state
-  const [mockExceptions, setMockExceptions] = useState<PlanningExceptionItem[]>(initialExceptions)
   const [activeCategory, setActiveCategory] = useState<'all' | 'van' | 'reefer' | 'capacity' | 'window'>('all')
   const [showResolved, setShowResolved] = useState(false)
 
@@ -169,16 +161,13 @@ export function PlanningStep4Exceptions({
     return items
   }, [candidateView, realViolations, pendingUnassigned, deferredUnassigned])
 
-  // Active items list: real candidate view vs test mock
-  const activeExceptions = candidateView ? realMappedExceptions : mockExceptions
+  const activeExceptions = realMappedExceptions
 
   const openExceptions = activeExceptions.filter((e) => e.status === 'open')
   const resolvedExceptions = activeExceptions.filter((e) => e.status === 'resolved')
 
   // Real compliance condition
-  const isPlanCompliant = candidateView
-    ? Boolean(candidateView.validation?.feasible && realViolations.length === 0 && pendingUnassigned.length === 0)
-    : (activeExceptions.length > 0 && openExceptions.length === 0) || activeExceptions.length === 0
+  const isPlanCompliant = Boolean(candidateView?.validation?.feasible && realViolations.length === 0 && pendingUnassigned.length === 0)
 
   const filteredExceptions = activeExceptions.filter((e) => {
     if (!showResolved && e.status === 'resolved') return false
@@ -211,55 +200,21 @@ export function PlanningStep4Exceptions({
         body: { expectedVersion: candidateView.plan.lockVersion as number, ...deferDecisionBody(deferDecision) },
       })
       if (saved === false) return
-    } else if (onDeferOrder) {
-      onDeferOrder(deferTarget.id, deferDecision.reason, deferDecision.nextDeliveryDate)
-    }
-
-    // Update local test state if running under mock test
-    if (!candidateView) {
-      setMockExceptions((prev) =>
-        prev.map((item) =>
-          item.id === deferTarget.id
-            ? { ...item, status: 'resolved', resolutionNote: `Deferred: ${deferDecision.reason} (next: ${deferDecision.nextDeliveryDate})` }
-            : item
-        )
-      )
     }
 
     setDeferModalOpen(false)
   }
 
-  async function handleRestoreOrder(orderId?: number, id?: string) {
-    if (candidateView && onApplyCommand && orderId) {
-      const saved = await onApplyCommand({
-        operation: 'restore',
-        orderId,
-        body: {
-          expectedVersion: candidateView.plan.lockVersion as number,
-          reason: 'Restoring deferred order to candidate backlog',
-        },
-      })
-      if (saved === false) return
-    } else if (!candidateView && id) {
-      setMockExceptions((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, status: 'open', resolutionNote: undefined } : item
-        )
-      )
-    }
-  }
-
-  function handleMockQuickResolve(ex: PlanningExceptionItem) {
-    if (onResolveException) {
-      onResolveException(ex.id, ex.suggestedFix ?? 'Resolved')
-    }
-    setMockExceptions((prev) =>
-      prev.map((item) =>
-        item.id === ex.id
-          ? { ...item, status: 'resolved', resolutionNote: ex.suggestedFix ?? 'Applied resolution' }
-          : item
-      )
-    )
+  async function handleRestoreOrder(orderId?: number) {
+    if (!candidateView || !onApplyCommand || !orderId) return
+    await onApplyCommand({
+      operation: 'restore',
+      orderId,
+      body: {
+        expectedVersion: candidateView.plan.lockVersion as number,
+        reason: 'Restoring deferred order to candidate backlog',
+      },
+    })
   }
 
   // 4B All Resolved Celebration
@@ -319,38 +274,35 @@ export function PlanningStep4Exceptions({
                 <span className="kpi-icon-box amber"><Clock size={16} /></span>
                 <span className="kpi-label">Deferred</span>
               </div>
-              <div className="kpi-value">
-                {candidateView ? deferredUnassigned.length : resolvedExceptions.filter((e) => e.resolutionNote?.startsWith('Deferred')).length}
-              </div>
+              <div className="kpi-value">{deferredUnassigned.length}</div>
               <div className="kpi-sub">moved to next run</div>
             </div>
 
             <div className="kpi-tile">
               <div className="kpi-tile-header">
                 <span className="kpi-icon-box teal"><TrendingUp size={16} /></span>
-                <span className="kpi-label">SLA Compliance</span>
+                <span className="kpi-label">Constraint check</span>
               </div>
-              <div className="kpi-value">100%</div>
-              <div className="kpi-sub">hard constraints met</div>
+              <div className="kpi-value">Passed</div>
+              <div className="kpi-sub">every hard rule re-checked by the server</div>
             </div>
 
             <div className="kpi-tile">
               <div className="kpi-tile-header">
                 <span className="kpi-icon-box orange"><Truck size={16} /></span>
-                <span className="kpi-label">Fleet Status</span>
+                <span className="kpi-label">Vehicles used</span>
               </div>
-              <div className="kpi-value">{candidateView?.validation?.feasible ? 'Feasible' : 'Ready'}</div>
-              <div className="kpi-sub">trips verified</div>
+              <div className="kpi-value">{candidateView.validation?.metrics?.vehiclesUsed ?? '—'}</div>
+              <div className="kpi-sub">{candidateView.validation?.metrics?.tripsUsed ?? 0} trips planned</div>
             </div>
           </div>
 
           {/* Resolution Audit Trail */}
-          {(resolvedExceptions.length > 0 || deferredUnassigned.length > 0) && (
+          {deferredUnassigned.length > 0 && (
             <div className="resolution-audit-card">
               <h4 className="audit-card-title">Resolution Audit Trail</h4>
               <div className="audit-items-list">
-                {candidateView ? (
-                  deferredUnassigned.map((u) => (
+                {deferredUnassigned.map((u) => (
                     <div key={u.order?.id} className="audit-item-row" style={{ justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Check size={14} className="text-success" />
@@ -368,17 +320,7 @@ export function PlanningStep4Exceptions({
                         <span>Restore</span>
                       </button>
                     </div>
-                  ))
-                ) : (
-                  resolvedExceptions.map((ex) => (
-                    <div key={ex.id} className="audit-item-row">
-                      <Check size={14} className="text-success" />
-                      <span className="audit-ref">{ex.ref}</span>
-                      <span className="audit-outlet">{ex.outletName}</span>
-                      <span className="audit-note">{ex.resolutionNote}</span>
-                    </div>
-                  ))
-                )}
+                ))}
               </div>
             </div>
           )}
@@ -556,7 +498,7 @@ export function PlanningStep4Exceptions({
                         type="button"
                         className="toolbar-btn small"
                         disabled={actionPending}
-                        onClick={() => void handleRestoreOrder(rawOrderId, ex.id)}
+                        onClick={() => void handleRestoreOrder(rawOrderId)}
                       >
                         <RotateCcw size={12} aria-hidden="true" />
                         <span>Restore</span>
@@ -571,16 +513,6 @@ export function PlanningStep4Exceptions({
                     </div>
 
                     <div className="triage-buttons">
-                      {!candidateView && ex.suggestedFix && (
-                        <button
-                          type="button"
-                          className="btn-primary-yellow small"
-                          onClick={() => handleMockQuickResolve(ex)}
-                        >
-                          <Check size={14} aria-hidden="true" />
-                          <span>{ex.fixActionLabel ?? 'Apply Fix'}</span>
-                        </button>
-                      )}
                       <button
                         type="button"
                         className="toolbar-btn small"

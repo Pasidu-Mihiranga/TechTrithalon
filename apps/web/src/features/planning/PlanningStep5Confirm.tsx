@@ -28,19 +28,9 @@ export interface DispatchManifestRow {
   accentColor?: string
 }
 
-export interface DispatchMetrics {
-  totalVehicles: number
-  totalDrivers: number
-  totalOrders: number
-  totalVolumeM3: number
-}
-
 export interface PlanningStep5ConfirmProps {
   activeDepot: string
   planDate: string
-  manifestRows?: DispatchManifestRow[]
-  metrics?: DispatchMetrics
-  onPublishPlan?: () => Promise<void>
   candidateView?: ManualPlanView | null
   onPublishCandidate?: (reason: string) => Promise<void>
   /** Starts a revision of the current published version; 'empty' skips copying its trips. */
@@ -73,9 +63,6 @@ function metric(value: number | null | undefined, unit: string, digits = 1) {
 export function PlanningStep5Confirm({
   activeDepot,
   planDate,
-  manifestRows: propsManifestRows = [],
-  metrics: propsMetrics,
-  onPublishPlan,
   candidateView,
   onPublishCandidate,
   onRevise,
@@ -106,8 +93,6 @@ export function PlanningStep5Confirm({
     try {
       if (candidateView && onPublishCandidate) {
         await onPublishCandidate(publishReason.trim() || 'Published operational delivery plan')
-      } else if (onPublishPlan) {
-        await onPublishPlan()
       } else {
         throw new Error('Publication service is unavailable. No plan has been sent.')
       }
@@ -163,13 +148,13 @@ export function PlanningStep5Confirm({
           departs: clock(trip.stops?.[0]?.plannedArrival),
         }
       })
-    : propsManifestRows
+    : []
 
-  const vehiclesCount = candidateView ? (metricsView?.vehiclesUsed ?? '—') : (propsMetrics?.totalVehicles ?? '—')
-  const ordersCount = candidateView ? (metricsView?.ordersAssigned ?? '—') : (propsMetrics?.totalOrders ?? '—')
-  const totalVolumeStr = candidateView ? metric(metricsView?.assignedVolumeM3, 'm³') : propsMetrics ? metric(propsMetrics.totalVolumeM3, 'm³') : '—'
+  const vehiclesCount = metricsView?.vehiclesUsed ?? '—'
+  const ordersCount = metricsView?.ordersAssigned ?? '—'
+  const totalVolumeStr = metric(metricsView?.assignedVolumeM3, 'm³')
   const linkedDrivers = changes.data ? new Set((changes.data.trips ?? []).filter(t => t.change !== 'REMOVED' && t.driverAfter).map(t => t.driverAfter)).size : null
-  const driversCount = candidateView ? (linkedDrivers ?? '—') : (propsMetrics?.totalDrivers ?? '—')
+  const driversCount = linkedDrivers ?? '—'
   const undecidedOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition !== 'DEFERRED')
   const deferredOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition === 'DEFERRED')
   const notifiedStores = deferredOrders.filter(item => item.notifyStore).length
