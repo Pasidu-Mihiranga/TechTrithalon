@@ -20,7 +20,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
   const location = useLocation()
   const auth = useAuth()
   const device = useDeviceClass()
-  const [depot, setDepot] = useState(auth.user?.depot || 'Peliyagoda')
+  const [depot, setDepot] = useState(auth.user?.depot ?? '')
   const depots = useQuery({
     queryKey: ['reference', 'depots'],
     enabled: role.key === 'dispatcher',
@@ -31,6 +31,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
       return data.filter((name): name is string => Boolean(name))
     },
   })
+  const activeDepot = depots.data?.includes(depot) ? depot : depots.data?.[0] ?? ''
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function logout() {
@@ -71,7 +72,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
   return (
     <AppShell
       sidebar={role.key === 'dispatcher'
-        ? <DispatcherSidebar role={role} depot={depot} forceCollapsed={device === 'tablet'} />
+        ? <DispatcherSidebar role={role} depot={activeDepot} forceCollapsed={device === 'tablet'} />
         : <Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} forceCollapsed={device === 'tablet'} />}
       topBar={
         <TopBar
@@ -81,8 +82,8 @@ export function RoleShell({ role }: { role: RoleConfig }) {
                 <Warehouse size={16} className="topbar-depot-icon" aria-hidden="true" />
                 <select
                   aria-label="Depot"
-                  value={depot}
-                  disabled={depots.isPending || depots.isError}
+                  value={activeDepot}
+                  disabled={depots.isPending || depots.isError || !depots.data?.length}
                   onChange={(event) => {
                     setDepot(event.target.value)
                     if (location.pathname === '/dispatcher/planning' || location.pathname === '/dispatcher/manual-planning') {
@@ -94,7 +95,8 @@ export function RoleShell({ role }: { role: RoleConfig }) {
                   }}
                   className="topbar-depot-select"
                 >
-                  {(depots.data && depots.data.length > 0 ? depots.data : ['Peliyagoda', 'Kandy']).map((name) => (
+                  {!depots.data?.length && <option value="">{depots.isError ? 'Depots unavailable' : 'Loading depots…'}</option>}
+                  {depots.data?.map((name) => (
                     <option key={name} value={name}>
                       {name.endsWith('Depot') ? name : `${name} Depot`}
                     </option>
@@ -120,7 +122,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
     >
       {error && <ErrorState message={error} />}
       {role.key === 'dispatcher' && depots.isError && <ErrorState error={depots.error} message="Workspace depots could not be loaded." onRetry={() => void depots.refetch()} />}
-      <Outlet key={depot} context={{ depot: depot || undefined }} />
+      <Outlet key={activeDepot} context={{ depot: activeDepot || undefined }} />
     </AppShell>
   )
 }

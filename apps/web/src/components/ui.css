@@ -433,6 +433,11 @@ th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
+.fleet-tabs { display: flex; max-width: 100%; overflow-x: auto; margin-bottom: var(--space-12); }
+.fleet-tabs .segmented-btn { flex: none; white-space: nowrap; }
+.fleet-toolbar { margin-bottom: var(--space-16); }
+.fleet-list .table-wrap { max-height: 52vh; overflow: auto; }
+
 /* Filter Pills */
 .planning-filter-pills {
   display: flex;

@@ -87,6 +87,24 @@ describe('authenticated role shells', () => {
     expect(screen.getByText(/Available in Phase 7/)).toBeVisible()
     expect(await screen.findByText('All systems operational')).toBeVisible()
   })
+  it('links attention counts from the exception and deferral APIs', async () => {
+    signedIn('DISPATCHER', async (url) => {
+      if (url.endsWith('/api/v1/reference/depots')) return json(['Synthetic'])
+      if (url.endsWith('/api/v1/reference/summary')) return json({ demoOperatingDate: '2026-06-26' })
+      if (url.includes('/api/v1/dispatcher/dashboard')) return json({ date: '2026-06-26', depot: 'Synthetic',
+        ordersToPlan: { value: 2, available: true }, ordersPlanned: { value: 3, available: true },
+        tripsReady: { value: 4, available: true }, activeTrips: { value: 1, available: true },
+        exceptions: { value: 2, available: true }, planningProgress: { available: true, planned: 3, total: 5 } })
+      if (url.includes('/api/v1/dispatcher/exceptions')) return json({ counts: { all: 2, open: 1, inProgress: 1, resolved: 0 }, items: [] })
+      if (url.includes('/api/v1/dispatcher/deferrals')) return json({ deferredOrders: 3, items: [] })
+      return json({ service: 'api', status: 'ok', intelligence: 'reachable' })
+    })
+    renderAt('/dispatcher')
+    expect(await screen.findByRole('link', { name: '2 unresolved exceptions' })).toHaveAttribute('href', '/dispatcher/exceptions')
+    expect(screen.getByRole('link', { name: '3 deferred orders' })).toHaveAttribute('href', '/dispatcher/deferred-orders')
+    expect(screen.getByText('Trips awaiting departure')).toBeInTheDocument()
+    expect(screen.getByText('Loading or ready')).toBeInTheDocument()
+  })
   it('shows an error state with retry when a feature API fails', async () => {
     signedIn('DISPATCHER', async (url) => {
       if (url.includes('/api/v1/system/health')) return json({}, 500)

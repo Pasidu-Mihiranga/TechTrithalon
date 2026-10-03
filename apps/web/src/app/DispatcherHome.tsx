@@ -3,6 +3,8 @@ import { Badge, Card, EmptyState, ErrorState, LoadingState, MetricCard, PageHead
 import { useDispatcherDashboard } from '../features/ordering/orderQueries'
 import { useSystemHealth } from '../features/shell/useSystemHealth'
 import { useDispatcherScope } from '../features/shell/useDispatcherScope'
+import { useExceptionQueue } from '../features/planning/exceptionQueries'
+import { useDeferralRun } from '../features/planning/deferralQueries'
 
 function metricValue(metric: { available?: boolean; value?: number | null; availableFromPhase?: string | null }) {
   if (!metric.available) return '—'
@@ -14,11 +16,15 @@ function metricCaption(metric: { available?: boolean; availableFromPhase?: strin
   return undefined
 }
 
-/** Phase 3A dashboard: live confirmed-order count; later KPIs stay honestly unavailable. */
 export function DispatcherHome() {
   const scope = useDispatcherScope()
   const dashboard = useDispatcherDashboard(undefined, scope.depot)
   const health = useSystemHealth()
+  const runDate = dashboard.data?.date
+  const exceptions = useExceptionQueue(runDate, scope.depot)
+  const deferrals = useDeferralRun(runDate, scope.depot)
+  const openExceptions = (exceptions.data?.counts.open ?? 0) + (exceptions.data?.counts.inProgress ?? 0)
+  const deferredOrders = deferrals.data?.deferredOrders ?? 0
 
   return (
     <>
@@ -26,7 +32,7 @@ export function DispatcherHome() {
         title="Dashboard"
         subtitle={dashboard.data
           ? `${dashboard.data.depot} · ${dashboard.data.date}`
-          : 'Planning status for the demo delivery day.'}
+          : 'Loading planning status…'}
         actions={<Link className="btn btn-secondary btn-md" to="/dispatcher/manual-planning">Manual planning</Link>}
       />
       {dashboard.isPending && <LoadingState rows={2} label="Loading dashboard" />}
@@ -36,7 +42,8 @@ export function DispatcherHome() {
           <section aria-label="Planning metrics" className="grid-metrics">
             <MetricCard label="Orders to plan" value={metricValue(dashboard.data.ordersToPlan ?? {})} />
             <MetricCard label="Orders planned" value={metricValue(dashboard.data.ordersPlanned ?? {})} caption={metricCaption(dashboard.data.ordersPlanned ?? {})} />
-            <MetricCard label="Trips ready" value={metricValue(dashboard.data.tripsReady ?? {})} caption={metricCaption(dashboard.data.tripsReady ?? {})} />
+            <MetricCard label="Trips awaiting departure" value={metricValue(dashboard.data.tripsReady ?? {})}
+              caption={dashboard.data.tripsReady?.available ? 'Loading or ready' : metricCaption(dashboard.data.tripsReady ?? {})} />
             <MetricCard label="Active trips" value={metricValue(dashboard.data.activeTrips ?? {})} caption={metricCaption(dashboard.data.activeTrips ?? {})} />
             <MetricCard label="Exceptions" value={metricValue(dashboard.data.exceptions ?? {})} caption={metricCaption(dashboard.data.exceptions ?? {})} />
           </section>
@@ -44,18 +51,20 @@ export function DispatcherHome() {
           <div className="dashboard-split">
             <Card>
               <h2 className="text-heading-s">Orders requiring attention</h2>
-              {(dashboard.data.orderAttention?.length ?? 0) === 0 ? (
+              {(exceptions.isPending || deferrals.isPending) && <LoadingState label="Loading attention items" />}
+              {exceptions.isError && <ErrorState error={exceptions.error} message="Exceptions could not be loaded." onRetry={() => void exceptions.refetch()} />}
+              {deferrals.isError && <ErrorState error={deferrals.error} message="Deferrals could not be loaded." onRetry={() => void deferrals.refetch()} />}
+              {exceptions.data && deferrals.data && openExceptions === 0 && deferredOrders === 0 ? (
                 <EmptyState
-                  title="No attention items yet"
-                  description="Exception and deferral attention lists arrive in Phases 8 and 10. Confirmed orders are available under Orders."
+                  title="No attention items for this run"
+                  description="Confirmed orders are available under Orders."
                 />
-              ) : (
+              ) : null}
+              {exceptions.data && deferrals.data && (openExceptions > 0 || deferredOrders > 0) &&
                 <ul className="attention-list">
-                  {dashboard.data.orderAttention?.map((item) => (
-                    <li key={item.id}><span className="text-brand">{item.id}</span> {item.label} <Badge tone="warning">{item.reason}</Badge></li>
-                  ))}
-                </ul>
-              )}
+                  {openExceptions > 0 && <li><Link to="/dispatcher/exceptions">{openExceptions} unresolved {openExceptions === 1 ? 'exception' : 'exceptions'}</Link> <Badge tone="warning">Review</Badge></li>}
+                  {deferredOrders > 0 && <li><Link to="/dispatcher/deferred-orders">{deferredOrders} deferred {deferredOrders === 1 ? 'order' : 'orders'}</Link> <Badge tone="warning">Review</Badge></li>}
+                </ul>}
             </Card>
             <Card>
               <h2 className="text-heading-s">Today&apos;s planning status</h2>
@@ -74,7 +83,7 @@ export function DispatcherHome() {
       )}
       <Card>
         <h2 className="text-heading-s">Services</h2>
-        {health.data
+        {health.isError ? <ErrorState error={health.error} message="Service status could not be loaded." onRetry={() => void health.refetch()} /> : health.data
           ? <p className="text-body-m">API: {health.data.status} · Planning service: {health.data.intelligence}</p>
           : <p className="text-body-m">Checking…</p>}
       </Card>

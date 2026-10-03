@@ -4,6 +4,7 @@ import { Badge, Button, Card, DataTable, EmptyState, ErrorState, Input, LoadingS
 import { formatVolume, planningLabel, planningTone, statusTone, tempKind, tempLabel } from './orderDisplay'
 import { useDispatcherOrders } from './orderQueries'
 import { useDispatcherScope } from '../shell/useDispatcherScope'
+import { useOutlets } from '../../lib/referenceQueries'
 
 type OrderRow = NonNullable<NonNullable<ReturnType<typeof useDispatcherOrders>['data']>['items']>[number]
 
@@ -34,6 +35,9 @@ export function DispatcherOrdersPage({
     setSearchParams((previous) => { previous.set('q', value); return previous }, { replace: true })
   }
   const [brand, setBrand] = useState('')
+  const outlets = useOutlets()
+  const brands = useMemo(() => [...new Set((Array.isArray(outlets.data) ? outlets.data : [])
+    .map(outlet => outlet.brand).filter((name): name is string => Boolean(name)))].sort(), [outlets.data])
   const [tempRequirement, setTemp] = useState('')
   const [status, setStatus] = useState(statusFilter)
   const [sort, setSort] = useState<SortState>({ key: 'ref', direction: 'asc' })
@@ -68,12 +72,10 @@ export function DispatcherOrdersPage({
       <Card className="toolbar-card">
         <div className="toolbar-row">
           <Input label="Search" value={q} onChange={(e) => { setQ(e.target.value); setPage(0) }} placeholder="Search order, outlet, district" />
-          <Select label="Brand" value={brand} onChange={(e) => { setBrand(e.target.value); setPage(0) }} options={[
-            { value: '', label: 'All brands' },
-            { value: 'Fresh', label: 'Fresh' },
-            { value: 'Style', label: 'Style' },
-            { value: 'Tech', label: 'Tech' },
-          ]} />
+          <Select label="Brand" value={brand} disabled={outlets.isPending || outlets.isError}
+            onChange={(e) => { setBrand(e.target.value); setPage(0) }}
+            options={[{ value: '', label: outlets.isError ? 'Brands unavailable' : 'All brands' },
+              ...brands.map(name => ({ value: name, label: name }))]} />
           <Select label="Type" value={tempRequirement} onChange={(e) => { setTemp(e.target.value); setPage(0) }} options={[
             { value: '', label: 'All types' },
             { value: 'ambient', label: 'Ambient' },
@@ -90,7 +92,7 @@ export function DispatcherOrdersPage({
       {orders.isPending && <LoadingState rows={4} label="Loading orders" />}
       {orders.isError && <ErrorState error={orders.error} message="Orders could not be loaded." onRetry={() => void orders.refetch()} />}
       {orders.data && (orders.data.items?.length ?? 0) === 0 && (
-        <EmptyState title="No orders" description="No orders match these filters for the demo delivery day." />
+        <EmptyState title="No orders" description="No orders match these filters for the selected delivery day." />
       )}
       {orders.data && (orders.data.items?.length ?? 0) > 0 && (
         <>
