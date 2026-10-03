@@ -27,6 +27,7 @@ export function DispatcherHome() {
         subtitle={dashboard.data
           ? `${dashboard.data.depot} · ${dashboard.data.date}`
           : 'Planning status for the demo delivery day.'}
+        actions={<Link className="btn btn-secondary btn-md" to="/dispatcher/manual-planning">Manual planning</Link>}
       />
       {dashboard.isPending && <LoadingState rows={2} label="Loading dashboard" />}
       {dashboard.isError && <ErrorState error={dashboard.error} message="Dashboard data could not be loaded." onRetry={() => void dashboard.refetch()} />}

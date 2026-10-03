@@ -18,6 +18,7 @@ import { StoreHomePage } from '../features/ordering/StoreHomePage'
 import { StoreOrdersPage } from '../features/ordering/StoreOrdersPage'
 import { FleetDetailPage } from '../features/fleet/FleetDetailPage'
 import { FleetPage } from '../features/fleet/FleetPage'
+import { ManualPlanningBoard } from '../features/planning/ManualPlanningBoard'
 import type { ReactNode } from 'react'
 import type { RoleConfig, RolePage } from './roles'
 
@@ -53,6 +54,7 @@ function roleRoutes(role: RoleConfig) {
       {role.key === 'dispatcher' ? (
         <>
           <Route path="capacity-decision" element={<CapacityDecisionPage />} />
+          <Route path="manual-planning" element={<ManualPlanningBoard />} />
           <Route path="orders/:id" element={<DispatcherOrderDetailPage />} />
           <Route path="fleet/:vehicleId" element={<FleetDetailPage />} />
         </>

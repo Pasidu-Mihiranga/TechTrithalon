@@ -96,6 +96,18 @@ public class OrderCommandService {
         }
         return temp;
     }
+    /** Published planning boundary. Only a validated publication invokes this inside its transaction. */
+    @Transactional
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public void markPlanned(CurrentUser user,java.util.List<Long> ids,String reason) {
+        for (long id : ids.stream().distinct().sorted().toList()) {
+            var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
+            if (!user.canAccessDepot(before.depot())) throw new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found");
+            if (!orders.markPlanned(id,before.version(),clock.instant()))
+                throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","An order changed during publication; reload before retrying");
+            audit.record("order.planned",user,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),reason);
+        }
+    }
 
     private static BigDecimal requirePositive(BigDecimal value, String field, String code) {
         if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {

@@ -91,7 +91,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["vehicle_1"];
+        get: operations["vehicle_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -141,7 +141,7 @@ export interface paths {
         };
         get: operations["latest"];
         put?: never;
-        post: operations["create"];
+        post: operations["create_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -155,7 +155,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -174,6 +174,166 @@ export interface paths {
         get: operations["compare"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get"];
+        put: operations["replace"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/moves": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/orders/{orderId}/defer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["defer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/orders/{orderId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeTrip"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}/sequence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sequence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}/vehicle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["vehicle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -347,7 +507,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["vehicle"];
+        get: operations["vehicle_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -449,6 +609,23 @@ export interface components {
             monsoon?: boolean;
             operating?: boolean;
             payday?: boolean;
+        };
+        ConstraintViolation: {
+            actualValue?: string;
+            allowedValue?: string;
+            entityId?: string;
+            /** @enum {string} */
+            entityType?: "ORDER" | "TRIP" | "VEHICLE" | "PLAN";
+            evidence?: {
+                [key: string]: unknown;
+            };
+            message?: string;
+            remediationCode?: string;
+            ruleCode?: string;
+            /** @enum {string} */
+            scope?: "ORDER_VEHICLE" | "TRIP" | "VEHICLE_DAY" | "PLAN";
+            /** @enum {string} */
+            severity?: "HARD" | "INFO";
         };
         CreateSnapshotRequest: {
             depot?: string;
@@ -558,11 +735,133 @@ export interface components {
             rememberMe?: boolean;
             username: string;
         };
+        ManualPlan: {
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: int64 */
+            createdBy?: number;
+            depot?: string;
+            dispositions?: components["schemas"]["OrderDisposition"][];
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            lockVersion?: number;
+            /** Format: date */
+            planDate?: string;
+            /** Format: date-time */
+            publishedAt?: string;
+            /** Format: int64 */
+            publishedBy?: number;
+            /** Format: int64 */
+            snapshotId?: number;
+            status?: string;
+            trips?: components["schemas"]["TripAssignment"][];
+            /** Format: date-time */
+            updatedAt?: string;
+            /** Format: int32 */
+            version?: number;
+        };
+        ManualPlanAddTripRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            reason: string;
+            trip: components["schemas"]["ManualPlanTripRequest"];
+        };
+        ManualPlanCommandRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            reason: string;
+        };
+        ManualPlanCreateRequest: {
+            reason: string;
+            /** Format: int64 */
+            snapshotId: number;
+        };
+        ManualPlanDeferRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            /** Format: date */
+            nextDeliveryDate?: string;
+            reason: string;
+        };
+        ManualPlanDispositionRequest: {
+            code: string;
+            /** Format: date */
+            nextDeliveryDate?: string;
+            /** Format: int64 */
+            orderId?: number;
+            reason: string;
+        };
+        ManualPlanMoveRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            /** Format: int64 */
+            fromTripId?: number;
+            /** Format: int64 */
+            orderId?: number;
+            /** Format: int32 */
+            position?: number;
+            reason: string;
+            /** Format: int64 */
+            toTripId?: number;
+        };
+        ManualPlanReplaceRequest: {
+            dispositions: components["schemas"]["ManualPlanDispositionRequest"][];
+            /** Format: int32 */
+            expectedVersion: number;
+            reason: string;
+            trips: components["schemas"]["ManualPlanTripRequest"][];
+        };
+        ManualPlanSequenceRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            orderIds: number[];
+            reason: string;
+        };
+        ManualPlanTripRequest: {
+            brand: string;
+            district: string;
+            /** Format: int64 */
+            id?: number;
+            orderIds: number[];
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId: string;
+        };
+        ManualPlanVehicleRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            reason: string;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId: string;
+        };
+        ManualPlanView: {
+            fleet?: components["schemas"]["PlanVehicle"][];
+            plan: components["schemas"]["ManualPlan"];
+            trips?: components["schemas"]["PlanTrip"][];
+            unassignedOrders?: components["schemas"]["UnassignedOrder"][];
+            utilisation?: {
+                [key: string]: components["schemas"]["TripLoad"];
+            };
+            validation?: components["schemas"]["PlanValidationReport"];
+            vehicleUtilisation?: {
+                [key: string]: components["schemas"]["VehicleUse"];
+            };
+        };
         Metric: {
             available?: boolean;
             availableFromPhase?: string | null;
             /** Format: int32 */
             value?: number | null;
+        };
+        OrderDisposition: {
+            code?: string;
+            /** Format: date */
+            nextDeliveryDate?: string;
+            /** Format: int64 */
+            orderId?: number;
+            reason?: string;
         };
         OrderPage: {
             items?: components["schemas"]["CustomerOrder"][];
@@ -595,6 +894,79 @@ export interface components {
             units: number;
             volumeM3: number;
             weightKg: number;
+        };
+        PlanMetrics: {
+            avgVolumeUtilisation?: number;
+            avgWeightUtilisation?: number;
+            /** Format: int32 */
+            hardViolationCount?: number;
+            /** Format: int32 */
+            ordersAssigned?: number;
+            /** Format: int32 */
+            ordersUnassigned?: number;
+            totalDistanceKm?: number;
+            totalFuelLitres?: number;
+            /** Format: int32 */
+            tripsUsed?: number;
+            /** Format: int32 */
+            vehiclesUsed?: number;
+        };
+        PlanOrder: {
+            brand?: string;
+            depot?: string;
+            district?: string;
+            dockType?: string;
+            effectiveWindowClose?: string;
+            effectiveWindowOpen?: string;
+            /** Format: int64 */
+            id?: number;
+            orderRef?: string;
+            outletId?: string;
+            parkingConstraint?: string;
+            temp?: string;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        PlanStop: {
+            /** Format: int64 */
+            id?: number;
+            order?: components["schemas"]["PlanOrder"];
+            /** Format: int64 */
+            orderId?: number;
+            plannedArrival?: string;
+            serviceStart?: string;
+            /** Format: int32 */
+            stopIndex?: number;
+        };
+        PlanTrip: {
+            brand?: string;
+            distanceKm?: number;
+            district?: string;
+            fuelLitres?: number;
+            /** Format: int64 */
+            id?: number;
+            stops?: components["schemas"]["PlanStop"][];
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            tripMinutes?: number;
+            vehicleId?: string;
+        };
+        PlanValidationReport: {
+            feasible?: boolean;
+            metrics?: components["schemas"]["PlanMetrics"];
+            violations?: components["schemas"]["ConstraintViolation"][];
+        };
+        PlanVehicle: {
+            availabilityStatus?: string;
+            depot?: string;
+            kmPerL?: number;
+            temp?: string;
+            type?: string;
+            vehicleId?: string;
+            volumeCapM3?: number;
+            weeklyFuelQuotaL?: number;
+            weightCapKg?: number;
         };
         PlanningProgress: {
             available?: boolean;
@@ -655,6 +1027,29 @@ export interface components {
             service?: string;
             status?: string;
         };
+        TripAssignment: {
+            brand?: string;
+            district?: string;
+            /** Format: int64 */
+            id?: number;
+            orderIds?: number[];
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        TripLoad: {
+            volumeLimitM3?: number;
+            volumeUsedM3?: number;
+            weightLimitKg?: number;
+            weightUsedKg?: number;
+        };
+        UnassignedOrder: {
+            disposition?: string;
+            /** Format: date */
+            nextDeliveryDate?: string;
+            order?: components["schemas"]["PlanOrder"];
+            reason?: string;
+        };
         UserResponse: {
             depot?: string;
             displayName?: string;
@@ -689,6 +1084,19 @@ export interface components {
             vehicleId?: string;
             /** Format: int64 */
             version?: number;
+        };
+        VehicleUse: {
+            /** Format: int32 */
+            freshMinutesLimit?: number;
+            /** Format: int32 */
+            freshMinutesUsed?: number;
+            fuelCommittedBeforeL?: number;
+            fuelForPlanL?: number;
+            /** Format: int32 */
+            otherMinutesLimit?: number;
+            /** Format: int32 */
+            otherMinutesUsed?: number;
+            weeklyFuelLimitL?: number;
         };
     };
     responses: never;
@@ -807,7 +1215,7 @@ export interface operations {
             };
         };
     };
-    vehicle_1: {
+    vehicle_2: {
         parameters: {
             query?: {
                 date?: string;
@@ -907,7 +1315,7 @@ export interface operations {
             };
         };
     };
-    create: {
+    create_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -931,7 +1339,7 @@ export interface operations {
             };
         };
     };
-    get: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -973,6 +1381,314 @@ export interface operations {
                     "*/*": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query: {
+                date: string;
+                depot?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"][];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    replace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    defer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanDeferRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanDeferRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    addTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanAddTripRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    removeTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                tripId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    sequence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                tripId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanSequenceRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    vehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                tripId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPlanVehicleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ManualPlanView"];
                 };
             };
         };
@@ -1219,7 +1935,7 @@ export interface operations {
             };
         };
     };
-    vehicle: {
+    vehicle_1: {
         parameters: {
             query?: never;
             header?: never;

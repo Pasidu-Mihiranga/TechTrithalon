@@ -72,6 +72,45 @@
         },
         "type" : "object"
       },
+      "ConstraintViolation" : {
+        "properties" : {
+          "actualValue" : {
+            "type" : "string"
+          },
+          "allowedValue" : {
+            "type" : "string"
+          },
+          "entityId" : {
+            "type" : "string"
+          },
+          "entityType" : {
+            "enum" : [ "ORDER", "TRIP", "VEHICLE", "PLAN" ],
+            "type" : "string"
+          },
+          "evidence" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "remediationCode" : {
+            "type" : "string"
+          },
+          "ruleCode" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "enum" : [ "ORDER_VEHICLE", "TRIP", "VEHICLE_DAY", "PLAN" ],
+            "type" : "string"
+          },
+          "severity" : {
+            "enum" : [ "HARD", "INFO" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "CreateSnapshotRequest" : {
         "properties" : {
           "depot" : {
@@ -365,6 +404,362 @@
         "required" : [ "password", "username" ],
         "type" : "object"
       },
+      "ManualPlan" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "createdBy" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "dispositions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/OrderDisposition"
+            },
+            "type" : "array"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lockVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "publishedBy" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "snapshotId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TripAssignment"
+            },
+            "type" : "array"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ManualPlanAddTripRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "trip" : {
+            "$ref" : "#/components/schemas/ManualPlanTripRequest"
+          }
+        },
+        "required" : [ "expectedVersion", "reason", "trip" ],
+        "type" : "object"
+      },
+      "ManualPlanCommandRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "expectedVersion", "reason" ],
+        "type" : "object"
+      },
+      "ManualPlanCreateRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "snapshotId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "reason", "snapshotId" ],
+        "type" : "object"
+      },
+      "ManualPlanDeferRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "nextDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "expectedVersion", "reason" ],
+        "type" : "object"
+      },
+      "ManualPlanDispositionRequest" : {
+        "properties" : {
+          "code" : {
+            "minLength" : 1,
+            "pattern" : "UNASSIGNED|DEFERRED",
+            "type" : "string"
+          },
+          "nextDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "reason" ],
+        "type" : "object"
+      },
+      "ManualPlanMoveRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "fromTripId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "position" : {
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "toTripId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "expectedVersion", "reason" ],
+        "type" : "object"
+      },
+      "ManualPlanReplaceRequest" : {
+        "properties" : {
+          "dispositions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ManualPlanDispositionRequest"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ManualPlanTripRequest"
+            },
+            "maxItems" : 10000,
+            "minItems" : 0,
+            "type" : "array"
+          }
+        },
+        "required" : [ "dispositions", "expectedVersion", "reason", "trips" ],
+        "type" : "object"
+      },
+      "ManualPlanSequenceRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "orderIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "expectedVersion", "orderIds", "reason" ],
+        "type" : "object"
+      },
+      "ManualPlanTripRequest" : {
+        "properties" : {
+          "brand" : {
+            "maxLength" : 16,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "district" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "maxItems" : 100000,
+            "minItems" : 0,
+            "type" : "array"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "maximum" : 2,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "maxLength" : 8,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "brand", "district", "orderIds", "vehicleId" ],
+        "type" : "object"
+      },
+      "ManualPlanVehicleRequest" : {
+        "properties" : {
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "maximum" : 2,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "maxLength" : 8,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "expectedVersion", "reason", "vehicleId" ],
+        "type" : "object"
+      },
+      "ManualPlanView" : {
+        "properties" : {
+          "fleet" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanVehicle"
+            },
+            "type" : "array"
+          },
+          "plan" : {
+            "$ref" : "#/components/schemas/ManualPlan"
+          },
+          "trips" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanTrip"
+            },
+            "type" : "array"
+          },
+          "unassignedOrders" : {
+            "items" : {
+              "$ref" : "#/components/schemas/UnassignedOrder"
+            },
+            "type" : "array"
+          },
+          "utilisation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/TripLoad"
+            },
+            "type" : "object"
+          },
+          "validation" : {
+            "$ref" : "#/components/schemas/PlanValidationReport"
+          },
+          "vehicleUtilisation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/VehicleUse"
+            },
+            "type" : "object"
+          }
+        },
+        "required" : [ "plan" ],
+        "type" : "object"
+      },
       "Metric" : {
         "properties" : {
           "available" : {
@@ -376,6 +771,25 @@
           "value" : {
             "format" : "int32",
             "type" : [ "integer", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "OrderDisposition" : {
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "nextDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "reason" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -473,6 +887,201 @@
           }
         },
         "required" : [ "tempRequirement", "units", "volumeM3", "weightKg" ],
+        "type" : "object"
+      },
+      "PlanMetrics" : {
+        "properties" : {
+          "avgVolumeUtilisation" : {
+            "type" : "number"
+          },
+          "avgWeightUtilisation" : {
+            "type" : "number"
+          },
+          "hardViolationCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersAssigned" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersUnassigned" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalDistanceKm" : {
+            "type" : "number"
+          },
+          "totalFuelLitres" : {
+            "type" : "number"
+          },
+          "tripsUsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehiclesUsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanOrder" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "effectiveWindowClose" : {
+            "type" : "string"
+          },
+          "effectiveWindowOpen" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "parkingConstraint" : {
+            "type" : "string"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "volumeM3" : {
+            "type" : "number"
+          },
+          "weightKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanStop" : {
+        "properties" : {
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "order" : {
+            "$ref" : "#/components/schemas/PlanOrder"
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "plannedArrival" : {
+            "type" : "string"
+          },
+          "serviceStart" : {
+            "type" : "string"
+          },
+          "stopIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanTrip" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "distanceKm" : {
+            "type" : "number"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "fuelLitres" : {
+            "type" : "number"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "stops" : {
+            "items" : {
+              "$ref" : "#/components/schemas/PlanStop"
+            },
+            "type" : "array"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripMinutes" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanValidationReport" : {
+        "properties" : {
+          "feasible" : {
+            "type" : "boolean"
+          },
+          "metrics" : {
+            "$ref" : "#/components/schemas/PlanMetrics"
+          },
+          "violations" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ConstraintViolation"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "PlanVehicle" : {
+        "properties" : {
+          "availabilityStatus" : {
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "kmPerL" : {
+            "type" : "number"
+          },
+          "temp" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          },
+          "volumeCapM3" : {
+            "type" : "number"
+          },
+          "weeklyFuelQuotaL" : {
+            "type" : "number"
+          },
+          "weightCapKg" : {
+            "type" : "number"
+          }
+        },
         "type" : "object"
       },
       "PlanningProgress" : {
@@ -612,6 +1221,70 @@
         },
         "type" : "object"
       },
+      "TripAssignment" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderIds" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TripLoad" : {
+        "properties" : {
+          "volumeLimitM3" : {
+            "type" : "number"
+          },
+          "volumeUsedM3" : {
+            "type" : "number"
+          },
+          "weightLimitKg" : {
+            "type" : "number"
+          },
+          "weightUsedKg" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "UnassignedOrder" : {
+        "properties" : {
+          "disposition" : {
+            "type" : "string"
+          },
+          "nextDeliveryDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "order" : {
+            "$ref" : "#/components/schemas/PlanOrder"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "UserResponse" : {
         "properties" : {
           "depot" : {
@@ -699,6 +1372,36 @@
           "version" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "VehicleUse" : {
+        "properties" : {
+          "freshMinutesLimit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "freshMinutesUsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "fuelCommittedBeforeL" : {
+            "type" : "number"
+          },
+          "fuelForPlanL" : {
+            "type" : "number"
+          },
+          "otherMinutesLimit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "otherMinutesUsed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "weeklyFuelLimitL" : {
+            "type" : "number"
           }
         },
         "type" : "object"
@@ -860,7 +1563,7 @@
     },
     "/api/v1/dispatcher/fleet/{vehicleId}" : {
       "get" : {
-        "operationId" : "vehicle_1",
+        "operationId" : "vehicle_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "vehicleId",
@@ -1061,7 +1764,7 @@
         "tags" : [ "planning-snapshot-controller" ]
       },
       "post" : {
-        "operationId" : "create",
+        "operationId" : "create_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1091,7 +1794,7 @@
     },
     "/api/v1/dispatcher/planning/snapshots/{id}" : {
       "get" : {
-        "operationId" : "get",
+        "operationId" : "get_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -1148,6 +1851,503 @@
           "session" : [ ]
         } ],
         "tags" : [ "planning-snapshot-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ManualPlanView"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}" : {
+      "get" : {
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      },
+      "put" : {
+        "operationId" : "replace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanReplaceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/moves" : {
+      "post" : {
+        "operationId" : "move",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanMoveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/orders/{orderId}/defer" : {
+      "post" : {
+        "operationId" : "defer",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanDeferRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/orders/{orderId}/restore" : {
+      "post" : {
+        "operationId" : "restore",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanDeferRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/publish" : {
+      "post" : {
+        "operationId" : "publish",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/trips" : {
+      "post" : {
+        "operationId" : "addTrip",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanAddTripRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}" : {
+      "delete" : {
+        "operationId" : "removeTrip",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "tripId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanCommandRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}/sequence" : {
+      "post" : {
+        "operationId" : "sequence",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "tripId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanSequenceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/plans/{id}/trips/{tripId}/vehicle" : {
+      "post" : {
+        "operationId" : "vehicle",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "tripId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualPlanVehicleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualPlanView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "manual-plan-controller" ]
       }
     },
     "/api/v1/dispatcher/vehicles/{id}/availability" : {
@@ -1489,7 +2689,7 @@
     },
     "/api/v1/reference/vehicles/{id}" : {
       "get" : {
-        "operationId" : "vehicle",
+        "operationId" : "vehicle_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",

@@ -110,6 +110,22 @@ assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application
   -d "{\"planDate\":\"$demo_date\",\"depot\":\"$depot\",\"orderIds\":[-1]}" "$API/api/v1/dispatcher/planning/snapshots"
 echo "Phase 5 snapshot ok id=$snap_id hash=${snap_hash:0:12}"
 
+echo "Manual planning: persisted candidate and guarded reads"
+candidate=$(curl -fsS -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d "{\"snapshotId\":$snap_id,\"reason\":\"Smoke verification\"}" "$API/api/v1/dispatcher/plans")
+plan_id=$(echo "$candidate" | json_field "['plan']['id']")
+[[ "$(echo "$candidate" | json_field "['plan']['status']")" == "candidate" ]] || fail "manual plan was not persisted as a candidate"
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id" > /dev/null
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans?date=$demo_date&depot=$depot" > /dev/null
+assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/plans/$plan_id"
+assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/plans/999999999"
+assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+  -d "{\"snapshotId\":$snap_id,\"reason\":\"\"}" "$API/api/v1/dispatcher/plans"
+if (( expected_count > 0 )); then
+  assert_failure 422 ORDER_ACCOUNTING -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+    -d '{"expectedVersion":0,"reason":"Smoke verification of publication gate"}' "$API/api/v1/dispatcher/plans/$plan_id/publish"
+fi
+
 echo "Phase 3A: demo-day orders, dashboard and fleet reads"
 dashboard=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/dashboard?date=$demo_date")
 [[ "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "True" || "$(echo "$dashboard" | json_field "['ordersToPlan']['available']")" == "true" ]] || fail "ordersToPlan unavailable: $dashboard"
@@ -148,6 +164,7 @@ for role in STORE_MANAGER LOADER DRIVER; do
     curl -fsS -b "$cookies" "$API/api/v1/store/cutoff" > /dev/null || fail "store cutoff failed"
     curl -fsS -b "$cookies" "$API/api/v1/store/orders" > /dev/null || fail "store orders failed"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id"
     assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
       -d '{"tempRequirement":"ambient","units":0,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
     echo "Phase 4: store place-order (accept create or demo-day duplicate)"

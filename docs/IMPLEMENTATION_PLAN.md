@@ -14,7 +14,7 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 4 — Store Manager Order Flow **(corrections awaiting PostgreSQL/curl/browser verification)**
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(corrections awaiting PostgreSQL/curl/browser verification)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine
-- [ ] Phase 7 — Manual Planning First
+- [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
 - [ ] Phase 8 — Deferral & Fairness
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
@@ -667,16 +667,16 @@ A validated human planning path remains available even if Python is unavailable.
 
 #### Backend
 
-- [ ] Create/edit candidate plans and trips; assign, move, remove, and resequence orders through validate-then-apply services.
-- [ ] Add a minimal publication gate so invalid plans cannot become operational; full version lifecycle follows in Phase 11.
+- [x] Create/edit candidate plans and trips; assign, move, remove, and resequence orders through validate-then-apply services.
+- [x] Add a minimal publication gate so invalid plans cannot become operational; full version lifecycle follows in Phase 11.
 
 #### Frontend
 
-- [ ] Build plan board, vehicle/trip assignment, utilisation bars, named violation feedback, and manual defer action.
+- [x] Build plan board, vehicle/trip assignment, utilisation bars, named violation feedback, and manual defer action.
 
 #### Database
 
-- [ ] Add plan/trip/stop tables, candidate version, optimistic lock, and within-plan uniqueness.
+- [x] Add plan/trip/stop tables, candidate version, optimistic lock, and within-plan uniqueness.
 
 #### Python / Intelligence
 
@@ -684,12 +684,16 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test invalid edits roll back; test whole-order and two-trip limits within a candidate.
-- [ ] Playwright a complete manual plan and rejected move.
+- [x] Test invalid edits roll back; test whole-order and two-trip limits within a candidate.
+- [x] Playwright a complete manual plan and rejected move.
 
 #### Documentation
 
-- [ ] Record manual planning semantics and the difference between candidate and published plans.
+- [x] Record manual planning semantics and the difference between candidate and published plans.
+
+### Evidence (local, verified — 2026-10-03)
+
+See [Manual planning verification](./MANUAL_PLANNING_VERIFICATION.md) for semantics, generated API/client handoff, curl commands and real responses, PostgreSQL comparisons and test results. The functional board is `/dispatcher/manual-planning`; the existing five-step UI remains with the parallel design session. All 110 API tests and 66 web tests passed, as did the build, smoke script and complete manual browser path with Python stopped. Earlier visual/CI sign-off and Phase 6's stale master checklist are not silently closed by this evidence.
 
 ### Parallel Work for 9 Members
 
@@ -697,9 +701,9 @@ Plan persistence/API and board UI can advance against a contract; validator rema
 
 ### Exit Gate
 
-- [ ] Dispatcher creates a feasible candidate and explains every unassigned order.
-- [ ] Invalid edits and publication attempts persist nothing.
-- [ ] Manual path works with Python stopped.
+- [x] Dispatcher creates a feasible candidate and explains every unassigned order.
+- [x] Invalid edits and publication attempts persist nothing.
+- [x] Manual path works with Python stopped.
 
 ### Result
 

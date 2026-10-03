@@ -157,3 +157,17 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
   - `docs/PHASE0_5_COMPLETION_VERIFICATION.md`
 
 ---
+
+## 2026-10-03 — Manual planning functionality and verification
+
+- Reviewed prior completion logs and related code, then verified the existing constraint engine: 56 domain tests passed, including 101/112/213 fixtures. Earlier visual/hosted CI sign-off and Phase 6 master-checkbox reconciliation were not reopened or silently closed.
+- Added candidate plan/trip/stop/disposition persistence through an additive Flyway migration, immutable snapshot adaptation, server-computed times/distance/fuel/utilisation, per-plan assignment uniqueness and optimistic edits.
+- Added dispatcher create/read/list/replace, trip creation/removal, whole-order assignment/moves/removal, vehicle/slot changes, resequencing, manual deferral/restoration and minimal atomic publication. Failed validation writes nothing; publication reloads persisted assignments and rechecks snapshot, whole-order accounting, availability and weekly fuel.
+- Added shared transaction locks for availability/fuel publication, fuel reservation and published ordering service transitions. Publication audit failure rolls back plan/order/fuel state together. Published plans are immutable; fairness and full publication version lifecycle stay in later milestones.
+- Regenerated OpenAPI/client with distinct ManualPlan request schemas; added typed query hooks and a functional shared-component board at `/dispatcher/manual-planning`, linked from the dashboard. The parallel session's existing Step 1–5 components and styles were preserved; board composition is flagged for design review.
+- Verification: complete API suite 110 passed (after including new tables in the seed test cleanup); complete web suite 66 passed using one worker, typecheck, focused lint and production build passed. Initial concurrent web run timed out in two existing tests; both passed in the complete rerun without changing timeout limits.
+- Real-stack verification: isolated synthetic Compose API 18082; updated smoke passed; 77 curl outcomes recorded, including per-route 401/403/404 guards, named-rule rejections and successful publication with Python stopped. PostgreSQL matched one planned order, one explicitly deferred order and 4.00 L committed fuel. Main database and parallel agent's running API were not modified.
+- Final input guard rejects null entries in replacement arrays with 400; the seven manual-plan integration tests and OpenAPI generation test passed again after adding this coverage. Rebuilt the final API image, verified both malformed requests with curl, regenerated the client and passed the contract drift check.
+- Browser: fresh isolated API 18083/web 15175 with Python stopped; complete create/assign/reject/defer/publish/reload path passed. Initial test tried changing the intentionally workspace-locked depot; corrected the assertion and reran successfully.
+- Evidence and integration limits: [MANUAL_PLANNING_VERIFICATION.md](./MANUAL_PLANNING_VERIFICATION.md). Dashboard planned/progress summaries still retain their earlier unavailable-state contract; the manual board metrics are authoritative.
+- The owner requested a commit of this work. Only the manual-planning changes and this log entry are included; the parallel session's UI changes remain uncommitted. No push was requested.
