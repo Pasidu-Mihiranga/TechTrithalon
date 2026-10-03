@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { Edit, ManualPlanView } from './manualPlanQueries'
 import { ManualPlanRequestError } from './manualPlanQueries'
+import { DeferDecisionFields, EMPTY_DEFER_DECISION, deferDecisionBody, deferDecisionReady, type DeferDecision } from './DeferDecisionFields'
 
 export interface PlanningExceptionItem {
   id: string
@@ -62,9 +63,7 @@ export function PlanningStep4Exceptions({
   // Defer Modal State
   const [deferModalOpen, setDeferModalOpen] = useState(false)
   const [deferTarget, setDeferTarget] = useState<{ id: string; orderId?: number; ref: string; outletName: string; volume: string } | null>(null)
-  const [deferReason, setDeferReason] = useState('Capacity constraint on current run')
-  const [deferNextDate, setDeferNextDate] = useState('')
-  const [deferNotifyStore, setDeferNotifyStore] = useState(false)
+  const [deferDecision, setDeferDecision] = useState<DeferDecision>(EMPTY_DEFER_DECISION)
 
   // Derive real exceptions from candidateView if provided
   const realViolations = useMemo(() => {
@@ -198,6 +197,7 @@ export function PlanningStep4Exceptions({
       }
     }
     setDeferTarget({ id: ex.id, orderId, ref: ex.ref, outletName: ex.outletName, volume: ex.volume })
+    setDeferDecision(EMPTY_DEFER_DECISION)
     setDeferModalOpen(true)
   }
 
@@ -208,15 +208,11 @@ export function PlanningStep4Exceptions({
       const saved = await onApplyCommand({
         operation: 'defer',
         orderId: deferTarget.orderId,
-        body: {
-          expectedVersion: candidateView.plan.lockVersion as number,
-          reason: deferReason.trim() || 'Manual deferral for operational capacity',
-          nextDeliveryDate: deferNextDate || undefined,
-        },
+        body: { expectedVersion: candidateView.plan.lockVersion as number, ...deferDecisionBody(deferDecision) },
       })
       if (saved === false) return
     } else if (onDeferOrder) {
-      onDeferOrder(deferTarget.id, deferReason, deferNextDate)
+      onDeferOrder(deferTarget.id, deferDecision.reason, deferDecision.nextDeliveryDate)
     }
 
     // Update local test state if running under mock test
@@ -224,7 +220,7 @@ export function PlanningStep4Exceptions({
       setMockExceptions((prev) =>
         prev.map((item) =>
           item.id === deferTarget.id
-            ? { ...item, status: 'resolved', resolutionNote: `Deferred: ${deferReason} (next: ${deferNextDate})` }
+            ? { ...item, status: 'resolved', resolutionNote: `Deferred: ${deferDecision.reason} (next: ${deferDecision.nextDeliveryDate})` }
             : item
         )
       )
@@ -625,55 +621,10 @@ export function PlanningStep4Exceptions({
             </div>
 
             <div className="modal-body">
-              <div className="modal-form-group">
-                <label className="field-label" htmlFor="defer-reason">Reason for deferral (Required)</label>
-                <select
-                  id="defer-reason"
-                  className="field-select full-width"
-                  value={deferReason}
-                  onChange={(e) => setDeferReason(e.target.value)}
-                >
-                  <option value="Capacity constraint on current run">Capacity constraint on current run</option>
-                  <option value="No refrigerated vehicle available">No refrigerated vehicle available</option>
-                  <option value="Store window closed during planned arrival">Store window closed during planned arrival</option>
-                  <option value="Van access limitation">Van access limitation</option>
-                  <option value="Operational supervisor override">Operational supervisor override</option>
-                </select>
-              </div>
-
-              <div className="modal-form-group">
-                <label className="field-label" htmlFor="defer-custom-reason">Additional explanation</label>
-                <input
-                  id="defer-custom-reason"
-                  type="text"
-                  className="field-input full-width"
-                  placeholder="Optional custom reason notes"
-                  maxLength={500}
-                />
-              </div>
-
-              <div className="modal-form-group">
-                <label className="field-label" htmlFor="defer-date">Next delivery run date (Optional)</label>
-                <input
-                  id="defer-date"
-                  type="date"
-                  className="field-input full-width"
-                  value={deferNextDate}
-                  onChange={(e) => setDeferNextDate(e.target.value)}
-                />
-              </div>
-
-              <div className="modal-checkbox-row">
-                <input
-                  type="checkbox"
-                  id="notify-store-check"
-                  checked={deferNotifyStore}
-                  onChange={(e) => setDeferNotifyStore(e.target.checked)}
-                />
-                <label htmlFor="notify-store-check">
-                  Record deferral in operational audit trail
-                </label>
-              </div>
+              <DeferDecisionFields idPrefix="exception-defer" value={deferDecision} onChange={setDeferDecision}
+                fairness={deferTarget.orderId && candidateView?.fairness?.[String(deferTarget.orderId)]
+                  ? [candidateView.fairness[String(deferTarget.orderId)]] : []}
+                orderLabel={() => deferTarget.ref} />
             </div>
 
             <div className="modal-footer">
@@ -688,7 +639,7 @@ export function PlanningStep4Exceptions({
               <button
                 type="button"
                 className="btn-primary-yellow"
-                disabled={actionPending || !deferReason.trim()}
+                disabled={actionPending || !deferDecisionReady(deferDecision)}
                 onClick={() => void handleConfirmDefer()}
               >
                 {actionPending ? 'Saving...' : 'Confirm Deferral'}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Card, EmptyState, ErrorState, LoadingState, MetricCard, PageHeader } from '../../components'
 import { formatCutoffCountdown } from './orderDisplay'
+import { StoreDeferralNotices } from './StoreDeferralNotices'
 import { useStoreCutoff, useStoreOrders } from './orderQueries'
 
 export function StoreHomePage() {
@@ -26,6 +27,7 @@ export function StoreHomePage() {
           />
         </section>
       )}
+      <StoreDeferralNotices />
       <Card>
         <div className="card-header-row">
           <h2 className="text-heading-s">Recent orders</h2>
@@ -41,7 +43,7 @@ export function StoreHomePage() {
             {orders.data.items?.map((order) => (
               <li key={order.id}>
                 <Link className="table-link" to={`/store/orders/${order.id}`}>{order.ref}</Link>
-                {' · '}{order.status} · {order.orderDate}
+                {' · '}{order.status} · {order.orderDate}{order.planningDate !== order.orderDate ? ` · moved to ${order.planningDate} run` : ''}
               </li>
             ))}
           </ul>

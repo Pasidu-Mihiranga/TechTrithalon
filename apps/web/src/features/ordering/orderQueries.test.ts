@@ -5,8 +5,8 @@ import { planningOrdersCsv } from './orderDisplay'
 describe('selected planning export', () => {
   it('loads IDs across pages and escapes CSV fields without changing backend volume', async () => {
     const rows = [
-      { id: 901, ref: 'SYN-901', outletId: 'SYN001', district: 'Alpha, "North"', volumeM3: 1.25, tempRequirement: 'ambient', orderDate: '2026-06-26', depot: 'Synthetic', status: 'confirmed' },
-      { id: 912, ref: 'SYN-912', outletId: 'SYN002', district: 'Beta', volumeM3: 0.64, tempRequirement: 'chilled', orderDate: '2026-06-26', depot: 'Synthetic', status: 'confirmed' },
+      { id: 901, ref: 'SYN-901', outletId: 'SYN001', district: 'Alpha, "North"', volumeM3: 1.25, tempRequirement: 'ambient', orderDate: '2026-06-26', planningDate: '2026-06-26', depot: 'Synthetic', status: 'confirmed' },
+      { id: 912, ref: 'SYN-912', outletId: 'SYN002', district: 'Beta', volumeM3: 0.64, tempRequirement: 'chilled', orderDate: '2026-06-26', planningDate: '2026-06-26', depot: 'Synthetic', status: 'confirmed' },
     ]
     vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
       const id = Number(new URL(request.url).pathname.split('/').at(-1))
