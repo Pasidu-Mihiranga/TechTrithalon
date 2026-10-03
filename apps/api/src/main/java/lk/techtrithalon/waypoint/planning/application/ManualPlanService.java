@@ -235,8 +235,12 @@ public class ManualPlanService {
         Map<Long,ManualPlanView.TripLoad> loads=new LinkedHashMap<>();
         for (var trip : context.trips()) {
             var vehicle=context.vehicles().stream().filter(v -> v.vehicleId().equals(trip.vehicleId())).findFirst().orElseThrow();
-            loads.put(trip.id(),new ManualPlanView.TripLoad(trip.stops().stream().map(s -> s.order().volumeM3()).reduce(BigDecimal.ZERO,BigDecimal::add),
-                vehicle.volumeCapM3(),trip.stops().stream().map(s -> s.order().weightKg()).reduce(BigDecimal.ZERO,BigDecimal::add),vehicle.weightCapKg()));
+            var volume=trip.stops().stream().map(s -> s.order().volumeM3()).reduce(BigDecimal.ZERO,BigDecimal::add);
+            var volumePct=vehicle.volumeCapM3()!=null && vehicle.volumeCapM3().signum()>0
+                ? volume.multiply(BigDecimal.valueOf(100)).divide(vehicle.volumeCapM3(),2,java.math.RoundingMode.HALF_UP) : null;
+            loads.put(trip.id(),new ManualPlanView.TripLoad(volume,
+                vehicle.volumeCapM3(),trip.stops().stream().map(s -> s.order().weightKg()).reduce(BigDecimal.ZERO,BigDecimal::add),vehicle.weightCapKg(),
+                volumePct,trip.stops().size()));
         }
         Map<String,ManualPlanView.VehicleUse> vehicleUse=new LinkedHashMap<>();
         for (var vehicle : context.vehicles()) {

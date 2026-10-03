@@ -367,3 +367,19 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Added standard CSV quoting for commas, quotes and line breaks, preserving backend volumes without computing business totals. Request failures and changed eligibility now display an error instead of exporting a partial selection.
 - Regression tests cover IDs across pages, CSV escaping, changed status and failed reads. TypeScript and full lint passed. The complete web suite passed 73 tests across 14 files; the production build passed with its existing bundle-size advisory. Queue-summary failures also retain their typed error for forbidden-state rendering and offer a retry. No backend contract/schema/constraint change was made, and no new live browser-export verification is claimed.
 - The first phase remains open for remaining screen metrics, date/error/forbidden journeys and Figma review. No later phase was started or marked complete.
+
+## 2026-10-03 — Round 2 scope review and agent cost rules
+
+- Read the booklet's Hackathon section (requirements and scoring weights), the implementation plan, the Round 2 audit, README, work log and the design documentation's loader/driver/store screen lists.
+- Confirmed that loading, delivery, receipt, sync, exceptions and notification modules, and `packages/field-core`, are still empty placeholders.
+- Added a Round 2 execution order (nine steps, each with a complexity rating) and token-saving rules to `CLAUDE.md`. Owner decision: Part A covers the Round 2 requirements (steps 1–9) and comes first. Part B covers the remaining phases (automatic planning, explainability, Android APK, forecasting/ML, capacity, hardening), which follow in order. No deadline-driven scope cuts.
+- No application code, schema or contract was changed.
+
+
+## 2026-10-03 — Step 1: planning metrics owned by the server
+
+- Reviewed the uncommitted planning diff. It adds server fields for available vehicles, order totals and volume, and per-trip utilisation and stop count. Step 2 and Step 3 now read them instead of querying vehicles or counting locally.
+- Fixed a Step 2 utilisation bar that could get an invalid width, and made Step 3's bottom bar use the server's used-vehicle and assigned-order counts.
+- Regenerated the OpenAPI contract and TypeScript client. Extended `ManualPlanIT` with assertions for the new fields.
+- Verification: 115 API tests, 73 web tests, typecheck and lint all pass. Curl on an isolated stack matched PostgreSQL (85 orders, 409.864 m³, 28 available vehicles), with 401/403/404/422 failure checks. The isolated stack was removed and the main stack rebuilt.
+- Marked the server-side metrics checkbox done in the plan. Hosted CI, Figma visual sign-off and date/error/forbidden journeys stay open, so the phase gates are not closed.

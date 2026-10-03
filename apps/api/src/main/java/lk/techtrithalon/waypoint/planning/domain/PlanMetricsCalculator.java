@@ -30,7 +30,7 @@ public class PlanMetricsCalculator {
                 BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                 BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
                 hardViolationCount,
-                BigDecimal.ZERO
+                BigDecimal.ZERO, 0, 0, BigDecimal.ZERO
             );
         }
 
@@ -137,7 +137,10 @@ public class PlanMetricsCalculator {
             avgVolumeUtil,
             avgWeightUtil,
             hardViolationCount,
-            assignedVolumeM3
+            assignedVolumeM3,
+            (int) vehicleMap.values().stream().filter(v -> "available".equalsIgnoreCase(v.availabilityStatus())).count(),
+            totalOrders,
+            ctx.orders().stream().map(PlanOrder::volumeM3).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add)
         );
     }
 }

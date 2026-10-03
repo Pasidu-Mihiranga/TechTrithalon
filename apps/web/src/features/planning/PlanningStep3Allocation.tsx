@@ -290,8 +290,9 @@ export function PlanningStep3Allocation({
 
   const activeVehicle = displayVehicles.find((v) => v.id === selectedVehicleId) || processedVehicles[0] || displayVehicles[0]
 
-  const allocatedVehiclesCount = displayVehicles.filter((v) => v.volume.used > 0).length
-  const totalOrdersPlaced = displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
+  const serverMetrics = candidateView?.validation?.metrics
+  const allocatedVehiclesCount = serverMetrics?.vehiclesUsed ?? displayVehicles.filter((v) => v.volume.used > 0).length
+  const totalOrdersPlaced = serverMetrics?.ordersAssigned ?? displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
 
   // Map representation of all routes
   const allRoutesForMap = useMemo(() => {

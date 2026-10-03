@@ -913,6 +913,8 @@ export interface components {
         };
         PlanMetrics: {
             assignedVolumeM3?: number;
+            /** Format: int32 */
+            availableVehicles?: number;
             avgVolumeUtilisation?: number;
             avgWeightUtilisation?: number;
             /** Format: int32 */
@@ -923,6 +925,9 @@ export interface components {
             ordersUnassigned?: number;
             totalDistanceKm?: number;
             totalFuelLitres?: number;
+            totalOrderVolumeM3?: number;
+            /** Format: int32 */
+            totalOrders?: number;
             /** Format: int32 */
             tripsUsed?: number;
             /** Format: int32 */
@@ -1066,8 +1071,11 @@ export interface components {
             vehicleId?: string;
         };
         TripLoad: {
+            /** Format: int32 */
+            stopCount?: number;
             volumeLimitM3?: number;
             volumeUsedM3?: number;
+            volumeUtilisationPct?: number;
             weightLimitKg?: number;
             weightUsedKg?: number;
         };

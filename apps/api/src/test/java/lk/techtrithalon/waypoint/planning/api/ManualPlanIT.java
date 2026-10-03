@@ -62,6 +62,13 @@ class ManualPlanIT extends ReferenceApiTestSupport {
         assertThat(first.path("trips").get(0).path("tripMinutes").asInt()).isEqualTo(31);
         assertThat(first.path("validation").path("metrics").path("assignedVolumeM3").decimalValue())
             .isEqualByComparingTo("1.250");
+        var metrics=first.path("validation").path("metrics");
+        assertThat(metrics.path("totalOrders").asInt()).isEqualTo(2);
+        assertThat(metrics.path("availableVehicles").asInt()).isPositive();
+        assertThat(metrics.path("totalOrderVolumeM3").decimalValue()).isGreaterThanOrEqualTo(metrics.path("assignedVolumeM3").decimalValue());
+        var load=first.path("utilisation").get(String.valueOf(firstTrip));
+        assertThat(load.path("stopCount").asInt()).isEqualTo(1);
+        assertThat(load.path("volumeUtilisationPct").decimalValue()).isPositive();
         postJson("/api/v1/dispatcher/plans/"+plan+"/trips/"+firstTrip+"/sequence",
             Map.of("expectedVersion",1,"reason","Synthetic route review","orderIds",List.of(freshOrder)),200);
         add(plan,2,"Style",2,List.of(styleOrder));

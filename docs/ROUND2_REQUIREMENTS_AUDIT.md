@@ -153,3 +153,16 @@ Figma access now succeeds; no token is needed. The owner authorized the existing
 The first repair slice fixes the late-order count, uncapped server queue/volume metrics, server parking filtering, reasoned candidate exclusions, refresh and depot-scope invalidation, invented map locations/manifest values, simulated optimization progress and false publication success. It adds server-assigned volume and independent cross-trip-wait/window-close/budget-boundary regressions. Full lint is now clean. Fresh isolated curl, PostgreSQL and browser evidence—including manual publication with Python stopped—is recorded in [Manual Planning Verification](./MANUAL_PLANNING_VERIFICATION.md#2026-10-03--planning-integrity-follow-up).
 
 The original findings above are a historical audit baseline. Findings 2/5/7 still need the complete screen metrics/state/copy/CSV/date-switch and visual review; finding 9 still needs input-integrity/full acceptance checks. Findings 8/10/11 and later operational/intelligence requirements remain open. Candidate DEFERRED records do not implement the durable carry-forward/fairness workflow. Keep the execution order above: finish current gates, then deferral/fairness, allocation mode, loading, operational publication, delivery/offline/receipt, remaining submitted-design capabilities, and release verification. No complete Round 2 or visual sign-off is claimed.
+
+## Step 1 follow-up — 2026-10-03
+
+Server-owned planning metrics: the manual-plan response now carries `availableVehicles`, `totalOrders`, `totalOrderVolumeM3`, per-trip `volumeUtilisationPct` and `stopCount`. Step 2 and Step 3 read these instead of querying vehicles or counting in the browser; unavailable values show a dash. Also fixed a utilisation bar that could receive an invalid width.
+
+| Check | Result |
+|---|---|
+| `./gradlew test` (full) | 115 passed, 0 failed |
+| Web typecheck / lint / tests | Clean / clean / 73 passed |
+| Isolated stack curl (API 18090) | login 200; snapshot 201; create plan 201; add trip 200 with `volumeUtilisationPct` 6.25 (0.5/8.0); anonymous 401; store manager 403 with matching `X-Request-Id`/`traceId`; unknown plan 404; unknown vehicle 422; `volumeUtilisationPct` present in `/v3/api-docs` |
+| SQL reconciliation | Snapshot 85 orders, 409.864 m³, 28 available vehicles; the API metrics agree |
+
+Still open for this gate: Figma visual comparison, date-switch/error/forbidden browser journeys, input-integrity checks for absent fuel/inputs, full S1 acceptance and hosted CI. The isolated stack was removed afterwards; the main stack was rebuilt.

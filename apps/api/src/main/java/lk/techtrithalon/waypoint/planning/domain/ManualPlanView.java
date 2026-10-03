@@ -13,7 +13,8 @@ public record ManualPlanView(@Schema(requiredMode=Schema.RequiredMode.REQUIRED) 
     public record UnassignedOrder(PlanOrder order, String disposition, String reason,
                                   java.time.LocalDate nextDeliveryDate) {}
     public record TripLoad(BigDecimal volumeUsedM3, BigDecimal volumeLimitM3,
-                           BigDecimal weightUsedKg, BigDecimal weightLimitKg) {}
+                           BigDecimal weightUsedKg, BigDecimal weightLimitKg,
+                           BigDecimal volumeUtilisationPct, int stopCount) {}
     public record VehicleUse(int freshMinutesUsed, int freshMinutesLimit,
                              int otherMinutesUsed, int otherMinutesLimit,
                              BigDecimal fuelCommittedBeforeL, BigDecimal fuelForPlanL, BigDecimal weeklyFuelLimitL) {}

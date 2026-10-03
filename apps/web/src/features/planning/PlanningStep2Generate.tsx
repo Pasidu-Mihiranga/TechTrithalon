@@ -15,7 +15,6 @@ import {
   Warehouse,
 } from 'lucide-react'
 import type { components } from '../../generated/api'
-import { useVehicles } from '../../lib/referenceQueries'
 import { EmptyState } from '../../components'
 
 import type { ManualPlanView } from './manualPlanQueries'
@@ -26,8 +25,8 @@ export interface GeneratedRouteSummary {
   vehicleId: string
   vehicleType: string
   driverName?: string
-  stopsCount: number
-  utilisationPct: number
+  stopsCount?: number
+  utilisationPct?: number
   color?: string
 }
 
@@ -81,14 +80,10 @@ export function PlanningStep2Generate({
   const [isPlanReady, setIsPlanReady] = useState(Boolean(candidateView || (plan && plan.status === 'ready')))
   const [optionsOpen, setOptionsOpen] = useState(false)
 
-  // Query real reference vehicles for active depot
-  const vehiclesQuery = useVehicles()
-  const localVehicles = useMemo(() => {
-    const all = vehiclesQuery.data ?? []
-    return all.filter((v) => !v.depot || v.depot.toLowerCase() === activeDepot.toLowerCase())
-  }, [vehiclesQuery.data, activeDepot])
-
-  const vehiclesCount = localVehicles.length
+  const valMetrics = candidateView?.validation?.metrics
+  const vehiclesCount = valMetrics?.availableVehicles
+  const frozenOrderCount = valMetrics?.totalOrders ?? snapshot?.orderCount ?? orderCount
+  const frozenVolume = valMetrics?.totalOrderVolumeM3 ?? totalVolume
 
   async function handleStartGeneration() {
     setIsGenerating(true)
@@ -109,14 +104,12 @@ export function PlanningStep2Generate({
     const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
     return candidateView.trips.map((trip, idx) => {
       const util = candidateView.utilisation?.[String(trip.id)]
-      const pct = util?.volumeLimitM3 && util.volumeLimitM3 > 0
-        ? Math.min(100, Math.round(((util.volumeUsedM3 ?? 0) / util.volumeLimitM3) * 100))
-        : 0
+      const pct = util?.volumeUtilisationPct
       return {
         vehicleId: trip.vehicleId ?? `Trip ${trip.id}`,
         vehicleType: `Slot ${trip.tripIndex} · ${trip.brand ?? ''}`,
         driverName: undefined,
-        stopsCount: trip.stops?.length ?? 0,
+        stopsCount: util?.stopCount,
         utilisationPct: pct,
         color: colors[idx % colors.length],
       }
@@ -124,7 +117,6 @@ export function PlanningStep2Generate({
   }, [candidateView])
 
   const routes = candidateRoutes.length > 0 ? candidateRoutes : (plan?.routes ?? [])
-  const valMetrics = candidateView?.validation?.metrics
   const metrics = plan?.metrics
 
   if (candidateView || isPlanReady || plan?.status === 'ready') {
@@ -149,7 +141,7 @@ export function PlanningStep2Generate({
               </div>
               <p className="plan-ready-subtitle">
                 {candidateView
-                  ? `${candidateView.trips?.length ?? 0} trips · ${valMetrics?.ordersAssigned ?? 0} orders allocated · ${valMetrics?.ordersUnassigned ?? orderCount} unassigned.`
+                  ? `${valMetrics?.tripsUsed ?? '—'} active trips · ${valMetrics?.ordersAssigned ?? 0} orders allocated · ${valMetrics?.ordersUnassigned ?? orderCount} unassigned.`
                   : routes.length > 0
                     ? `${routes.length} routes built for ${metrics?.allocatedOrders ?? orderCount} orders.`
                     : `Snapshot #${snapshot?.id ?? 1} captured with ${orderCount} confirmed orders (${totalVolume.toFixed(1)} m³).`}
@@ -211,7 +203,7 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box yellow"><Sliders size={15} /></span>
               <span className="kpi-label">Routes</span>
             </div>
-            <div className="kpi-value">{valMetrics?.tripsUsed ?? (candidateView ? candidateView.trips?.length ?? 0 : (metrics ? metrics.routesCount : routes.length || '—'))}</div>
+            <div className="kpi-value">{valMetrics?.tripsUsed ?? (candidateView ? '—' : (metrics ? metrics.routesCount : routes.length || '—'))}</div>
             <div className="kpi-sub">{candidateView ? `${candidateView.trips?.length ?? 0} active trips` : (routes.length > 0 ? 'active trips' : 'pending allocation')}</div>
           </div>
 
@@ -220,8 +212,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box orange"><Truck size={15} /></span>
               <span className="kpi-label">Vehicles used</span>
             </div>
-            <div className="kpi-value">{valMetrics?.vehiclesUsed !== undefined ? `${valMetrics.vehiclesUsed} / ${vehiclesCount}` : (metrics ? `${metrics.vehiclesUsed} / ${metrics.totalVehicles}` : `${vehiclesCount} avail`)}</div>
-            <div className="kpi-sub">{activeDepot} depot fleet</div>
+            <div className="kpi-value">{valMetrics?.vehiclesUsed !== undefined ? `${valMetrics.vehiclesUsed} / ${vehiclesCount ?? '—'}` : (metrics ? `${metrics.vehiclesUsed} / ${metrics.totalVehicles}` : 'Freeze inputs to check')}</div>
+            <div className="kpi-sub">Availability checked when inputs are frozen</div>
           </div>
 
           <div className="kpi-tile">
@@ -229,7 +221,7 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box amber"><Box size={15} /></span>
               <span className="kpi-label">Orders allocated</span>
             </div>
-            <div className="kpi-value">{valMetrics?.ordersAssigned !== undefined ? `${valMetrics.ordersAssigned} / ${orderCount}` : (metrics ? `${metrics.allocatedOrders} / ${metrics.totalOrders}` : `${orderCount} total`)}</div>
+            <div className="kpi-value">{valMetrics?.ordersAssigned !== undefined ? `${valMetrics.ordersAssigned} / ${frozenOrderCount}` : (metrics ? `${metrics.allocatedOrders} / ${metrics.totalOrders}` : `${orderCount} total`)}</div>
             <div className="kpi-sub">{valMetrics?.ordersUnassigned !== undefined ? `${valMetrics.ordersUnassigned} unassigned` : (metrics && metrics.unassignedOrders > 0 ? `${metrics.unassignedOrders} unassigned` : 'all in scope')}</div>
           </div>
 
@@ -247,7 +239,7 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box teal"><CheckCircle size={15} /></span>
               <span className="kpi-label">Avg utilisation</span>
             </div>
-            <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation * 100)}%` : (metrics ? `${metrics.avgUtilisationPct}%` : '—')}</div>
+            <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation)}%` : (metrics ? `${metrics.avgUtilisationPct}%` : '—')}</div>
             <div className="kpi-sub">server-reported average</div>
           </div>
 
@@ -286,7 +278,7 @@ export function PlanningStep2Generate({
                 </div>
                 <div className="routes-list-scroll">
                   {routes.map((route) => (
-                    <div key={route.vehicleId} className="route-compact-card">
+                    <div key={`${route.vehicleId}-${route.vehicleType}`} className="route-compact-card">
                       <div className="route-card-color-bar" style={{ background: route.color ?? '#FFC20E' }} />
                       <div className="route-card-info">
                         <div className="route-card-top">
@@ -294,13 +286,13 @@ export function PlanningStep2Generate({
                           <span className="route-card-type">{route.vehicleType}</span>
                         </div>
                         <div className="route-card-driver">
-                          {route.driverName ? `${route.driverName} · ` : ''}{route.stopsCount} stops
+                          {route.driverName ? `${route.driverName} · ` : ''}{route.stopsCount === undefined ? 'Stop count unavailable' : `${route.stopsCount} stops`}
                         </div>
                       </div>
                       <div className="route-card-util">
-                        <div className="route-util-num">{route.utilisationPct}%</div>
+                        <div className="route-util-num">{route.utilisationPct === undefined ? '—' : `${Math.round(route.utilisationPct)}%`}</div>
                         <div className="route-util-track">
-                          <div className="route-util-fill" style={{ width: `${route.utilisationPct}%` }} />
+                          <div className="route-util-fill" style={{ width: `${Math.min(100, Math.round(route.utilisationPct ?? 0))}%` }} />
                         </div>
                       </div>
                     </div>
@@ -312,7 +304,7 @@ export function PlanningStep2Generate({
             <div style={{ width: '100%', padding: 'var(--space-24)' }}>
               <EmptyState
                 title="Manual allocation required"
-                description={`Snapshot inputs with ${orderCount} orders (${totalVolume.toFixed(1)} m³) are frozen. Assign orders to vehicle trips in Review allocation.`}
+                description={`Snapshot inputs with ${frozenOrderCount} orders (${frozenVolume.toFixed(1)} m³) are frozen. Assign orders to vehicle trips in Review allocation.`}
                 action={
                   <button
                     type="button"
@@ -352,8 +344,8 @@ export function PlanningStep2Generate({
                 <span className="kpi-icon-box orange"><Truck size={15} /></span>
                 <span className="kpi-label">Vehicles</span>
               </div>
-              <div className="kpi-value">{vehiclesCount}</div>
-              <div className="kpi-sub">{activeDepot} depot fleet</div>
+              <div className="kpi-value">{vehiclesCount ?? '—'}</div>
+              <div className="kpi-sub">Availability checked when inputs are frozen</div>
             </div>
 
             <div className="kpi-tile">
@@ -527,7 +519,7 @@ export function PlanningStep2Generate({
                 <span className="side-icon-box"><Truck size={16} /></span>
                 <div>
                   <div className="side-label">Available vehicles</div>
-                  <div className="side-value">{vehiclesCount} at {activeDepot}</div>
+                  <div className="side-value">{vehiclesCount === undefined ? 'Freeze inputs to check availability' : `${vehiclesCount} available at ${activeDepot}`} </div>
                 </div>
               </div>
 
