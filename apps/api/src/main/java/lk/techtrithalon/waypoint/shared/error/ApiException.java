@@ -19,4 +19,6 @@ public class ApiException extends RuntimeException {
 
     /** Extra response headers (for example Retry-After). Empty by default. */
     public Map<String, String> headers() { return Map.of(); }
+    /** Structured, public evidence supplied by feature services. */
+    public Map<String, Object> properties() { return Map.of(); }
 }

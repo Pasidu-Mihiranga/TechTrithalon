@@ -26,6 +26,8 @@ public class FleetService {
     }
     @Transactional
     public VehicleAvailability update(CurrentUser user,String vehicleId,LocalDate date,String status,String note,long expectedVersion) {
+        reference.vehicle(user,vehicleId);
+        repository.lockAvailability(vehicleId,date);
         VehicleAvailability before=availability(user,vehicleId,date);
         if (!reference.day(date).operating()) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,"NON_OPERATING_DAY","Availability changes require an operating date");
         if (!"available".equals(status) && !"in_workshop".equals(status)) throw new ApiException(HttpStatus.BAD_REQUEST,"INVALID_STATUS","Use available or in_workshop");
@@ -39,6 +41,27 @@ public class FleetService {
         var day=reference.day(date);
         return repository.fuel(vehicleId,day.isoYear(),day.isoWeek(),vehicle.weeklyFuelQuotaL())
             .orElse(new FuelBalance(vehicleId,day.isoYear(),day.isoWeek(),vehicle.weeklyFuelQuotaL(),null,null,null,false));
+    }
+    /** Published planning boundary: serialize reservations without exposing this module's repository. */
+    @Transactional
+    public void lockPlanningFuel(CurrentUser user,java.util.List<String> ids,LocalDate date) {
+        var day=reference.day(date);
+        for (String id : ids.stream().distinct().sorted().toList()) {
+            reference.vehicle(user,id);
+            repository.lockAvailability(id,date);
+            repository.lockPlanningFuel(id,day.isoYear(),day.isoWeek());
+        }
+    }
+    @Transactional
+    public void commitPlanningFuel(CurrentUser user,java.util.Map<String,java.math.BigDecimal> amounts,LocalDate date) {
+        var day=reference.day(date);
+        for (var entry : new java.util.TreeMap<>(amounts).entrySet()) {
+            var vehicle=reference.vehicle(user,entry.getKey());
+            var before=fuel(user,entry.getKey(),date);
+            if (!repository.commitPlanningFuel(entry.getKey(),day.isoYear(),day.isoWeek(),entry.getValue(),vehicle.weeklyFuelQuotaL()))
+                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,"FUEL_QUOTA","Fuel changed; the plan exceeds the weekly quota");
+            audit.record("vehicle.fuel.reserved",user,"vehicle",entry.getKey(),before,fuel(user,entry.getKey(),date),"Validated plan publication");
+        }
     }
     public java.util.List<FleetVehicle> fleet(CurrentUser user, LocalDate date) {
         return fleet(user, date, null);

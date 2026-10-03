@@ -14,6 +14,33 @@ import checkIcon from './login-check.svg'
 import arrowIcon from './login-arrow.svg'
 import './auth.css'
 
+const DEMO_ROLES = [
+  {
+    role: 'Dispatcher',
+    tag: 'DSP',
+    username: (import.meta.env.VITE_SEED_DISPATCHER_USERNAME || import.meta.env.SEED_DISPATCHER_USERNAME || 'DSP-001') as string,
+    password: (import.meta.env.VITE_SEED_DISPATCHER_PASSWORD || import.meta.env.SEED_DISPATCHER_PASSWORD || 'Dispatcher12') as string,
+  },
+  {
+    role: 'Store Manager',
+    tag: 'STM',
+    username: (import.meta.env.VITE_SEED_STORE_MANAGER_USERNAME || import.meta.env.SEED_STORE_MANAGER_USERNAME || 'STM-001') as string,
+    password: (import.meta.env.VITE_SEED_STORE_MANAGER_PASSWORD || import.meta.env.SEED_STORE_MANAGER_PASSWORD || 'StoreManager12') as string,
+  },
+  {
+    role: 'Loader',
+    tag: 'LDR',
+    username: (import.meta.env.VITE_SEED_LOADER_USERNAME || import.meta.env.SEED_LOADER_USERNAME || 'LDR-001') as string,
+    password: (import.meta.env.VITE_SEED_LOADER_PASSWORD || import.meta.env.SEED_LOADER_PASSWORD || 'LoaderPass12') as string,
+  },
+  {
+    role: 'Driver',
+    tag: 'DRV',
+    username: (import.meta.env.VITE_SEED_DRIVER_USERNAME || import.meta.env.SEED_DRIVER_USERNAME || 'DRV-001') as string,
+    password: (import.meta.env.VITE_SEED_DRIVER_PASSWORD || import.meta.env.SEED_DRIVER_PASSWORD || 'DriverPass12') as string,
+  },
+] as const
+
 export function LoginPage() {
   const auth = useAuth()
   const navigate = useNavigate()
@@ -24,6 +51,12 @@ export function LoginPage() {
   const [help, setHelp] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<AuthError | null>(null)
+
+  function fillCredentials(u: string, p: string) {
+    setUsername(u)
+    setPassword(p)
+    setError(null)
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -56,6 +89,28 @@ export function LoginPage() {
         <p className="text-auth-overline auth-welcome">WELCOME BACK</p>
         <h1 id="login-title" className="text-auth-heading">Waypoint Login</h1>
         <p className="text-body-s auth-intro">Sign in to continue to<br />Waypoint Operations</p>
+        <div className="auth-quick-fill" aria-label="Demo role quick fill">
+          <span className="auth-quick-title">Quick Demo Login</span>
+          <div className="auth-quick-buttons">
+            {DEMO_ROLES.map((r) => {
+              const isSelected = username === r.username
+              return (
+                <button
+                  key={r.tag}
+                  type="button"
+                  className={`auth-quick-btn${isSelected ? ' auth-quick-btn-active' : ''}`}
+                  onClick={() => fillCredentials(r.username, r.password)}
+                  disabled={pending}
+                  title={`Fill ${r.role} (${r.username}) credentials`}
+                  aria-pressed={isSelected}
+                >
+                  <span className="auth-quick-tag">{r.tag}</span>
+                  <span className="auth-quick-name">{r.role}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <form onSubmit={submit} className="auth-form">
           <div className="auth-field">
             <span className="auth-field-icon"><img src={userIcon} alt="" /></span>

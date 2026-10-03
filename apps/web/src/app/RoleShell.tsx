@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../features/auth/auth'
 import { Outlet, useNavigate } from 'react-router-dom'
-import { AppShell, Button, ErrorState, Select, Sidebar, SystemStatus, TopBar } from '../components'
+import { AppShell, Button, ErrorState, Sidebar, SystemStatus, TopBar } from '../components'
+import { ChevronDown, Warehouse } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../lib/apiClient'
 import type { RoleConfig } from './roles'
@@ -10,7 +11,7 @@ import type { RoleConfig } from './roles'
 export function RoleShell({ role }: { role: RoleConfig }) {
   const navigate = useNavigate()
   const auth = useAuth()
-  const [depot, setDepot] = useState('')
+  const [depot, setDepot] = useState(auth.user?.depot || 'Peliyagoda')
   const depots = useQuery({
     queryKey: ['reference', 'depots'],
     enabled: role.key === 'dispatcher',
@@ -32,7 +33,42 @@ export function RoleShell({ role }: { role: RoleConfig }) {
   return (
     <AppShell
       sidebar={<Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} />}
-      topBar={<TopBar leading={role.key === 'dispatcher' ? <Select label="Workspace depot" value={depot} disabled={depots.isPending || depots.isError} onChange={(event) => setDepot(event.target.value)} options={[{ value: '', label: auth.user?.depot || 'All accessible depots' }, ...(depots.data ?? []).map((name) => ({ value: name, label: name }))]} /> : undefined} searchEnabled={role.key === 'dispatcher'} onSearch={(query) => navigate(`/dispatcher/orders?q=${encodeURIComponent(query)}`)} searchPlaceholder="Search orders, outlets…" user={<div className="auth-user"><span>{auth.user?.displayName}</span><Button variant="ghost" loading={pending} onClick={() => { void logout() }}>Sign out</Button></div>} />}
+      topBar={
+        <TopBar
+          leading={
+            role.key === 'dispatcher' ? (
+              <div className="topbar-depot-pill">
+                <Warehouse size={16} className="topbar-depot-icon" aria-hidden="true" />
+                <select
+                  aria-label="Depot"
+                  value={depot}
+                  disabled={depots.isPending || depots.isError}
+                  onChange={(event) => setDepot(event.target.value)}
+                  className="topbar-depot-select"
+                >
+                  {(depots.data && depots.data.length > 0 ? depots.data : ['Peliyagoda', 'Kandy']).map((name) => (
+                    <option key={name} value={name}>
+                      {name.endsWith('Depot') ? name : `${name} Depot`}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="topbar-depot-chevron" aria-hidden="true" />
+              </div>
+            ) : undefined
+          }
+          searchEnabled={role.key === 'dispatcher'}
+          onSearch={(query) => navigate(`/dispatcher/orders?q=${encodeURIComponent(query)}`)}
+          searchPlaceholder="Search orders, outlets…"
+          user={
+            <div className="auth-user">
+              <span>{auth.user?.displayName}</span>
+              <Button variant="ghost" loading={pending} onClick={() => { void logout() }}>
+                Sign out
+              </Button>
+            </div>
+          }
+        />
+      }
     >
       {error && <ErrorState message={error} />}
       {role.key === 'dispatcher' && depots.isError && <ErrorState error={depots.error} message="Workspace depots could not be loaded." onRetry={() => void depots.refetch()} />}

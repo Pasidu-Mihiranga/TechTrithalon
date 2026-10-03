@@ -33,5 +33,17 @@
 .auth-error p { margin-bottom: var(--space-4); }
 .auth-state { padding: var(--space-32); }
 .auth-user { display: flex; align-items: center; gap: var(--space-12); }
+
+/* Quick demo login buttons */
+.auth-quick-fill { margin-bottom: var(--space-16); padding: var(--space-12); background: var(--color-auth-field); border: 1px solid var(--color-auth-border); border-radius: var(--radius-authField); text-align: left; }
+.auth-quick-title { display: block; font-size: var(--font-caption-size); color: var(--color-auth-muted); margin-bottom: var(--space-8); font-weight: var(--font-caption-medium-weight); letter-spacing: 0.05em; text-transform: uppercase; }
+.auth-quick-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8); }
+.auth-quick-btn { display: flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-10); background: var(--color-auth-icon); border: 1px solid var(--color-auth-border); border-radius: var(--radius-sm); color: var(--color-bg-surface); cursor: pointer; font-size: var(--font-body-s-size); transition: all 0.15s ease; user-select: none; }
+.auth-quick-btn:hover:not(:disabled) { background: var(--color-auth-accent); color: var(--color-auth-ink); border-color: var(--color-auth-accent); }
+.auth-quick-btn-active { background: var(--color-auth-accent); color: var(--color-auth-ink); border-color: var(--color-auth-accent); font-weight: var(--font-body-m-medium-weight); }
+.auth-quick-tag { font-family: var(--font-family-mono); font-size: var(--font-caption-size); font-weight: bold; padding: var(--space-2) var(--space-4); background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-xs); }
+.auth-quick-btn:hover:not(:disabled) .auth-quick-tag, .auth-quick-btn-active .auth-quick-tag { background: rgba(0, 0, 0, 0.15); color: var(--color-auth-ink); }
+.auth-quick-name { font-size: var(--font-caption-medium-size); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 @media (min-width: 768px) { .auth-footer { position: absolute; bottom: 0; width: 100%; } }
 @media (max-width: 767px) { .auth-content { margin-inline: auto; } }

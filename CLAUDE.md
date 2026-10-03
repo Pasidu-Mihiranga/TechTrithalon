@@ -13,3 +13,5 @@ All project rules for AI agents live in **AGENTS.md** and apply to Claude in ful
 - Run `./gradlew test` in `apps/api` (needs Docker for Testcontainers), `pytest` in `apps/intelligence`, and `pnpm --dir apps/web build` for the web app.
 - **Endpoints**: after creating or changing any endpoint, rebuild with `docker compose up --build -d api`, then verify it with `curl` as required by AGENTS.md §6. Read the port from `.env` (`API_PORT`), because it may not be 8080 on this machine.
 - **File structure**: AGENTS.md §5 fixes where files go. Before creating a new folder, module, package or app, or moving or renaming anything, stop and ask the owner. Don't use `mkdir` to invent a location.
+- **Work log & ad-hoc refinements**: When doing ad-hoc tasks, UI refinements, or changes outside the formal plan, track them in `docs/WORK_LOG.md`.
+- **Commit messages**: Write simple, humanized commit messages in plain language. Never mention internal phase numbers (e.g. avoid 'Phase 6', 'Phase 3A') in commit titles or messages as they are unclear to outside readers. Describe the actual feature or refinement instead.

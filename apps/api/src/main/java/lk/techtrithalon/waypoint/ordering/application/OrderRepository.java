@@ -11,6 +11,7 @@ import lk.techtrithalon.waypoint.ordering.domain.OrderPage;
 
 
 public interface OrderRepository {
+    boolean markPlanned(long id, int expectedVersion, java.time.Instant at);
     OrderPage search(
         LocalDate date,
         String depot,

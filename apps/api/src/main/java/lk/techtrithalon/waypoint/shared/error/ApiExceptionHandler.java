@@ -32,7 +32,9 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleApi(ApiException ex) {
         ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.status());
         ex.headers().forEach(response::header);
-        return response.body(problem(ex.status(), ex.code(), ex.getMessage()));
+        ProblemDetail body = problem(ex.status(), ex.code(), ex.getMessage());
+        ex.properties().forEach(body::setProperty);
+        return response.body(body);
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)

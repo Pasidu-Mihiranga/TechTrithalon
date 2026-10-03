@@ -37,6 +37,10 @@ public record DashboardSnapshot(
         @Schema(nullable = true) Integer total,
         @Schema(nullable = true) String availableFromPhase
     ) {
+        public static PlanningProgress of(int planned, int total) {
+            return new PlanningProgress(true, planned, total, null);
+        }
+
         public static PlanningProgress later(String phase) {
             return new PlanningProgress(false, null, null, phase);
         }

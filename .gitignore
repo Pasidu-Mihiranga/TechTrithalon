@@ -13,6 +13,8 @@
 .gradle/
 **/build/
 out/
+bin/
+**/bin/
 
 # Node / Vite
 node_modules/

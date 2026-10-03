@@ -4,17 +4,17 @@ This is the daily build plan for a **nine-member team**. It answers what to buil
 
 ## Master Progress
 
-All boxes start unchecked. Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The next required phase is **Phase 0**, unless the team records verified implementation evidence here.
+Check a phase only after its exit gate passes in the running system; documentation alone is not evidence. The current foundation and manual path have implementation evidence, but open gates below must be closed before advancing the release. See the [Round 2 requirements audit](./ROUND2_REQUIREMENTS_AUDIT.md).
 
-- [ ] Phase 0 — Repository & Development Foundation
+- [ ] Phase 0 — Repository & Development Foundation **(local stack verified; hosted CI pending and current web lint fails)**
 - [x] Phase 1 — Design System & Application Shell
 - [x] Phase 2 — Authentication & RBAC
 - [x] Phase 3 — Reference Data Foundation
-- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; corrections awaiting visual/runtime verification)**
-- [ ] Phase 4 — Store Manager Order Flow **(corrections awaiting PostgreSQL/curl/browser verification)**
-- [ ] Phase 5 — Dispatcher Confirmed Orders **(corrections awaiting PostgreSQL/curl/browser verification)**
-- [ ] Phase 6 — Trip-Time & Constraint Engine
-- [ ] Phase 7 — Manual Planning First
+- [ ] Phase 3A — Dispatcher & Store Manager UI on Live Data **(UI priority; current truthfulness/server-metric regressions and visual sign-off remain)**
+- [x] Phase 4 — Store Manager Order Flow **(functional gate: recorded curl/browser evidence and fresh PostgreSQL tests; release design review remains)**
+- [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
+- [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; 56 domain tests pass; remaining boundary/input/cross-trip checks keep gate open)**
+- [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
 - [ ] Phase 8 — Deferral & Fairness
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
@@ -33,6 +33,8 @@ All boxes start unchecked. Check a phase only after its exit gate passes in the 
 - [ ] Phase 22 — Full-System Verification
 
 **Completion correction, 2026-10-02:** the Phase 3A/4/5 gates are reopened while the reviewed defects are corrected and verified. Earlier evidence below describes the earlier implementation. Current changes and fresh results are recorded in [Phase 0–5 completion verification](./PHASE0_5_COMPLETION_VERIFICATION.md); a successful compile or unit test does not close a running-stack gate.
+
+**Evidence reconciliation, 2026-10-03:** the completion record later includes PostgreSQL, curl and browser evidence for the ordering corrections, so Phase 4's functional gate is restored. Fresh checks passed 110 API tests, 66 web tests, typecheck, build and three Python tests; full web lint failed with three errors. Current five-step UI inspection found hard-coded operational copy, client-computed totals, ineffective van-only filtering and exclusions not used by snapshot creation. Phase 3A/5 therefore stay open. Phase 6 code and timing fixtures exist, but full boundary/input/cross-trip evidence is incomplete. Phase 7 retains its verified functional-board status; operational loading/driver handoff remains Phase 11+. See [the full audit and execution order](./ROUND2_REQUIREMENTS_AUDIT.md). No new mutation/browser verification or Figma visual sign-off is claimed by this audit.
 
 ## 1. How to Use This Plan
 
@@ -125,7 +127,7 @@ Every later feature needs a reproducible workspace, contracts, and running servi
 
 - [x] Write root `.env.example`, local setup, seed/reset instructions, and service ownership.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Scaffold API, web, database seed, and Python health in parallel after agreeing on ports and configuration. Join at the OpenAPI contract and Compose smoke test.
 
@@ -190,7 +192,7 @@ Not required in this phase.
 
 - [x] Record token source and mark missing role screens for final Figma verification.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Token extraction, shell layout, and accessibility review can progress in parallel. Synchronize on token names and shared component props before feature pages consume them.
 
@@ -278,7 +280,7 @@ Not required in this phase.
 
 - [x] Document seeded roles, credential configuration, and auth boundaries.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Identity schema/API and login UI can progress together against an agreed response contract. Security tests independently probe role and data scope; integrate before exit.
 
@@ -349,7 +351,7 @@ Not required in this phase.
 
 - [x] Record source CSV paths, verified counts, and any date-extension policy.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 CSV/import work, API contract, and selectors can advance in parallel. Synchronize on enum values, ID formats, and seed assertions.
 
@@ -391,7 +393,7 @@ The dispatcher experience is the most fully designed part of the product (21 Fig
 
 - [x] Seed one realistic **demo delivery day** on `DEMO_OPERATING_DATE` from the supplied data: orders from `task2b_peak_day_scenarios.csv` (85 Peliyagoda orders) and fleet availability from `task2b_peak_day_fleet.csv`. Idempotent, local data only, never committed.
 - [x] Read APIs the screens need: dashboard metrics (computed by queries), orders list/detail with server-side filter/sort/paging, fleet list/detail, outlet list, store manager's own orders.
-- [x] All counts and KPIs computed server-side; the UI never derives business numbers.
+- [ ] All counts and KPIs computed server-side; the UI never derives business numbers. *(Reopened 2026-10-03: current planning queue and confirmation screens calculate totals/category counts locally; server summaries must cover the exact scope.)*
 
 #### Frontend — Dispatcher (Figma, class A)
 
@@ -430,9 +432,9 @@ Not required in this phase.
 
 ### Exit Gate
 
-- [x] Every Dispatcher Figma screen renders from real API data or a truthful empty state.
+- [ ] Every Dispatcher Figma screen renders from real API data or a truthful empty state. *(Reopened 2026-10-03: planning copy/progress/maps still imply unsupported operational facts; fresh visual verification remains pending.)*
 - [x] Store manager can see their own real orders and the live cutoff.
-- [x] No mock data or hard-coded business values in the web app.
+- [ ] No mock data or hard-coded business values in the web app. *(Reopened 2026-10-03: hard-coded late-order copy, generated map positions and fallback volume remain in current planning screens; see Round 2 audit.)*
 
 ### Evidence (local, verified — 2026-10-02)
 
@@ -497,7 +499,7 @@ Not required in this phase.
 
 - [x] Document order lifecycle and cutoff behavior.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Order schema/domain and React form can proceed against an agreed API DTO; integration waits for migration and generated client.
 
@@ -546,7 +548,7 @@ A dispatcher needs a precise and stable planning input set.
 
 #### Frontend
 
-- [x] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger.
+- [ ] Build Figma confirmed-orders queue, detail, filter/sort, selection, and snapshot trigger. *(Backend and initial queue exist; latest integration must repair van-only filtering, exclusion membership, scope invalidation and server-owned summaries.)*
 
 #### Database
 
@@ -559,19 +561,19 @@ Not required in this phase.
 #### Testing
 
 - [x] Test exact snapshot membership, immutability, hash changes, pagination, and role scope.
-- [x] Playwright queue and snapshot creation.
+- [ ] Playwright queue and snapshot creation. *(Earlier journey passed; rerun after current filter/exclusion/scope corrections and add assertions for their real persisted effects.)*
 
 #### Documentation
 
 - [x] Document snapshot fields and reconciliation when inputs change.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Queue UI and snapshot service can advance in parallel on agreed read models; integrate after ordering and reference APIs settle.
 
 ### Exit Gate
 
-- [x] Dispatcher can inspect the exact closed order set.
+- [ ] Dispatcher can inspect the exact closed order set. *(Backend is verified; current filter/exclusion controls must agree with queried/snapshotted membership before closing the latest UI gate.)*
 - [x] A snapshot freezes all inputs needed for a planning attempt.
 - [x] Repeated reads reproduce the same snapshot.
 
@@ -611,16 +613,16 @@ Correct feasibility rules must exist before assignments or optimization.
 
 #### Backend
 
-- [ ] Implement trip-time, distance/fuel, effective mall window, waiting, and named R1–R12 rule predicates.
-- [ ] Return structured violations with actual, allowed, and remediation evidence; build independent whole-plan validator.
+- [x] Implement trip-time, distance/fuel, effective mall window, waiting, and named R1–R12 rule predicates. *(Code exists and fixtures pass; cross-trip waiting/input follow-up remains in the exit gate.)*
+- [x] Return structured violations with actual, allowed, and remediation evidence; build independent whole-plan validator. *(Used by manual-plan edits/publication; independent cross-trip scheduling needs additional verification.)*
 
 #### Frontend
 
-- [ ] Add reusable constraint and utilisation display components for later planning screens.
+- [x] Add reusable constraint and utilisation display components for later planning screens. *(Shared components and nine component tests pass in the fresh web suite.)*
 
 #### Database
 
-- [ ] Add only the persistence needed for rule evidence and weekly fuel state; use precise decimal quantities.
+- [x] Add only the persistence needed for rule evidence and weekly fuel state; use precise decimal quantities. *(Existing fleet ledger, snapshots and manual-plan/audit persistence provide this foundation; PostgreSQL integration tests pass.)*
 
 #### Python / Intelligence
 
@@ -630,20 +632,21 @@ Not required in this phase.
 
 - [ ] JUnit/AssertJ tests for every rule, positive and negative cases; 101/112/213 fixtures.
 - [ ] Use Testcontainers for database constraints; run S1 rule/shortage diagnostics without asserting an unproven optimum.
+- [x] Verify the implemented timing examples and named-rule suite. *(2026-10-03: 56 planning-domain tests pass, including 101/112/213; the complete 110-test API suite passes. This does not close missing boundary/full-S1 checks.)*
 
 #### Documentation
 
-- [ ] Link rule codes and trip-time formula to [Technical Reference — Constraint Engine](./TECHNICAL_REFERENCE.md#16-constraint-engine).
+- [x] Link rule codes and trip-time formula to [Technical Reference — Constraint Engine](./TECHNICAL_REFERENCE.md#16-constraint-engine). *(See also manual verification and Round 2 audit for implementation limits.)*
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Rule predicates can be split by scope while one owner protects shared rule interfaces. UI evidence component and dataset fixtures can advance separately; merge through the whole-plan validator.
 
 ### Exit Gate
 
 - [ ] Every hard rule has boundary tests.
-- [ ] Booklet trip-time fixtures pass.
-- [ ] Validator names why hand-built invalid plans fail.
+- [x] Booklet trip-time fixtures pass. *(Fresh 2026-10-03 test run: 101, 112 and combined 213 minutes.)*
+- [x] Validator names why hand-built invalid plans fail. *(Named-rule domain and manual-plan rejection tests pass in the fresh 110-test suite; missing edge coverage remains open above.)*
 
 ### Result
 
@@ -667,16 +670,16 @@ A validated human planning path remains available even if Python is unavailable.
 
 #### Backend
 
-- [ ] Create/edit candidate plans and trips; assign, move, remove, and resequence orders through validate-then-apply services.
-- [ ] Add a minimal publication gate so invalid plans cannot become operational; full version lifecycle follows in Phase 11.
+- [x] Create/edit candidate plans and trips; assign, move, remove, and resequence orders through validate-then-apply services.
+- [x] Add a minimal publication gate so invalid plans cannot become operational; full version lifecycle follows in Phase 11.
 
 #### Frontend
 
-- [ ] Build plan board, vehicle/trip assignment, utilisation bars, named violation feedback, and manual defer action.
+- [x] Build plan board, vehicle/trip assignment, utilisation bars, named violation feedback, and manual defer action.
 
 #### Database
 
-- [ ] Add plan/trip/stop tables, candidate version, optimistic lock, and within-plan uniqueness.
+- [x] Add plan/trip/stop tables, candidate version, optimistic lock, and within-plan uniqueness.
 
 #### Python / Intelligence
 
@@ -684,22 +687,26 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test invalid edits roll back; test whole-order and two-trip limits within a candidate.
-- [ ] Playwright a complete manual plan and rejected move.
+- [x] Test invalid edits roll back; test whole-order and two-trip limits within a candidate.
+- [x] Playwright a complete manual plan and rejected move.
 
 #### Documentation
 
-- [ ] Record manual planning semantics and the difference between candidate and published plans.
+- [x] Record manual planning semantics and the difference between candidate and published plans.
 
-### Parallel Work for 9 Members
+### Evidence (local, verified — 2026-10-03)
+
+See [Manual planning verification](./MANUAL_PLANNING_VERIFICATION.md) for semantics, generated API/client handoff, curl commands and real responses, PostgreSQL comparisons and test results. The functional board is `/dispatcher/manual-planning`; the existing five-step UI remains with the parallel design session. All 110 API tests and 66 web tests passed, as did the build, smoke script and complete manual browser path with Python stopped. Earlier visual/CI sign-off and Phase 6's stale master checklist are not silently closed by this evidence.
+
+### Parallel Work
 
 Plan persistence/API and board UI can advance against a contract; validator remains the integration point. Review the candidate schema together before migration.
 
 ### Exit Gate
 
-- [ ] Dispatcher creates a feasible candidate and explains every unassigned order.
-- [ ] Invalid edits and publication attempts persist nothing.
-- [ ] Manual path works with Python stopped.
+- [x] Dispatcher creates a feasible candidate and explains every unassigned order.
+- [x] Invalid edits and publication attempts persist nothing.
+- [x] Manual path works with Python stopped.
 
 ### Result
 
@@ -746,7 +753,7 @@ Not required in this phase.
 
 - [ ] Document deferral policy and reason-code mapping to Figma.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Deferral history service, notification display, and UI dialog can proceed in parallel. Synchronize on reason codes and history semantics before E2E.
 
@@ -761,6 +768,8 @@ Deferral history service, notification display, and UI dialog can proceed in par
 After this phase, the system can record and explain every skipped order.
 
 ## Phase 9 — Automatic Planning
+
+**Round 2 scope:** conditional on the submitted design and chosen allocation mode. A real validated manual path is permitted by booklet p.12; deterministic assisted allocation is a useful enhancement, while the full CP-SAT checklist stays optional unless selected.
 
 ### Goal
 
@@ -802,7 +811,7 @@ Automation builds on the validated manual planning model and must degrade safely
 
 - [ ] Record objective, solver version, S1 measured results, and limits of any capacity bound.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Greedy service, CP-SAT research, run UI, and S1 fixtures can progress in parallel after the contract freezes. Candidate persistence and Spring validation are the merge gate.
 
@@ -818,6 +827,8 @@ After this phase, the system can generate feasible candidates automatically with
 
 ## Phase 10 — Explainability & Exception Resolution
 
+**Round 2 scope:** manual rule/deferral explanations and operational issue resolution are required. Solver ranking/scoped re-optimisation are conditional; do not block the manual release on Phase 9.
+
 ### Goal
 
 Complete explainability & exception resolution as a tested feature slice.
@@ -828,7 +839,7 @@ A dispatcher must understand and change the candidate before publication.
 
 ### Dependencies
 
-- Phases 7–9.
+- Phases 7–8 for manual rule/deferral explanations; Phase 9 only for selected automatic-planning and solver-specific features.
 
 ### Main Work
 
@@ -858,7 +869,7 @@ A dispatcher must understand and change the candidate before publication.
 
 - [ ] Document evidence schema and known limits of suggested fixes.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Rationale API, preview UI, and solver subset support can progress independently around a shared candidate format. Synchronize before ranking is presented as authoritative.
 
@@ -884,7 +895,7 @@ Execution needs one valid current version and an auditable history.
 
 ### Dependencies
 
-- Phases 7–10; minimal gate from Phase 7.
+- Phases 7–8 and the manual explanation core of Phase 10; minimal gate from Phase 7. Phase 9 is a dependency only when automatic allocation is selected.
 
 ### Main Work
 
@@ -913,7 +924,7 @@ Not required in this phase.
 
 - [ ] Document publication invariants and recovery on conflict.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Publish service and Figma confirmation UI can progress together; DB uniqueness and fuel-ledger reviews are synchronization points.
 
@@ -968,7 +979,7 @@ Not required in this phase.
 
 - [ ] Record loader handoff and stale-list behavior.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Load API/data and mobile UI can progress in parallel from a published-trip contract; issue event and version diff are integration points.
 
@@ -1023,7 +1034,7 @@ Not required in this phase.
 
 - [ ] Describe field action sequence and POD retention.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Delivery API/state machine, POD storage, and phone UI can advance in parallel after stop contract settles. Merge on one complete stop journey.
 
@@ -1080,7 +1091,7 @@ Not required in this phase.
 
 - [ ] Document conflict policy and queue recovery.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one command schema. Full airplane-mode journey is the synchronization gate.
 
@@ -1095,6 +1106,8 @@ Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one com
 After this phase, the system can complete a route during coverage loss and reconcile it safely.
 
 ## Phase 14A — Driver Android App (React Native)
+
+**Round 2 scope:** optional native addition under booklet p.12. Preserve this product roadmap; the responsive web/offline driver gates must pass independently.
 
 ### Goal
 
@@ -1180,7 +1193,7 @@ Not required in this phase.
 
 - [ ] Document receipt resolution and final status semantics.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Receipt backend and store UI can proceed on a delivered-stop read contract; full four-role journey is the join point.
 
@@ -1234,7 +1247,7 @@ Not required in this phase.
 
 - [ ] Document event types and fallback behavior.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Read model and Figma live board can be developed in parallel; SSE wiring follows once event payloads settle.
 
@@ -1249,6 +1262,8 @@ Read model and Figma live board can be developed in parallel; SSE wiring follows
 After this phase, the system can monitor active delivery operations.
 
 ## Phase 17 — Forecasting Foundation
+
+**Round 2 scope:** Datathon by default. Review actual submitted-design commitments before deciding whether a sourced future-demand view is part of the Hackathon release; no general trained-model prerequisite exists.
 
 ### Goal
 
@@ -1290,7 +1305,7 @@ Future capacity decisions need measured demand estimates, starting from an hones
 
 - [ ] Record source windows, baseline, metric, horizon, and uncertainty policy.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Historical feature pipeline, persistence/API, and chart shell can progress in parallel after the forecast contract is fixed. Model promotion waits for holdout evaluation.
 
@@ -1305,6 +1320,8 @@ Historical feature pipeline, persistence/API, and chart shell can progress in pa
 After this phase, the system can view a reproducible depot/brand demand outlook.
 
 ## Phase 18 — Service-Time & Late-Risk ML
+
+**Round 2 scope:** separate Datathon prediction work (booklet p.15). Deterministic operational ETA and service allowances remain available without learned predictions.
 
 ### Goal
 
@@ -1346,7 +1363,7 @@ Learned predictions are useful only when they improve ETA or risk decisions over
 
 - [ ] For each model record decision improved, target, features, metric, promotion threshold, and failure behavior.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Feature engineering/evaluation and prediction display can advance independently on a sample contract; production activation waits for measured benefit.
 
@@ -1361,6 +1378,8 @@ Feature engineering/evaluation and prediction display can advance independently 
 After this phase, the system can provide evidence-backed ETA and lateness estimates.
 
 ## Phase 19 — Capacity Decision Support
+
+**Round 2 scope:** conditional on the actual submitted Designathon. Keep this full product phase on the roadmap; an unresolved promised flow must be implemented honestly or recorded as a significant departure, not silently treated as completed.
 
 ### Goal
 
@@ -1401,7 +1420,7 @@ Forecasts matter when they inform a recorded fleet decision.
 
 - [ ] Document assumptions, uncertainty, and human decision ownership.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Fleet calculator, forecast UI, and interval analysis can proceed in parallel once units/horizon are fixed. Review every displayed number against the source data.
 
@@ -1416,6 +1435,8 @@ Fleet calculator, forecast UI, and interval analysis can proceed in parallel onc
 After this phase, the system can make a transparent future-capacity decision.
 
 ## Phase 20 — Advanced Decision Support
+
+**Round 2 scope:** optional enhancement except for confirmed submitted-design commitments. Core four-role, offline and engineering gates take priority without a deadline-based quality waiver.
 
 ### Goal
 
@@ -1455,7 +1476,7 @@ Additional views should solve observed planning or operational problems after th
 
 - [ ] Record problem, value, dependencies, and measured result for each selected feature.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Different candidates may run in parallel if they touch independent modules. Share only stable simulation and metric contracts; avoid simultaneous edits to planning core.
 
@@ -1481,7 +1502,7 @@ Cross-cutting failures emerge after feature integration and must be resolved del
 
 ### Dependencies
 
-- Functional Phases 0–20 as shipped.
+- All functional slices in the chosen release scope. For Round 2, required foundation/manual/deferral, operational handoff, field/offline/receipt and visibility slices must pass; optional Phases 9, 14A and 17–20 are dependencies only if shipped or required by the submitted design.
 
 ### Main Work
 
@@ -1509,7 +1530,7 @@ Cross-cutting failures emerge after feature integration and must be resolved del
 
 - [ ] Update runbooks, architecture decisions, and known limitations.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Security, accessibility, database/performance, and recovery reviews can run concurrently. Findings that change shared contracts synchronize through integration tests.
 
@@ -1541,7 +1562,7 @@ The final gate proves all roles and services work together from a fresh environm
 
 #### Backend
 
-- [ ] Exercise store, dispatcher, loader, driver, receipt, operations, and capacity paths with real service boundaries.
+- [ ] Exercise store, dispatcher, loader, driver, receipt and operations paths with real service boundaries; include future-capacity/model paths only when part of the chosen release or a confirmed submitted-design commitment.
 
 #### Frontend
 
@@ -1564,7 +1585,7 @@ The final gate proves all roles and services work together from a fresh environm
 
 - [ ] Update README, architecture diagrams, data model, account/test setup, and accurate AI-tool disclosure.
 
-### Parallel Work for 9 Members
+### Parallel Work
 
 Workflow, failure, infrastructure, and documentation verification can happen in parallel on the same release candidate. Freeze interface changes and rerun affected journeys after every fix.
 
@@ -1576,7 +1597,7 @@ Workflow, failure, infrastructure, and documentation verification can happen in 
 
 ### Result
 
-After this phase, the system can run the complete system from order intake through capacity planning.
+After this phase, the chosen release scope is reproducible end to end. Round 2 closes the operational four-role loop; future-capacity/model paths are included when selected, not assumed implemented.
 
 ## 4. Release Evidence and Open Questions
 
@@ -1584,9 +1605,12 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 
 | Phase | Verification evidence | Date / owner |
 |---|---|---|
-| 0–22 | Pending | — |
+| 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
+| 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
+| 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
+| 8–22 | Pending; optional/conditional phases retain their scope labels | — |
 
-- The accessible Figma file contains Dispatcher frames. Confirm whether Store Manager, Loader, and Driver frames exist elsewhere; use current rationale in the meantime.
+- Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.
 - Treat S1's ~17.2 m³ refrigerated shortfall as a lower bound. Record a feasible whole-order allocation before claiming an exact optimum.
 - The technical reference identifies candidate-version uniqueness and audit transaction issues in the former schema narrative; use its corrected invariants in migrations.

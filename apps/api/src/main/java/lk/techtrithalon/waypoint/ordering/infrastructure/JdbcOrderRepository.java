@@ -25,6 +25,10 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 class JdbcOrderRepository implements OrderRepository {
+    public boolean markPlanned(long id,int expectedVersion,java.time.Instant at) {
+        return db.update("UPDATE customer_order SET status='planned',version=version+1,updated_at=? WHERE id=? AND status='confirmed' AND version=?",
+            java.sql.Timestamp.from(at),id,expectedVersion)==1;
+    }
     private static final Set<String> SORTS = Set.of(
         "ref", "outletId", "brand", "district", "tempRequirement", "units", "weightKg", "volumeM3", "status", "orderDate"
     );

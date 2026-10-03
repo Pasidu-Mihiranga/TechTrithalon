@@ -15,6 +15,22 @@ import org.springframework.stereotype.Repository;
 class JdbcFleetRepository implements FleetRepository {
     private final JdbcTemplate db;
     JdbcFleetRepository(JdbcTemplate db) { this.db=db; }
+    public void lockPlanningFuel(String id,int year,int week) {
+        db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"fuel:"+id+":"+year+":"+week);
+    }
+    public void lockAvailability(String id,LocalDate date) {
+        db.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",Object.class,"availability:"+id+":"+date);
+    }
+    public boolean commitPlanningFuel(String id,int year,int week,BigDecimal amount,BigDecimal quota) {
+        return !db.query("""
+            INSERT INTO fuel_ledger(vehicle_id,iso_year,iso_week,litres_committed)
+            SELECT ?,?,?,? WHERE ?::numeric<=?::numeric
+            ON CONFLICT(vehicle_id,iso_year,iso_week) DO UPDATE
+              SET litres_committed=fuel_ledger.litres_committed+EXCLUDED.litres_committed
+              WHERE fuel_ledger.litres_committed+EXCLUDED.litres_committed<=?::numeric
+            RETURNING vehicle_id
+            """,(rs,i) -> rs.getString(1),id,year,week,amount,amount,quota,quota).isEmpty();
+    }
     private static final RowMapper<VehicleAvailability> AVAILABILITY = (rs,i) -> new VehicleAvailability(
         rs.getString("vehicle_id"),rs.getDate("date").toLocalDate(),rs.getString("status"),rs.getString("note"),
         rs.getLong("version"),rs.getTimestamp("updated_at").toInstant(),rs.getLong("updated_by"),true);

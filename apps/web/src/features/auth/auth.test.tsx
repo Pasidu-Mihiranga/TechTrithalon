@@ -115,4 +115,28 @@ describe('authentication flow', () => {
     expect(await screen.findByRole('heading', { name: 'Waypoint Login' })).toBeVisible()
     expect(client.getQueryData(['private'])).toBeUndefined()
   })
+  it('fills credentials when clicking quick demo login buttons', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({}, 401)))
+    setup('/login')
+    await screen.findByRole('heading', { name: 'Waypoint Login' })
+    const dspBtn = screen.getByRole('button', { name: /Dispatcher/i })
+    await userEvent.click(dspBtn)
+    expect(screen.getByLabelText('USER ID')).toHaveValue('DSP-001')
+    expect(screen.getByLabelText('PASSWORD')).toHaveValue('Dispatcher12')
+
+    const stmBtn = screen.getByRole('button', { name: /Store Manager/i })
+    await userEvent.click(stmBtn)
+    expect(screen.getByLabelText('USER ID')).toHaveValue('STM-001')
+    expect(screen.getByLabelText('PASSWORD')).toHaveValue('StoreManager12')
+
+    const ldrBtn = screen.getByRole('button', { name: /Loader/i })
+    await userEvent.click(ldrBtn)
+    expect(screen.getByLabelText('USER ID')).toHaveValue('LDR-001')
+    expect(screen.getByLabelText('PASSWORD')).toHaveValue('LoaderPass12')
+
+    const drvBtn = screen.getByRole('button', { name: /Driver/i })
+    await userEvent.click(drvBtn)
+    expect(screen.getByLabelText('USER ID')).toHaveValue('DRV-001')
+    expect(screen.getByLabelText('PASSWORD')).toHaveValue('DriverPass12')
+  })
 })

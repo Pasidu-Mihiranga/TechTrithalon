@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Optional;
 import lk.techtrithalon.waypoint.fleetops.domain.*;
 public interface FleetRepository {
+    void lockPlanningFuel(String vehicleId, int year, int week);
+    void lockAvailability(String vehicleId, java.time.LocalDate date);
+    boolean commitPlanningFuel(String vehicleId, int year, int week, java.math.BigDecimal amount, java.math.BigDecimal quota);
     Optional<VehicleAvailability> availability(String vehicleId,LocalDate date);
     Optional<VehicleAvailability> update(String vehicleId,LocalDate date,String status,String note,long expectedVersion,long actorId,Instant at);
     Optional<FuelBalance> fuel(String vehicleId,int year,int week,BigDecimal quota);

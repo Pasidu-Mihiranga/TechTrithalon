@@ -23,14 +23,16 @@ class OrderQueryIT extends ReferenceApiTestSupport {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.ordersToPlan.value").value(2))
             .andExpect(jsonPath("$.ordersToPlan.available").value(true))
-            .andExpect(jsonPath("$.ordersPlanned.available").value(false))
-            .andExpect(jsonPath("$.ordersPlanned.availableFromPhase").value("Phase 7"))
+            .andExpect(jsonPath("$.ordersPlanned.available").value(true))
+            .andExpect(jsonPath("$.ordersPlanned.value").value(0))
             .andExpect(jsonPath("$.tripsReady.available").value(false))
             .andExpect(jsonPath("$.activeTrips.available").value(false))
             .andExpect(jsonPath("$.exceptions.available").value(false))
             .andExpect(jsonPath("$.orderAttention").isEmpty())
             .andExpect(jsonPath("$.tripAttention").isEmpty())
-            .andExpect(jsonPath("$.planningProgress.available").value(false));
+            .andExpect(jsonPath("$.planningProgress.available").value(true))
+            .andExpect(jsonPath("$.planningProgress.planned").value(0))
+            .andExpect(jsonPath("$.planningProgress.total").value(2));
 
         mvc.perform(get("/api/v1/dispatcher/orders?date=2026-06-26&sort=ref&asc=true").cookie(cookie))
             .andExpect(status().isOk())

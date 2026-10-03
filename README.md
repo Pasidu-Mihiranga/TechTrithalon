@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Code through Phase 5 includes store confirmation and complete planning snapshots. The completion corrections require fresh PostgreSQL, curl and browser verification before their phase gates close. Phase 0 GitHub CI remains pending. See [current verification](docs/PHASE0_5_COMPLETION_VERIFICATION.md).
+> **Status:** Ordering, complete immutable snapshots, the constraint engine and validated manual planning are implemented. The manual path has recorded curl/browser evidence; fresh checks pass 110 API and 66 web tests. Current planning UI corrections, constraint boundary checks and hosted CI remain open; full web lint fails. Loading, driver delivery, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
 
 ---
 
@@ -309,6 +309,7 @@ CI fails if `apps/api/openapi.json` or `apps/web/src/generated/` is out of date.
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — phase-by-phase checklist, priorities, exit gates
 - [Technical reference](docs/TECHNICAL_REFERENCE.md) — architecture, data model, planning engine, offline design
 - [Design documentation](docs/waypoint-design-documentation.md) — Designathon submission
+- [Round 2 requirements audit](docs/ROUND2_REQUIREMENTS_AUDIT.md) — booklet scoring, verified phase status, current gaps and execution gates
 
 ## Reference data foundation (Phase 3)
 
