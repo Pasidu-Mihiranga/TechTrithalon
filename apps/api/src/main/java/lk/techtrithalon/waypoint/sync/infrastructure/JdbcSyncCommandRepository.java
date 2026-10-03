@@ -6,12 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lk.techtrithalon.waypoint.sync.application.SyncCommandRepository;
 import lk.techtrithalon.waypoint.sync.domain.SyncAction;
 import lk.techtrithalon.waypoint.sync.domain.SyncResult;
+import lk.techtrithalon.waypoint.sync.domain.SyncReview;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -47,6 +51,22 @@ class JdbcSyncCommandRepository implements SyncCommandRepository {
         if (r.detail() != null) stored.put("detail", r.detail());
         db.update("UPDATE sync_command SET result=?, result_code=?, result_detail=?::jsonb, review_reason=? WHERE client_action_id=?",
             r.result(), r.code(), stored.isEmpty() ? null : write(stored), r.review(), id);
+    }
+
+    public List<SyncReview> reviewsFor(LocalDate date, Collection<Long> userIds) {
+        if (userIds.isEmpty()) return List.of();
+        return db.query("""
+            SELECT * FROM sync_command
+            WHERE plan_date=? AND user_id = ANY(?)
+              AND (result IN ('CONFLICT','REJECTED') OR review_reason IN ('ROUTE_CHANGED_OFFLINE','STOP_NOT_ON_TRIP'))
+            ORDER BY received_at DESC, client_action_id DESC
+            """, (rs, i) -> {
+            Map<String, Object> stored = rs.getString("result_detail") == null ? Map.of() : read(rs.getString("result_detail"));
+            return new SyncReview(rs.getObject("client_action_id", UUID.class), rs.getLong("user_id"), rs.getString("action_type"),
+                rs.getDate("plan_date").toLocalDate(), rs.getInt("trip_index"), rs.getString("entity_id"), rs.getString("result"),
+                rs.getString("result_code"), stored.get("message") instanceof String m ? m : null, rs.getString("review_reason"),
+                rs.getBoolean("clock_skew"), rs.getTimestamp("occurred_at").toInstant(), rs.getTimestamp("received_at").toInstant());
+        }, Date.valueOf(date), (Object) userIds.toArray(Long[]::new));
     }
 
     public int purgeReceivedBefore(Instant cutoff) {

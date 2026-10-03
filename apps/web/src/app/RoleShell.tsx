@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../lib/apiClient'
 import { useDeviceClass } from '../lib/device'
 import { DriverSync } from '../features/offline/DriverSync'
+import { useExceptionQueue } from '../features/planning/exceptionQueries'
+import { useReferenceSummary } from '../features/shell/useReferenceSummary'
 import type { RoleConfig } from './roles'
 
 /** Driver screens with the tab bar (Figma): the four destinations and the trip overview. Flow screens hide it. */
@@ -68,7 +70,9 @@ export function RoleShell({ role }: { role: RoleConfig }) {
   }
   return (
     <AppShell
-      sidebar={<Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} forceCollapsed={device === 'tablet'} />}
+      sidebar={role.key === 'dispatcher'
+        ? <DispatcherSidebar role={role} depot={depot} forceCollapsed={device === 'tablet'} />
+        : <Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} forceCollapsed={device === 'tablet'} />}
       topBar={
         <TopBar
           leading={
@@ -119,4 +123,13 @@ export function RoleShell({ role }: { role: RoleConfig }) {
       <Outlet key={depot} context={{ depot: depot || undefined }} />
     </AppShell>
   )
+}
+
+/** The dispatcher's navigation, with the number of exceptions still waiting on the Exceptions entry. */
+function DispatcherSidebar({ role, depot, forceCollapsed }: { role: RoleConfig; depot: string; forceCollapsed: boolean }) {
+  const summary = useReferenceSummary()
+  const queue = useExceptionQueue(summary.data?.demoOperatingDate, depot)
+  const waiting = queue.data ? queue.data.counts.open + queue.data.counts.inProgress : 0
+  const items = role.pages.map(page => page.to === '/dispatcher/exceptions' && waiting > 0 ? { ...page, badge: waiting } : page)
+  return <Sidebar roleLabel={role.label} items={items} footerItems={role.footerPages} status={<SystemStatus />} forceCollapsed={forceCollapsed} />
 }

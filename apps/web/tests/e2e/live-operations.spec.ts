@@ -1,9 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 
-// Runs the whole order lifecycle across four roles, so it needs an isolated stack with the synthetic fixtures.
+// The dispatcher's Live Operations board and Exceptions queue follow what the dock and the driver do (polling).
+// Needs an isolated stack with the synthetic fixtures; never run it against the competition dataset.
 test.skip(process.env.MANUAL_PLANNING_FIXTURE !== 'synthetic', 'Requires a fresh isolated synthetic stack; never use the competition dataset.')
 test.describe.configure({ mode: 'serial' })
-test.setTimeout(120_000)
+test.setTimeout(150_000)
 
 const apiBase = process.env.API_URL ?? `http://localhost:${process.env.API_PORT ?? '8080'}`
 const headers = { 'X-Requested-With': 'Waypoint', 'Content-Type': 'application/json' }
@@ -23,13 +24,12 @@ async function api<T>(page: Page, method: 'get' | 'post', path: string, data?: u
   return response.json() as Promise<T>
 }
 
-test('plan, load, deliver and receipt across the four roles, including a disputed delivery the dispatcher resolves', async ({ page, browser }, testInfo) => {
-  // Dispatcher plans and publishes the store's Fresh order.
+test('the board and the queue follow the dock and the driver without a reload', async ({ page, browser }, testInfo) => {
   await signIn(page, process.env.SEED_DISPATCHER_USERNAME ?? 'DSP-001', process.env.SEED_DISPATCHER_PASSWORD)
   const { demoOperatingDate: date } = await api<{ demoOperatingDate: string }>(page, 'get', '/api/v1/reference/summary')
   const snapshot = await api<{ id: number }>(page, 'post', '/api/v1/dispatcher/planning/snapshots', { planDate: date, depot: 'Peliyagoda' }, 201)
-  const created = await api<{ plan: { id: number }; unassignedOrders: { order: { id: number; orderRef: string; brand: string } }[] }>(
-    page, 'post', '/api/v1/dispatcher/plans', { snapshotId: snapshot.id, reason: 'Lifecycle journey' }, 201)
+  const created = await api<{ plan: { id: number }; unassignedOrders: { order: { id: number; brand: string } }[] }>(
+    page, 'post', '/api/v1/dispatcher/plans', { snapshotId: snapshot.id, reason: 'Live operations journey' }, 201)
   const plan = created.plan.id
   const fresh = created.unassignedOrders.find(item => item.order.brand === 'Fresh')!.order
   const others = created.unassignedOrders.filter(item => item.order.id !== fresh.id).map(item => item.order)
@@ -40,13 +40,15 @@ test('plan, load, deliver and receipt across the four roles, including a dispute
     { expectedVersion: version++, reason: 'Not in this journey', reasonCode: 'OTHER' })
   await api(page, 'post', `/api/v1/dispatcher/plans/${plan}/publish`, { expectedVersion: version, reason: 'Publish' })
 
-  // Store manager (laptop): the order is pending.
-  const shop = await (await browser.newContext({ viewport: { width: 1280, height: 832 } })).newPage()
-  await signIn(shop, process.env.SEED_STORE_MANAGER_USERNAME ?? 'STM-001', process.env.SEED_STORE_MANAGER_PASSWORD)
-  await shop.getByRole('link', { name: 'Deliveries' }).click()
-  await expect(shop.getByRole('article', { name: fresh.orderRef })).toContainText('Pending')
+  // The dispatcher opens the board on a laptop: the trip is still at the dock.
+  await page.setViewportSize({ width: 1280, height: 832 })
+  await page.goto('/dispatcher/live-operations')
+  const trip = page.getByRole('article', { name: 'VEH901 trip 1' })
+  await expect(trip).toContainText('Loading')
+  await expect(trip).toContainText('0 / 1 orders')
+  await expect(page.getByRole('region', { name: 'Route progress' })).toContainText('Schematic only')
 
-  // Loader (tablet) counts and hands over.
+  // The loader hands the trip over; the board catches up on its own poll.
   const dock = await (await browser.newContext({ viewport: { width: 834, height: 1194 }, hasTouch: true })).newPage()
   await signIn(dock, process.env.SEED_LOADER_USERNAME ?? 'LDR-001', process.env.SEED_LOADER_PASSWORD)
   await dock.getByRole('link', { name: /Start loading/ }).click()
@@ -54,14 +56,16 @@ test('plan, load, deliver and receipt across the four roles, including a dispute
   await dock.getByRole('button', { name: /Confirm \d+ units loaded/ }).click()
   await dock.getByRole('button', { name: 'Mark trip as loaded' }).click()
   await expect(dock.getByRole('heading', { name: 'Trip 1 loaded' })).toBeVisible()
+  await expect(trip).toContainText('Ready to leave', { timeout: 40_000 })
 
-  // Driver (phone) delivers.
+  // The driver starts the trip and delivers.
   const phone = await (await browser.newContext({ viewport: { width: 402, height: 874 }, hasTouch: true, isMobile: true })).newPage()
   await signIn(phone, process.env.SEED_DRIVER_USERNAME ?? 'DRV-001', process.env.SEED_DRIVER_PASSWORD)
   await phone.getByRole('button', { name: 'Start Trip' }).click()
   await expect(phone).toHaveURL(/\/driver\/trips\/1$/)
-  await shop.reload()
-  await expect(shop.getByRole('article', { name: fresh.orderRef })).toContainText('In delivery')
+  await expect(trip).toContainText(/In Transit|Delayed/, { timeout: 40_000 })
+  await expect(trip).toContainText('(1 of 1)')
+  await page.screenshot({ path: testInfo.outputPath('live-operations.png') })
   await phone.getByRole('button', { name: 'Go to Stop' }).click()
   await phone.getByRole('link', { name: 'View Stop Details' }).click()
   await phone.getByRole('button', { name: "I've Arrived" }).click()
@@ -70,43 +74,21 @@ test('plan, load, deliver and receipt across the four roles, including a dispute
   await phone.getByLabel('Recipient name').fill('Shop Counter')
   await phone.getByRole('button', { name: 'Confirm Delivery' }).click()
   await expect(phone.getByRole('heading', { name: 'Stop completed' })).toBeVisible()
-  await phone.getByRole('button', { name: 'Finish Stops' }).click()
-  await phone.getByRole('button', { name: 'Finish Trip' }).click()
-  await expect(phone.getByRole('heading', { name: 'Trip submitted' })).toBeVisible()
+  await expect(trip).toContainText('1 / 1 orders', { timeout: 40_000 })
 
-  // Store manager checks the delivery against the driver's record and reports a shortfall.
-  await shop.reload()
-  await expect(shop.getByRole('article', { name: fresh.orderRef })).toContainText('Confirm receipt')
-  await shop.getByRole('link', { name: 'Confirm receipt →' }).click()
-  await expect(shop.getByRole('heading', { name: 'Confirm receipt' })).toBeVisible()
-  await expect(shop.getByText('Shop Counter')).toBeVisible()
-  await shop.screenshot({ path: testInfo.outputPath('store-confirm-receipt.png') })
-  await shop.getByRole('link', { name: 'Report an issue' }).click()
-  await shop.getByRole('radio', { name: 'Short' }).click()
-  await shop.getByLabel(/Units affected/).fill('2')
-  await shop.getByLabel(/Details/).fill('Two crates missing')
-  await shop.getByRole('button', { name: 'Submit issue' }).click()
-  await expect(shop.getByRole('heading', { name: 'Issues' })).toBeVisible()
-  await expect(shop.getByRole('complementary', { name: 'Issue detail' })).toContainText('Short: 2 of 12 units')
-  await shop.screenshot({ path: testInfo.outputPath('store-issues-open.png') })
-  expect((await api<{ status: string }>(shop, 'get', `/api/v1/store/deliveries/${fresh.id}`)).status).toBe('delivered')
-
-  // Dispatcher sees the discrepancy and decides.
-  await page.goto('/dispatcher/exceptions')
-  await page.getByRole('button', { name: new RegExp(`Store dispute: ${fresh.orderRef}`) }).click()
+  // An action from the phone the server cannot apply becomes an exception, with a badge on the menu.
+  const sync = await api<{ results: { result: string }[] }>(phone, 'post', '/api/v1/driver/sync', { actions: [{
+    clientActionId: crypto.randomUUID(), actionType: 'STOP_ARRIVE', planDate: date, tripIndex: 1, occurredAt: new Date().toISOString(), outletId: 'OUT903' }] })
+  expect(['REJECTED', 'CONFLICT']).toContain(sync.results[0].result)
+  await expect(page.getByRole('link', { name: 'Exceptions' })).toContainText('1', { timeout: 40_000 })
+  await page.getByRole('link', { name: 'Exceptions' }).click()
+  await page.getByRole('button', { name: /Phone action (rejected|conflicted)/ }).click()
   await expect(page.getByLabel('Exception facts')).toContainText('VEH901')
-  await expect(page.getByText('short · 2 of 12 units').first()).toBeVisible()
-  await page.getByRole('radio', { name: 'Credit the store' }).click()
-  await page.getByLabel('Decision note').fill('Credit 2 units on the next invoice')
-  await page.getByRole('button', { name: 'Decide' }).click()
+  await page.screenshot({ path: testInfo.outputPath('exceptions.png') })
+  await page.getByRole('button', { name: 'Take it' }).click()
+  await expect(page.getByRole('button', { name: 'In Progress (1)' })).toBeVisible()
+  await page.getByLabel('Note').fill('Stop was not on the route')
+  await page.getByRole('button', { name: 'Acknowledge' }).click()
   await expect(page.getByRole('button', { name: 'Resolved (1)' })).toBeVisible()
-  await expect(page.getByLabel('Resolution')).toContainText('Credit the store')
-
-  // The store sees the decision, and the order is complete.
-  await shop.reload()
-  await expect(shop.getByRole('tab', { name: 'Resolved (1)' })).toBeVisible()
-  await shop.getByRole('tab', { name: 'Resolved (1)' }).click()
-  await expect(shop.getByRole('complementary', { name: 'Issue detail' })).toContainText('Credit 2 units on the next invoice')
-  const order = await api<{ status: string }>(shop, 'get', `/api/v1/store/orders/${fresh.id}`)
-  expect(order.status).toBe('receipt_confirmed')
+  await expect(page.getByRole('link', { name: 'Exceptions' })).not.toContainText('1')
 })

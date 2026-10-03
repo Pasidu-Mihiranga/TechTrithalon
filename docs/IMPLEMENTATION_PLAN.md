@@ -855,7 +855,8 @@ A dispatcher must understand and change the candidate before publication.
 #### Backend
 
 - [ ] Assemble why-assigned/why-deferred evidence, binding resources, feasible alternatives, and ranked fixes.
-- [ ] Add read-only dry-run simulation, impact preview, exception triage, and scoped re-optimization where useful.
+- [x] Exception triage queue: one list of loading shortfalls, store disputes, driver problems and offline review flags, taken and closed by the dispatcher (Step 8).
+- [ ] Add read-only dry-run simulation, impact preview and scoped re-optimization where useful.
 
 #### Frontend
 
@@ -1243,11 +1244,12 @@ Dispatchers need current route progress and exceptions after departure.
 
 #### Backend
 
-- [ ] Build live read model, after-commit event publication, depot-scoped SSE, and polling fallback.
+- [x] Live read model over trips, visits and records, with a 15 s polling refresh (Step 8; evidence in `docs/EXCEPTIONS_LIVE_OPS_VERIFICATION.md`).
+- [ ] After-commit event publication and depot-scoped SSE (deferred: polling covers Round 2).
 
 #### Frontend
 
-- [ ] Build active-trip board with current stop, remaining stops, status, last update, and alerts.
+- [x] Active-trip board with state, current stop, stops done and total, orders done, last update, delayed flag and an exceptions badge. A district-spoke schematic replaces the map (the data has no coordinates).
 
 #### Database
 
@@ -1259,7 +1261,8 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test SSE scope, event-after-commit, reconnect/refetch, polling fallback, and driver update visibility.
+- [x] Test polling refresh and driver update visibility (`LiveOperationsIT`, `liveOps.test.tsx`, Playwright `live-operations.spec.ts`).
+- [ ] Test SSE scope, event-after-commit and reconnect (not built).
 
 #### Documentation
 

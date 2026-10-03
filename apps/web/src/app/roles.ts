@@ -28,7 +28,7 @@ export const roles: Record<RoleKey, RoleConfig> = {
       { to: '/dispatcher/live-operations', label: 'Live Operations', icon: Activity, title: 'Live Operations', description: 'Trips in progress and problems on the road.', phase: 'Phase 16' },
       { to: '/dispatcher/forecast', label: 'Forecast', icon: TrendingUp, title: 'Capacity forecast', description: 'Expected demand against fleet capacity.', phase: 'Phase 17' },
       { to: '/dispatcher/fleet', label: 'Fleet', icon: Truck, title: 'Fleet', description: 'Vehicles, availability and workshop status.', phase: 'Phase 3A' },
-      { to: '/dispatcher/exceptions', label: 'Exceptions', icon: TriangleAlert, title: 'Exceptions', description: 'Orders the plan could not place automatically.', phase: 'Phase 10' },
+      { to: '/dispatcher/exceptions', label: 'Exceptions', icon: TriangleAlert, title: 'Exceptions', description: 'Loading, delivery, offline and receipt problems waiting for you.', phase: 'Phase 10 / 16' },
       { to: '/dispatcher/deferred-orders', label: 'Deferred Orders', icon: History, title: 'Deferred orders', description: 'Orders moved to a later run, with the reason.', phase: 'Phase 8' },
     ],
     footerPages: [

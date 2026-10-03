@@ -29,7 +29,6 @@ import lk.techtrithalon.waypoint.planning.application.PublishedRouteService;
 import lk.techtrithalon.waypoint.planning.domain.PublishedRoute;
 import lk.techtrithalon.waypoint.reference.ReferenceProperties;
 import lk.techtrithalon.waypoint.shared.error.ApiException;
-import lk.techtrithalon.waypoint.shared.time.TimeConfiguration;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -54,13 +53,14 @@ public class DriverService {
     private final AuditService audit;
     private final Clock clock;
     private final ReferenceProperties referenceProperties;
+    private final EtaProjector etaProjector;
 
     public DriverService(DeliveryRepository deliveries, LoadTaskService loadTasks, PublishedRouteService routes,
                          OrderCommandService orderCommands, OrderQueryService orderQueries, PodStorage storage,
-                         AuditService audit, Clock clock, ReferenceProperties referenceProperties) {
+                         AuditService audit, Clock clock, ReferenceProperties referenceProperties, EtaProjector etaProjector) {
         this.deliveries = deliveries; this.loadTasks = loadTasks; this.routes = routes; this.orderCommands = orderCommands;
         this.orderQueries = orderQueries; this.storage = storage; this.audit = audit; this.clock = clock;
-        this.referenceProperties = referenceProperties;
+        this.referenceProperties = referenceProperties; this.etaProjector = etaProjector;
     }
 
     /** Everything one trip slot needs: the current manifest and route, and what happened on the road. */
@@ -601,7 +601,7 @@ public class DriverService {
         slot.records().forEach(r -> records.put(r.orderId(), r));
         Map<String, StopVisit> visits = new HashMap<>();
         slot.visits().forEach(v -> visits.put(v.outletId(), v));
-        var etas = etas(slot, planned, visits);
+        var etas = etaProjector.project(slot.route(), slot.trip(), slot.visits());
         List<DriverViews.Stop> result = new ArrayList<>();
         for (var group : groups(slot.task())) {
             var first = planned.get(group.lines().getFirst().orderId());
@@ -624,39 +624,6 @@ public class DriverService {
         return result;
     }
 
-    /**
-     * Deterministic ETA fallback (no live location): project the remaining stops from the last thing
-     * that happened, with the plan's own formula. Before the trip starts there is no projection.
-     */
-    private Map<Long, LocalTime> etas(Slot slot, Map<Long, PublishedRoute.Stop> planned, Map<String, StopVisit> visits) {
-        Map<Long, LocalTime> result = new HashMap<>();
-        var trip = slot.trip();
-        if (trip.isEmpty() || "completed".equals(trip.get().status())) return result;
-        var remaining = slot.route().stops().stream().filter(s -> !visits.containsKey(s.outletId()))
-            .sorted(Comparator.comparingInt(PublishedRoute.Stop::seq)).toList();
-        if (remaining.isEmpty()) return result;
-        var open = slot.visits().stream().filter(v -> v.departedAt() == null).findFirst();
-        var lastDeparture = slot.visits().stream().map(StopVisit::departedAt).filter(java.util.Objects::nonNull).max(Instant::compareTo);
-        LocalTime readyAt;
-        boolean fromDepot = false;
-        if (open.isPresent()) {
-            // Still serving a stop: the vehicle is free once its service allowance has run (or now, if later).
-            int service = slot.route().stops().stream().filter(s -> s.outletId().equals(open.get().outletId()))
-                .mapToInt(PublishedRoute.Stop::serviceMinutes).sum();
-            LocalTime done = local(open.get().arrivedAt()).plusMinutes(service);
-            LocalTime now = local(clock.instant());
-            readyAt = now.isAfter(done) ? now : done;
-        } else if (lastDeparture.isPresent()) {
-            readyAt = local(lastDeparture.get());
-        } else {
-            readyAt = local(trip.get().startedAt());
-            fromDepot = true;
-        }
-        var projected = routes.projectArrivals(slot.route(), remaining, readyAt, fromDepot);
-        for (int i = 0; i < remaining.size(); i++) result.put(remaining.get(i).orderId(), projected.get(i));
-        return result;
-    }
-
     private static DriverViews.Outcome outcome(DeliveryRecord r, List<PodAsset> assets) {
         var attached = assets.stream().filter(a -> a.deliveryRecordId() != null && a.deliveryRecordId() == r.id()).toList();
         return new DriverViews.Outcome(r.outcome(), r.deliveredUnits(), r.issueKind(), r.recipientName(), r.notes(), r.recordedAt(),
@@ -673,8 +640,6 @@ public class DriverService {
     }
 
     private LocalDate day(LocalDate date) { return date == null ? referenceProperties.demoOperatingDate() : date; }
-
-    private static LocalTime local(Instant at) { return at.atZone(TimeConfiguration.BUSINESS_ZONE).toLocalTime(); }
 
     private static String trim(String value) {
         if (value == null) return null;

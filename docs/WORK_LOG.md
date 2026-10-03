@@ -448,3 +448,12 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Tests: `ReceiptIT` (3), `receipt.test.tsx` (6), Playwright `lifecycle.spec.ts` (plan → load → deliver → receipt across four roles with a dispute and resolution); totals API 149, web 129. One quiet curl script (40 checks, mismatches only) folded into `scripts/smoke.sh`.
 - Verification rules changed (owner decision): integration tests are the main proof, one quiet curl script per step, full suites once at the end, one screenshot per new screen; recorded in AGENTS.md and CLAUDE.md.
 
+## 2026-10-04 — Step 8: dispatcher exceptions queue and Live Operations
+
+- New `exceptions` module: a read model that joins loading shortfalls, store disputes, partial or failed deliveries and offline sync flags with the dispatcher's own state (`operational_exception`, additive migration). Loading and receipt items close through their owners; the rest are acknowledged with a note.
+- `LiveBoardService` (delivery module) gives each published trip a state, current stop, progress and last activity; the ETA projection moved into a shared `EtaProjector`, so the driver and dispatcher see the same arrival times. Dashboard tiles Active trips, Trips ready and Exceptions are real.
+- Web: Exceptions page (tabs, detail, take it, decide or acknowledge) and Live Operations page (vehicle list, stops, route-progress schematic), both polling every 15 s, plus a count badge on the Exceptions menu entry. The temporary receipt panel is no longer shown (`ReceiptDiscrepanciesPanel` is unused; removal needs the owner's approval).
+- Totals API 153, web 138. Tests: `ExceptionsIT` (2), `LiveOperationsIT` (2), `exceptions.test.tsx` (5), `liveOps.test.tsx` (4), Playwright `live-operations.spec.ts`; the lifecycle journey now resolves the dispute from the queue. One quiet curl script (65 checks, 0 mismatches) and read-only checks in `scripts/smoke.sh`.
+- Departures: schematic instead of a map; polling instead of SSE; no suggested fix yet (Steps 10–11).
+- Decision recorded: the dispatcher may undo a deferral while the plan is still a candidate (restore), and normal constraints are revalidated at publish. This already exists, so nothing new was built.
+
