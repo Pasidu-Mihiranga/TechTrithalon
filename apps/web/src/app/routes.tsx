@@ -25,6 +25,16 @@ import { LoaderOrderPage } from '../features/loading/LoaderOrderPage'
 import { LoaderProfilePage } from '../features/loading/LoaderProfilePage'
 import { LoaderShortfallPage } from '../features/loading/LoaderShortfallPage'
 import { LoaderTripPage } from '../features/loading/LoaderTripPage'
+import { DriverHomePage } from '../features/delivery/DriverHomePage'
+import { DriverCurrentTripPage, DriverTripPage } from '../features/delivery/DriverTripPage'
+import { DriverRoutePage } from '../features/delivery/DriverRoutePage'
+import { DriverStopPage } from '../features/delivery/DriverStopPage'
+import { DriverOrderPage } from '../features/delivery/DriverOrderPage'
+import { DriverRecordPage } from '../features/delivery/DriverRecordPage'
+import { DriverTripDonePage } from '../features/delivery/DriverTripDonePage'
+import { DriverDeliveriesPage } from '../features/delivery/DriverDeliveriesPage'
+import { DriverDeliveryDetailPage } from '../features/delivery/DriverDeliveryDetailPage'
+import { DriverProfilePage } from '../features/delivery/DriverProfilePage'
 import type { ReactNode } from 'react'
 import type { RoleConfig, RolePage } from './roles'
 
@@ -39,6 +49,12 @@ function pageElement(role: RoleConfig, page: RolePage) {
   if (role.key === 'loader' && page.end) return <LoaderHomePage />
   if (role.key === 'loader' && page.to === '/loader/issues') return <LoaderIssuesPage />
   if (role.key === 'loader' && page.to === '/loader/profile') return <LoaderProfilePage />
+  if (role.key === 'driver') {
+    if (page.end) return <DriverHomePage />
+    if (page.to === '/driver/trip') return <DriverCurrentTripPage />
+    if (page.to === '/driver/deliveries') return <DriverDeliveriesPage />
+    if (page.to === '/driver/profile') return <DriverProfilePage />
+  }
   if (role.key === 'dispatcher') {
     if (page.to === '/dispatcher/deferred-orders') return <DeferredOrdersPage />
     if (page.to === '/dispatcher/exceptions') return <ExceptionsPage />
@@ -74,6 +90,18 @@ function roleRoutes(role: RoleConfig) {
           <Route path="trips/:taskId" element={<LoaderTripPage />} />
           <Route path="trips/:taskId/orders/:lineId" element={<LoaderOrderPage />} />
           <Route path="trips/:taskId/orders/:lineId/shortfall" element={<LoaderShortfallPage />} />
+        </>
+      ) : null}
+      {role.key === 'driver' ? (
+        <>
+          <Route path="trips/:tripIndex" element={<DriverTripPage />} />
+          <Route path="trips/:tripIndex/route" element={<DriverRoutePage />} />
+          <Route path="trips/:tripIndex/complete" element={<DriverTripDonePage />} />
+          <Route path="trips/:tripIndex/stops/:seq" element={<DriverStopPage />} />
+          <Route path="trips/:tripIndex/orders/:orderId" element={<DriverOrderPage />} />
+          <Route path="trips/:tripIndex/orders/:orderId/confirm" element={<DriverRecordPage mode="confirm" />} />
+          <Route path="trips/:tripIndex/orders/:orderId/issue" element={<DriverRecordPage mode="issue" />} />
+          <Route path="deliveries/:orderId" element={<DriverDeliveryDetailPage />} />
         </>
       ) : null}
     </Route>

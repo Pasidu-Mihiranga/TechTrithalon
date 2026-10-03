@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { useAuth } from '../features/auth/auth'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { AppShell, Button, ErrorState, Sidebar, SystemStatus, TopBar, TopNav } from '../components'
+import { AppShell, BottomNav, Button, ErrorState, Sidebar, SystemStatus, TopBar, TopNav } from '../components'
 import { ChevronDown, Warehouse } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../lib/apiClient'
+import { useDeviceClass } from '../lib/device'
 import type { RoleConfig } from './roles'
+
+/** Driver screens with the tab bar (Figma): the four destinations and the trip overview. Flow screens hide it. */
+const DRIVER_NAV_PATHS = /^\/driver(\/trip|\/trips\/\d+|\/deliveries|\/profile)?\/?$/
 
 /** One shell for every role; the navigation comes from the role's config. */
 export function RoleShell({ role }: { role: RoleConfig }) {
   const navigate = useNavigate()
   const location = useLocation()
   const auth = useAuth()
+  const device = useDeviceClass()
   const [depot, setDepot] = useState(auth.user?.depot || 'Peliyagoda')
   const depots = useQuery({
     queryKey: ['reference', 'depots'],
@@ -31,6 +36,19 @@ export function RoleShell({ role }: { role: RoleConfig }) {
     try { await auth.logout() } catch (failure) { setError(failure instanceof Error ? failure.message : 'Sign-out failed. Try again.') }
     finally { setPending(false) }
   }
+  if (role.key === 'driver') {
+    const withNav = DRIVER_NAV_PATHS.test(location.pathname)
+    return (
+      <div className={`shell-phone${withNav ? ' shell-phone-nav' : ''}`}>
+        <a href="#main" className="skip-link">Skip to content</a>
+        <main id="main" className="shell-main">
+          {error && <ErrorState message={error} />}
+          <Outlet context={{ logout, logoutPending: pending }} />
+        </main>
+        {withNav && <BottomNav items={role.pages} label="Driver navigation" />}
+      </div>
+    )
+  }
   if (role.key === 'loader') {
     const name = auth.user?.displayName ?? ''
     const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || undefined
@@ -48,7 +66,7 @@ export function RoleShell({ role }: { role: RoleConfig }) {
   }
   return (
     <AppShell
-      sidebar={<Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} />}
+      sidebar={<Sidebar roleLabel={role.label} items={role.pages} footerItems={role.footerPages} status={<SystemStatus />} forceCollapsed={device === 'tablet'} />}
       topBar={
         <TopBar
           leading={

@@ -22,7 +22,7 @@ function signedIn(role = 'DISPATCHER', handler?: (url: string) => Promise<Respon
 
 describe('authenticated role shells', () => {
   it('renders every role shell from the shared components', async () => {
-    for (const [path, label, role] of [['/dispatcher/orders', 'Dispatcher', 'DISPATCHER'], ['/store', 'Store manager', 'STORE_MANAGER'], ['/driver', 'Driver', 'DRIVER']] as const) {
+    for (const [path, label, role] of [['/dispatcher/orders', 'Dispatcher', 'DISPATCHER'], ['/store', 'Store manager', 'STORE_MANAGER']] as const) {
       signedIn(role)
       const { unmount } = renderAt(path)
       expect(await screen.findByRole('complementary', { name: `${label} navigation` })).toBeInTheDocument()
@@ -30,6 +30,15 @@ describe('authenticated role shells', () => {
       expect(screen.getByText('Synthetic operator')).toBeVisible()
       unmount()
     }
+  })
+  it('gives the driver the Figma phone tab bar instead of the sidebar', async () => {
+    signedIn('DRIVER')
+    renderAt('/driver')
+    const nav = await screen.findByRole('navigation', { name: 'Driver navigation' })
+    expect(within(nav).getAllByRole('link').map(link => link.textContent)).toEqual(['Home', 'Trip', 'Deliveries', 'Profile'])
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('complementary')).toBeNull()
+    expect(screen.getByRole('main')).toBeInTheDocument()
   })
   it('gives the loader the Figma top navigation instead of the sidebar', async () => {
     signedIn('LOADER')
