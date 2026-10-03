@@ -23,5 +23,11 @@ public record CustomerOrder(
     int isoYear,
     int isoWeek,
     @Schema(nullable = true) Long placedBy,
-    int version
+    int version,
+    @Schema(description = "Planning run the order belongs to; later than orderDate after a published deferral")
+    LocalDate planningDate,
+    @Schema(nullable = true, description = "Deferred-yesterday flag supplied with imported scenario data")
+    Boolean sourceDeferredYesterday,
+    @Schema(nullable = true, description = "Days since last served, supplied with imported scenario data")
+    Integer sourceDaysSinceServed
 ) {}

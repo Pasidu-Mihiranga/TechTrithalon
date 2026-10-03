@@ -26,11 +26,18 @@ import org.springframework.stereotype.Repository;
 @Repository
 class JdbcOrderRepository implements OrderRepository {
     public boolean markPlanned(long id,int expectedVersion,java.time.Instant at) {
-        return db.update("UPDATE customer_order SET status='planned',version=version+1,updated_at=? WHERE id=? AND status='confirmed' AND version=?",
+        return db.update("UPDATE customer_order SET status='planned',version=version+1,updated_at=? WHERE id=? AND status IN ('confirmed','deferred') AND version=?",
             java.sql.Timestamp.from(at),id,expectedVersion)==1;
     }
+    public boolean markDeferred(long id,int expectedVersion,LocalDate nextPlanningDate,java.time.Instant at) {
+        return db.update("""
+            UPDATE customer_order SET status='deferred',planning_date=?,version=version+1,updated_at=?
+            WHERE id=? AND status IN ('confirmed','deferred') AND version=? AND planning_date<?
+            """,Date.valueOf(nextPlanningDate),java.sql.Timestamp.from(at),id,expectedVersion,Date.valueOf(nextPlanningDate))==1;
+    }
     private static final Set<String> SORTS = Set.of(
-        "ref", "outletId", "brand", "district", "tempRequirement", "units", "weightKg", "volumeM3", "status", "orderDate"
+        "ref", "outletId", "brand", "district", "tempRequirement", "units", "weightKg", "volumeM3", "status", "orderDate",
+        "planningDate"
     );
     private static final Map<String, String> SORT_SQL = Map.ofEntries(
         Map.entry("ref", "ref"),
@@ -42,7 +49,8 @@ class JdbcOrderRepository implements OrderRepository {
         Map.entry("weightKg", "weight_kg"),
         Map.entry("volumeM3", "volume_m3"),
         Map.entry("status", "status"),
-        Map.entry("orderDate", "order_date")
+        Map.entry("orderDate", "order_date"),
+        Map.entry("planningDate", "planning_date")
     );
 
     private static final RowMapper<CustomerOrder> ROW = (rs, i) -> new CustomerOrder(
@@ -63,7 +71,10 @@ class JdbcOrderRepository implements OrderRepository {
         rs.getInt("iso_year"),
         rs.getInt("iso_week"),
         rs.getObject("placed_by") == null ? null : rs.getLong("placed_by"),
-        rs.getInt("version")
+        rs.getInt("version"),
+        rs.getDate("planning_date").toLocalDate(),
+        rs.getObject("source_deferred_yesterday", Boolean.class),
+        rs.getObject("source_days_since_served") == null ? null : rs.getInt("source_days_since_served")
     );
 
     private final JdbcTemplate db;
@@ -80,7 +91,7 @@ class JdbcOrderRepository implements OrderRepository {
         String direction = ascending ? "ASC" : "DESC";
         List<Object> args = new ArrayList<>();
         StringBuilder where = new StringBuilder(" WHERE 1=1");
-        if (date != null) { where.append(" AND order_date=?"); args.add(Date.valueOf(date)); }
+        if (date != null) { where.append(" AND planning_date=?"); args.add(Date.valueOf(date)); }
         if (depot != null) { where.append(" AND depot=?"); args.add(depot); }
         if (outletId != null) { where.append(" AND outlet_id=?"); args.add(outletId); }
         if (permittedOutletIds != null) {
@@ -95,7 +106,11 @@ class JdbcOrderRepository implements OrderRepository {
         if (tempRequirement != null && !tempRequirement.isBlank()) {
             where.append(" AND temp_requirement=?"); args.add(tempRequirement);
         }
-        if (status != null && !status.isBlank()) { where.append(" AND status=?"); args.add(status); }
+        if (status != null && !status.isBlank()) {
+            List<String> statuses = java.util.Arrays.stream(status.split(",")).map(String::trim).filter(v -> !v.isEmpty()).toList();
+            where.append(" AND status IN (").append(String.join(",", Collections.nCopies(statuses.size(), "?"))).append(")");
+            args.addAll(statuses);
+        }
         if (query != null && !query.isBlank()) {
             where.append(" AND (ref ILIKE ? OR outlet_id ILIKE ? OR district ILIKE ?)");
             String like = "%" + query.trim() + "%";
@@ -139,7 +154,7 @@ class JdbcOrderRepository implements OrderRepository {
     public List<CustomerOrder> findConfirmedForDateDepot(LocalDate date, String depot) {
         return db.query("""
             SELECT * FROM customer_order
-            WHERE order_date=? AND depot=? AND status='confirmed'
+            WHERE planning_date=? AND depot=? AND status IN ('confirmed','deferred')
             ORDER BY id ASC
             """, ROW, Date.valueOf(date), depot);
     }
@@ -147,7 +162,7 @@ class JdbcOrderRepository implements OrderRepository {
     @Override
     public long countByDateDepotStatus(LocalDate date, String depot, String status) {
         Long count = db.queryForObject(
-            "SELECT count(*) FROM customer_order WHERE order_date=? AND (?::text IS NULL OR depot=?) AND status=?",
+            "SELECT count(*) FROM customer_order WHERE planning_date=? AND (?::text IS NULL OR depot=?) AND status=?",
             Long.class, Date.valueOf(date), depot, depot, status
         );
         return count == null ? 0 : count;

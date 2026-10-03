@@ -44,7 +44,9 @@ public class OrderQueryService {
         reference.day(day);
         String depot = requestedDepot == null || requestedDepot.isBlank() ? user.depot() : requestedDepot;
         if (depot != null && (!user.canAccessDepot(depot) || !reference.depots(user).contains(depot))) throw missing();
-        long confirmed = orders.countByDateDepotStatus(day, depot, "confirmed");
+        // Orders to plan include those carried into this run by an earlier deferral.
+        long confirmed = orders.countByDateDepotStatus(day, depot, "confirmed")
+            + orders.countByDateDepotStatus(day, depot, "deferred");
         long planned = orders.countByDateDepotStatus(day, depot, "planned");
         int total = (int) (confirmed + planned);
         String depotLabel = depot == null ? "All depots" : depot;

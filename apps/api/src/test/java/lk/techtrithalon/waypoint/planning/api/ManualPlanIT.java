@@ -23,11 +23,12 @@ class ManualPlanIT extends ReferenceApiTestSupport {
     private long snapshot;
     @BeforeEach void setup() throws Exception {
         reset(audit);
+        db.execute("TRUNCATE deferral_acknowledgement, deferral");
         db.update("DELETE FROM plan");
         db.update("DELETE FROM planning_snapshot");
         db.update("DELETE FROM audit_event");
         db.update("DELETE FROM fuel_ledger");
-        db.update("UPDATE customer_order SET status='confirmed',version=0 WHERE ref IN ('SYN001','SYN002')");
+        db.update("UPDATE customer_order SET status='confirmed',version=0,planning_date=order_date WHERE ref IN ('SYN001','SYN002')");
         db.update("UPDATE outlet SET parking_constraint='normal' WHERE outlet_id='OUT901'");
         db.update("UPDATE app_user SET depot=NULL WHERE username='DSP-001'");
         dispatcher=login("DSP-001","synthetic-dispatcher-password");
@@ -73,7 +74,7 @@ class ManualPlanIT extends ReferenceApiTestSupport {
             Map.of("expectedVersion",1,"reason","Synthetic route review","orderIds",List.of(freshOrder)),200);
         add(plan,2,"Style",2,List.of(styleOrder));
         postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+styleOrder+"/defer",
-            Map.of("expectedVersion",3,"reason","Synthetic deferred delivery","nextDeliveryDate","2026-06-27"),200);
+            Map.of("expectedVersion",3,"reason","Synthetic deferred delivery","nextDeliveryDate","2026-06-27","reasonCode","CAPACITY"),200);
         postJson("/api/v1/dispatcher/plans/"+plan+"/orders/"+styleOrder+"/restore",
             Map.of("expectedVersion",4,"reason","Synthetic restore"),200);
         var restored=read(plan);

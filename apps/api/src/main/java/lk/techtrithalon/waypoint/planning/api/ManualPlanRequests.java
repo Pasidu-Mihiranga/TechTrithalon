@@ -8,6 +8,8 @@ import java.util.List;
 
 public final class ManualPlanRequests {
     private ManualPlanRequests() {}
+    /** Figma defer-dialog reasons: capacity, no reefer, window conflict, van access, other (free text). */
+    public static final String REASON_CODES="CAPACITY|NO_REEFER|WINDOW_CONFLICT|VAN_ACCESS|OTHER";
     @Schema(name="ManualPlanCreateRequest")
     public record Create(@NotNull @Positive Long snapshotId, @NotBlank @Size(max=500) String reason) {}
     @Schema(name="ManualPlanCommandRequest")
@@ -19,7 +21,10 @@ public final class ManualPlanRequests {
                        @NotNull @Size(max=100000) List<@NotNull @Positive Long> orderIds) {}
     @Schema(name="ManualPlanDispositionRequest")
     public record Disposition(@Positive long orderId, @NotBlank @Pattern(regexp="UNASSIGNED|DEFERRED") String code,
-                              @NotBlank @Size(max=500) String reason, LocalDate nextDeliveryDate) {}
+                              @NotBlank @Size(max=500) String reason, LocalDate nextDeliveryDate,
+                              @Schema(description="Required for DEFERRED") @Pattern(regexp=REASON_CODES) String reasonCode,
+                              @Schema(description="Defaults to true") Boolean protectNextRun,
+                              @Schema(description="Defaults to true") Boolean notifyStore) {}
     @Schema(name="ManualPlanReplaceRequest")
     public record Replace(@NotNull @Min(0) Integer expectedVersion, @NotBlank @Size(max=500) String reason,
                           @NotNull @Size(max=10000) List<@NotNull @Valid Trip> trips,
@@ -39,5 +44,8 @@ public final class ManualPlanRequests {
                            @NotNull @Size(max=100000) List<@NotNull @Positive Long> orderIds) {}
     @Schema(name="ManualPlanDeferRequest")
     public record Defer(@NotNull @Min(0) Integer expectedVersion, @NotBlank @Size(max=500) String reason,
-                        LocalDate nextDeliveryDate) {}
+                        LocalDate nextDeliveryDate,
+                        @Schema(description="Required when deferring; ignored on restore") @Pattern(regexp=REASON_CODES) String reasonCode,
+                        @Schema(description="Defaults to true") Boolean protectNextRun,
+                        @Schema(description="Defaults to true") Boolean notifyStore) {}
 }

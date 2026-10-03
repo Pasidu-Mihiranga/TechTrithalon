@@ -109,6 +109,16 @@ public class OrderCommandService {
         }
     }
 
+    /** Published for planning: carries a deferred order to a later planning run inside the publish transaction. */
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public void markDeferred(CurrentUser user,long id,LocalDate nextPlanningDate,String reason) {
+        var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
+        if (!user.canAccessDepot(before.depot())) throw new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found");
+        if (!orders.markDeferred(id,before.version(),nextPlanningDate,clock.instant()))
+            throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","An order changed during publication; reload before retrying");
+        audit.record("order.deferred",user,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),reason);
+    }
+
     private static BigDecimal requirePositive(BigDecimal value, String field, String code) {
         if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, code, field + " must be greater than zero");

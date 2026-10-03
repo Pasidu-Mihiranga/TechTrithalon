@@ -36,7 +36,9 @@ class JdbcManualPlanRepository implements ManualPlanRepository {
                         (s,k) -> s.getLong(1),t.getLong("id"))), id);
             List<ManualPlan.OrderDisposition> reasons = db.query("SELECT * FROM plan_order_disposition WHERE plan_id=? ORDER BY order_id",
                 (d,j) -> new ManualPlan.OrderDisposition(d.getLong("order_id"),d.getString("code"),d.getString("reason"),
-                    d.getDate("next_delivery_date") == null ? null : d.getDate("next_delivery_date").toLocalDate()), id);
+                    d.getDate("next_delivery_date") == null ? null : d.getDate("next_delivery_date").toLocalDate(),
+                    d.getString("reason_code"),d.getBoolean("protect_next_run"),d.getBoolean("notify_store"),
+                    d.getObject("decided_by",Long.class),d.getString("decided_by_name"),d.getTimestamp("decided_at") == null ? null : d.getTimestamp("decided_at").toInstant()), id);
             return new ManualPlan(id,rs.getLong("snapshot_id"),rs.getDate("plan_date").toLocalDate(),rs.getString("depot"),
                 rs.getInt("version"),rs.getString("status"),rs.getInt("lock_version"),rs.getLong("created_by"),
                 rs.getTimestamp("created_at").toInstant(),rs.getTimestamp("updated_at").toInstant(),
@@ -62,8 +64,11 @@ class JdbcManualPlanRepository implements ManualPlanRepository {
                 plan.id(),id,trip.orderIds().get(seq),seq+1);
         }
         db.update("DELETE FROM plan_order_disposition WHERE plan_id=?",plan.id());
-        for (var d : dispositions) db.update("INSERT INTO plan_order_disposition(plan_id,order_id,code,reason,next_delivery_date) VALUES(?,?,?,?,?)",
-            plan.id(),d.orderId(),d.code(),d.reason(),d.nextDeliveryDate()==null ? null : Date.valueOf(d.nextDeliveryDate()));
+        for (var d : dispositions) db.update("""
+            INSERT INTO plan_order_disposition(plan_id,order_id,code,reason,next_delivery_date,reason_code,protect_next_run,notify_store,decided_by,decided_by_name,decided_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            """,plan.id(),d.orderId(),d.code(),d.reason(),d.nextDeliveryDate()==null ? null : Date.valueOf(d.nextDeliveryDate()),
+            d.reasonCode(),d.protectNextRun(),d.notifyStore(),d.decidedBy(),d.decidedByName(),d.decidedAt()==null ? null : Timestamp.from(d.decidedAt()));
         db.update("UPDATE plan SET lock_version=lock_version+1,updated_at=? WHERE id=?",Timestamp.from(at),plan.id());
     }
     public boolean hasPublished(LocalDate date, String depot) {

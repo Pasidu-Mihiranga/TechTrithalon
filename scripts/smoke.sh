@@ -141,7 +141,7 @@ orders_to_plan=$(echo "$dashboard" | json_field "['ordersToPlan']['value']")
 [[ "$(echo "$dashboard" | json_field "['ordersPlanned']['available']")" == "True" ]] || fail "persisted planned-order count should be available"
 planned_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&status=planned&size=1")
 [[ "$(echo "$dashboard" | json_field "['ordersPlanned']['value']")" == "$(echo "$planned_page" | json_field "['total']")" ]] || fail "planned-order count mismatch"
-order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&status=confirmed&size=1")
+order_page=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders?date=$demo_date&status=confirmed,deferred&size=1")
 [[ "$(echo "$order_page" | json_field "['total']")" == "$orders_to_plan" ]] || fail "orders total mismatch: $order_page vs $orders_to_plan"
 first_order_id=$(echo "$order_page" | json_field "['items'][0]['id']")
 curl -fsS -b "$cookies" "$API/api/v1/dispatcher/orders/$first_order_id" > /dev/null
@@ -153,6 +153,13 @@ curl -fsS -b "$cookies" "$API/api/v1/dispatcher/fleet/$(echo "$fleet" | json_fie
 assert_failure 403 FORBIDDEN -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
   -d '{"tempRequirement":"ambient","units":1,"weightKg":10,"volumeM3":0.1}' "$API/api/v1/store/orders"
 assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/orders/999999999"
+
+echo "Deferral history: run summary and store notices (read-only)"
+deferral_run=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/deferrals?date=$demo_date&depot=$depot")
+[[ "$(echo "$deferral_run" | json_field "['deferredOrders']")" == "$(echo "$deferral_run" | python3 -c "import sys,json; print(len(json.load(sys.stdin)['items']))")" ]] \
+  || fail "deferral total does not match its rows: $deferral_run"
+assert_failure 400 BAD_REQUEST -b "$cookies" "$API/api/v1/dispatcher/deferrals?date=not-a-date"
+[[ "$(curl -sS -o /dev/null -w '%{http_code}' "$API/api/v1/store/deferrals")" == "401" ]] || fail "anonymous store deferrals did not return 401"
 
 echo "5/5 requests carry a trace id"
 curl -fsS -D - -o /dev/null "$API/api/v1/system/health" | tr -d '\r' | grep -qi '^x-request-id' || fail "missing X-Request-Id header"
@@ -172,6 +179,9 @@ for role in STORE_MANAGER LOADER DRIVER; do
   if [[ "$role" == "STORE_MANAGER" ]]; then
     curl -fsS -b "$cookies" "$API/api/v1/store/cutoff" > /dev/null || fail "store cutoff failed"
     curl -fsS -b "$cookies" "$API/api/v1/store/orders" > /dev/null || fail "store orders failed"
+    curl -fsS -b "$cookies" "$API/api/v1/store/deferrals" > /dev/null || fail "store deferral notices failed"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/deferrals?date=$demo_date&depot=$depot"
+    assert_failure 404 NOT_FOUND -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/store/deferrals/999999999/acknowledge"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/planning/snapshots/$snap_id"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id"
     assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
