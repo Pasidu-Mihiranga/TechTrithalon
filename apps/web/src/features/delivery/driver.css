@@ -225,3 +225,23 @@ textarea.dv-input { min-height: 56px; resize: vertical; }
 .dv-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .dv-fieldset legend { padding: 0; margin-bottom: var(--space-8); }
 .dv-sign-pad { color: var(--color-text-primary); }
+a.dv-net { text-decoration: none; }
+a.dv-net:focus-visible { outline: none; box-shadow: var(--shadow-focus-ring); }
+.dv-net-syncing { background: var(--color-type-normal-soft); color: var(--color-type-normal); }
+.dv-net-review { background: var(--color-status-danger-soft); color: var(--color-status-danger); }
+.dv-topbar .dv-net-offline, .dv-topbar .dv-net-syncing, .dv-topbar .dv-net-review { background: color-mix(in srgb, var(--color-bg-surface) 12%, transparent); }
+.dv-topbar .dv-net-offline { color: var(--color-brand-primary); }
+.dv-topbar .dv-net-syncing { color: color-mix(in srgb, var(--color-type-normal) 60%, var(--color-bg-surface)); }
+.dv-topbar .dv-net-review { color: color-mix(in srgb, var(--color-status-danger) 70%, var(--color-bg-surface)); }
+
+/* Sync Status (Figma 62:5536 offline, 188:913 back online) */
+.dv-sync-hero { display: flex; flex-direction: column; align-items: center; gap: var(--space-8); padding: var(--space-32) var(--space-20) var(--space-28); text-align: center; }
+.dv-sync-hero-offline { background: var(--color-status-danger-soft); }
+.dv-sync-hero-online { background: color-mix(in srgb, var(--color-status-success) 14%, var(--color-bg-surface)); }
+.dv-sync-icon { width: 64px; height: 64px; border-radius: var(--radius-full); background: var(--color-bg-surface); display: inline-flex; align-items: center; justify-content: center; margin-bottom: var(--space-8); }
+.dv-sync-hero-offline .dv-sync-icon { color: var(--color-status-danger); }
+.dv-sync-hero-online .dv-sync-icon { color: var(--color-status-success); }
+.dv-review { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); background: var(--color-status-warning-soft); color: var(--color-status-warning); font-size: var(--font-body-s-size); line-height: 18px; }
+.dv-review strong { display: inline-flex; align-items: center; gap: var(--space-6); font-size: 14px; }
+.dv-review-item { color: var(--color-text-primary); }
+.dv-review-item span { color: var(--color-status-warning); }

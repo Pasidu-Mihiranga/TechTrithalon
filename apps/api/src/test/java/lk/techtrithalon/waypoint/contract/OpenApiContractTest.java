@@ -35,6 +35,7 @@ import org.springframework.test.web.servlet.MockMvc;
 class OpenApiContractTest {
     @Autowired MockMvc mvc;
     @MockitoBean JdbcTemplate jdbcTemplate;
+    @MockitoBean org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @Test
     void committedSpecMatchesTheRunningApi() throws Exception {

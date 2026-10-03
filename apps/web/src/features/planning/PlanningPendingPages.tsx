@@ -1,3 +1,4 @@
+import { ReceiptDiscrepanciesPanel } from '../receipt/ReceiptDiscrepanciesPanel'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Badge, Button, Card, DataTable, EmptyState, ErrorState, Input, LoadingState, MetricCard, PageHeader } from '../../components'
@@ -132,6 +133,7 @@ function formatInstant(value: string) {
 export function ExceptionsPage() {
   return <>
     <PageHeader title="Exceptions" subtitle="Issues requiring dispatcher attention." />
+    <ReceiptDiscrepanciesPanel />
     <div className="split-view">
       <UnavailablePanel title="Open, in-progress and resolved issues" description="Phase 10 supplies planning exceptions and their resolution history." />
       <UnavailablePanel title="Issue detail and suggested fix" description="Validated fixes become available with the constraint and explanation services." />

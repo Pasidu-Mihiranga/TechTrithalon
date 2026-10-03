@@ -193,3 +193,14 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - Done (online): the driver runs a handed-over trip on a phone through to trip completion, with outcomes, reasons and proof stored with actor and time. Another driver cannot see the trip. A revision cannot pull orders off a departed trip. Evidence: `docs/DELIVERY_VERIFICATION.md`.
 - Device-aware layouts for all four roles (phone, tablet, desktop).
 - Still open: a real Cloudinary upload (needs `CLOUDINARY_URL`), offline outbox and sync (Step 6), store receipt (Step 7), Live Operations (Step 8), and the Docker smoke and real-dataset runs.
+
+## Step 6 follow-up: driver offline mode, 2026-10-03
+
+- Done: offline outbox with idempotent sync, in device order, with duplicate, conflict and rejection results; driver's record wins (flagged) when the plan changed offline; Sync Status screen and offline states; installable PWA that opens without signal. Evidence: `docs/OFFLINE_SYNC_VERIFICATION.md`.
+- Still open: store receipt (Step 7), dispatcher exceptions and Live Operations, including showing review flags and clock skew (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
+
+## Step 7 follow-up: store receipt, 2026-10-04
+
+- Done: the store manager confirms or disputes each delivered order against the driver's record; disputes reach the dispatcher, who decides them; the order ends as `receipt_confirmed`. The four-role lifecycle passes in the browser. Evidence: `docs/RECEIPT_VERIFICATION.md`.
+- Still open: dispatcher exceptions queue and Live Operations (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
+

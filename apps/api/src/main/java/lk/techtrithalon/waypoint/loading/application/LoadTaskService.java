@@ -84,6 +84,23 @@ public class LoadTaskService {
         return tasks.activeForDriver(date, driver.id());
     }
 
+    /**
+     * Published for the store's delivery view: the current task carrying each order (driver, vehicle,
+     * trip, planned departure). The caller has already limited the ids to the signed-in store's own orders.
+     */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('STORE_MANAGER')")
+    public List<LoadTask> currentForOrders(CurrentUser store, List<Long> orderIds) {
+        return tasks.activeForOrders(orderIds);
+    }
+
+    /** Every task published to the driver for a run, replaced versions included (newest first). */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('DRIVER')")
+    public List<LoadTask> everForDriver(CurrentUser driver, java.time.LocalDate date) {
+        return tasks.allForDriver(date, driver.id());
+    }
+
     /** Current (not superseded) tasks of a run, for publication checks. */
     @Transactional(readOnly = true)
     @PreAuthorize("hasRole('DISPATCHER')")

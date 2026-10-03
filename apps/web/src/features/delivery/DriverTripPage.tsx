@@ -49,7 +49,7 @@ export function DriverTripPage() {
         <span className={`dv-pill dv-pill-${state.tone}`}>{state.label}</span>
       </DriverHeader>
       <div className="dv-body">
-        <OfflineNotice />
+        <OfflineNotice fromCache={trip.fromCache} />
         {trips.length > 1 ? (
           <nav className="dv-seg" aria-label="Your trips today">
             {trips.map(t => (
@@ -97,7 +97,7 @@ export function DriverTripPage() {
 function TripAction({ detail }: { detail: DriverTripDetail }) {
   const navigate = useNavigate()
   const card = detail.card
-  const action = useDriverAction(card.tripIndex, detail.version)
+  const action = useDriverAction(card)
   const base = `/driver/trips/${card.tripIndex}`
   if (card.state === 'READY' || card.state === 'LOADING') {
     return (
@@ -112,7 +112,7 @@ function TripAction({ detail }: { detail: DriverTripDetail }) {
         </div>
         {detail.startBlocker ? <p className="dv-next-sub" role="status">{detail.startBlocker}.</p> : null}
         <button type="button" className="dv-btn dv-btn-primary" disabled={Boolean(detail.startBlocker) || action.isPending}
-          onClick={() => action.mutate({ kind: 'start', planVersion: card.planVersion })}>
+          onClick={() => action.mutate({ kind: 'start' })}>
           <Navigation size={20} aria-hidden="true" />{action.isPending ? 'Starting…' : 'Start Trip'}
         </button>
         <ActionError error={action.error} />

@@ -61,9 +61,10 @@ class DriverController {
     @ResponseStatus(HttpStatus.CREATED)
     DriverViews.PodUpload upload(@AuthenticationPrincipal CurrentUser user, @PathVariable int tripIndex, @PathVariable long orderId,
                                  @RequestParam(required=false) LocalDate date, @RequestParam String kind,
+                                 @RequestParam(required=false) java.util.UUID clientUploadId,
                                  @RequestPart("file") MultipartFile file) {
         try {
-            return service.upload(user, tripIndex, orderId, date, kind, file.getBytes());
+            return service.upload(user, tripIndex, orderId, date, kind, file.getBytes(), clientUploadId);
         } catch (IOException e) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "FILE_UNREADABLE", "The upload could not be read");
         }

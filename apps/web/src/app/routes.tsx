@@ -35,6 +35,11 @@ import { DriverTripDonePage } from '../features/delivery/DriverTripDonePage'
 import { DriverDeliveriesPage } from '../features/delivery/DriverDeliveriesPage'
 import { DriverDeliveryDetailPage } from '../features/delivery/DriverDeliveryDetailPage'
 import { DriverProfilePage } from '../features/delivery/DriverProfilePage'
+import { SyncStatusPage } from '../features/offline/SyncStatusPage'
+import { StoreDeliveriesPage } from '../features/receipt/StoreDeliveriesPage'
+import { ConfirmReceiptPage } from '../features/receipt/ConfirmReceiptPage'
+import { ReportIssuePage } from '../features/receipt/ReportIssuePage'
+import { StoreIssuesPage } from '../features/receipt/StoreIssuesPage'
 import type { ReactNode } from 'react'
 import type { RoleConfig, RolePage } from './roles'
 
@@ -46,6 +51,8 @@ function pageElement(role: RoleConfig, page: RolePage) {
   if (role.key === 'store' && page.end && page.to === '/store') return <StoreHomePage />
   if (role.key === 'store' && page.to === '/store/orders') return <StoreOrdersPage />
   if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderPage />
+  if (role.key === 'store' && page.to === '/store/deliveries') return <StoreDeliveriesPage />
+  if (role.key === 'store' && page.to === '/store/issues') return <StoreIssuesPage />
   if (role.key === 'loader' && page.end) return <LoaderHomePage />
   if (role.key === 'loader' && page.to === '/loader/issues') return <LoaderIssuesPage />
   if (role.key === 'loader' && page.to === '/loader/profile') return <LoaderProfilePage />
@@ -84,7 +91,13 @@ function roleRoutes(role: RoleConfig) {
           <Route path="fleet/:vehicleId" element={<FleetDetailPage />} />
         </>
       ) : null}
-      {role.key === 'store' ? <Route path="orders/:id" element={<StoreOrderDetailPage />} /> : null}
+      {role.key === 'store' ? (
+        <>
+          <Route path="orders/:id" element={<StoreOrderDetailPage />} />
+          <Route path="deliveries/:orderId" element={<ConfirmReceiptPage />} />
+          <Route path="deliveries/:orderId/issue" element={<ReportIssuePage />} />
+        </>
+      ) : null}
       {role.key === 'loader' ? (
         <>
           <Route path="trips/:taskId" element={<LoaderTripPage />} />
@@ -102,6 +115,7 @@ function roleRoutes(role: RoleConfig) {
           <Route path="trips/:tripIndex/orders/:orderId/confirm" element={<DriverRecordPage mode="confirm" />} />
           <Route path="trips/:tripIndex/orders/:orderId/issue" element={<DriverRecordPage mode="issue" />} />
           <Route path="deliveries/:orderId" element={<DriverDeliveryDetailPage />} />
+          <Route path="sync" element={<SyncStatusPage />} />
         </>
       ) : null}
     </Route>

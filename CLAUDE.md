@@ -11,6 +11,8 @@ All project rules for AI agents live in **AGENTS.md** and apply to Claude in ful
 - Loader tablet frames (834 wide; each has a phone twin on the same page): Home `93:7502`, Trip `93:7636`, Order Loading `93:7810`, Report Shortfall `553:7136`, Shortfall recorded `749:12866`, All checked `767:12909`, Ready for handover `567:7166`, Trip Completion `94:7621`, Issues `94:7720` (open `789:13121`, resolved `789:13302`), Vehicle hold `801:15378` / `839:19949`, Manifest update `841:19967` (acknowledged `841:20037`), Profile `94:7860`, Login `1116:38070`. Phone: Home `365:7647`, Trip `365:7694`, Order Loading `365:7819`, Report shortfall `365:7862`, Trip Loaded `441:991`.
 - Driver phone frames (402 wide): Home `55:5282`, Trip Overview `56:5295`, Route `56:5398`, Stop Details `58:5317`, Order Delivery `58:5393`, Delivery Confirmation `58:5464`, Report Issue `59:5378`, Issue Recorded `59:5434`, Stop Completed `60:5390`, Trip Completed `60:5432`, Trip Submitted `60:5468`, Deliveries `61:5417`, Delivery Details `61:5543`, Profile `61:5602`, Offline Sync `62:5536`, Sync Reconciled `188:913`, Notifications `62:5578`; action states section `835:19496` (proof photo `835:20475`, signature `835:20586`).
 - Proof-of-delivery files go to Cloudinary (owner decision 2026-10-03, `docs/adr/0001-proof-of-delivery-storage.md`); configure `CLOUDINARY_URL`.
+- Driver offline: all driver writes go through the `packages/field-core` outbox (`POST /api/v1/driver/sync`); driver TanStack hooks must use `networkMode: 'always'` or they pause offline. Offline frames: Offline Sync `62:5536`, Sync Reconciled `188:913`.
+- Store receipt: the store confirms or disputes per order (`/api/v1/store/deliveries`, `/store/issues`); the dispatcher resolves at `/api/v1/dispatcher/receipt-discrepancies`. Store frames: Deliveries `89:7490`, Confirm Receipt `352:7457`, Report an issue `532:10602`, Issues `89:7890`.
 - Layouts are chosen per device: `apps/web/src/lib/device.ts` sets `data-device` (phone/tablet/desktop) on `<html>`; shells key on it.
 - Quantities are per order, in units (owner decision 2026-10-03): the data has no product catalog, so Figma's product-line, barcode and "choose affected item" screens map to one line per order.
 - Before implementing a screen from Figma, load the `figma-design-to-code` skill and map the design to the existing tokens and components. Don't paste the generated reference code as-is.
@@ -59,6 +61,8 @@ The driver **PWA comes before the APK.** Part B phases are not dropped. Until th
 Before starting a step, state its complexity (Low / Medium / High) and the reason, then wait. The owner picks the model.
 
 ## Cost rules (keep token use low)
+
+- **Verification (owner decision 2026-10-03, details in AGENTS.md §6):** integration tests are the main proof. Run one quiet curl script per step that prints only mismatches, and fold it into `scripts/smoke.sh`. Run affected tests while building and the full suites once at the end, in the background. Take one screenshot per new screen. Keep chat reports short.
 
 - **Read narrowly.** Don't read `TECHNICAL_REFERENCE.md` (3.4k lines), `IMPLEMENTATION_PLAN.md` or the verification docs whole. `grep -n` for the section, then read only those lines. Read the booklet only from the extracted text, and only the pages needed.
 - **Figma:** call `get_metadata` once per flow. Take `get_screenshot` / `get_design_context` only for the frame being built right now.

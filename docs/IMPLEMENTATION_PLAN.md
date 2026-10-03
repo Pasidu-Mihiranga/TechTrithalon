@@ -21,9 +21,9 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 13 — Driver Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; real Cloudinary upload, Docker smoke and real-dataset run pending)**
-- [ ] Phase 14 — Offline & Sync
+- [x] Phase 14 — Offline & Sync **(tests, curl/SQL, Playwright offline journey and service-worker check on synthetic data; real Cloudinary upload and real-dataset run pending)**
 - [ ] Phase 14A — Driver Android App (React Native)
-- [ ] Phase 15 — Receipt Confirmation
+- [x] Phase 15 — Receipt Confirmation **(tests, curl/SQL, Playwright four-role lifecycle on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 16 — Live Operations
 - [ ] Phase 17 — Forecasting Foundation
 - [ ] Phase 18 — Service-Time & Late-Risk ML
@@ -1084,18 +1084,18 @@ Field work must survive lost connectivity and replay without duplicate events.
 
 #### Backend
 
-- [ ] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
-- [ ] Preserve occurred-at and recorded-at timestamps.
+- [x] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
+- [x] Preserve occurred-at and recorded-at timestamps.
 
 #### Frontend
 
-- [ ] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
-- [ ] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
-- [ ] Show pending count, retry, reconciling, conflict, and route-updated states.
+- [x] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
+- [x] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
+- [x] Show pending count, retry, reconciling, conflict, and route-updated states.
 
 #### Database
 
-- [ ] Add sync command idempotency table and retention policy.
+- [x] Add sync command idempotency table and retention policy.
 
 #### Python / Intelligence
 
@@ -1103,11 +1103,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
+- [x] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
 
 #### Documentation
 
-- [ ] Document conflict policy and queue recovery.
+- [x] Document conflict policy and queue recovery. ([OFFLINE_SYNC_VERIFICATION.md](./OFFLINE_SYNC_VERIFICATION.md))
 
 ### Parallel Work
 
@@ -1115,9 +1115,9 @@ Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one com
 
 ### Exit Gate
 
-- [ ] Offline actions survive reload and sync exactly once.
-- [ ] Conflicts are visible without losing the field record.
-- [ ] Completed stops stand across plan versions.
+- [x] Offline actions survive reload and sync exactly once.
+- [x] Conflicts are visible without losing the field record.
+- [x] Completed stops stand across plan versions.
 
 ### Result
 
@@ -1189,15 +1189,15 @@ The store must verify what actually arrived and report discrepancies.
 
 #### Backend
 
-- [ ] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
+- [x] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
 
 #### Frontend
 
-- [ ] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
+- [x] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
 
 #### Database
 
-- [ ] Add receipt and discrepancy records with actor/time.
+- [x] Add receipt and discrepancy records with actor/time.
 
 #### Python / Intelligence
 
@@ -1205,11 +1205,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E.
+- [x] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 #### Documentation
 
-- [ ] Document receipt resolution and final status semantics.
+- [x] Document receipt resolution and final status semantics. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Parallel Work
 
@@ -1217,9 +1217,9 @@ Receipt backend and store UI can proceed on a delivered-stop read contract; full
 
 ### Exit Gate
 
-- [ ] Store manager confirms or disputes delivered items.
-- [ ] Dispatcher sees discrepancies.
-- [ ] Four-role lifecycle passes end to end.
+- [x] Store manager confirms or disputes delivered items.
+- [x] Dispatcher sees discrepancies.
+- [x] Four-role lifecycle passes end to end. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Result
 

@@ -1,0 +1,10 @@
+{
+  "name": "@techtrithalon/field-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline field logic shared by the driver PWA and the driver app: outbox, sync engine, local projection.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -79,6 +79,20 @@ class JdbcLoadTaskRepository implements LoadTaskRepository {
             this::task, Date.valueOf(date), driverUserId);
     }
 
+    public List<LoadTask> activeForOrders(java.util.Collection<Long> orderIds) {
+        if (orderIds.isEmpty()) return List.of();
+        return db.query("""
+            SELECT * FROM load_task WHERE status<>'superseded'
+              AND id IN (SELECT load_task_id FROM load_line WHERE order_id = ANY(?))
+            ORDER BY plan_date,trip_index
+            """, this::task, (Object) orderIds.toArray(Long[]::new));
+    }
+
+    public List<LoadTask> allForDriver(LocalDate date, long driverUserId) {
+        return db.query("SELECT * FROM load_task WHERE plan_date=? AND driver_user_id=? ORDER BY plan_version DESC,trip_index",
+            this::task, Date.valueOf(date), driverUserId);
+    }
+
     public void inheritLoaded(long taskId, long replacedTaskId) {
         db.update("""
             UPDATE load_task n SET status='loaded', loaded_by=o.loaded_by, loaded_at=o.loaded_at,
