@@ -4,22 +4,20 @@ import {
   Box,
   CheckCircle,
   Clock,
-  Download,
   Fuel,
+  GitCompare,
   Lock,
-  Mail,
-  MessageSquare,
   Navigation,
   RotateCcw,
   Send,
-  Smartphone,
   Truck,
-  Warehouse,
+  UserRound,
   X,
 } from 'lucide-react'
-import { EmptyState } from '../../components'
-import type { ManualPlanView } from './manualPlanQueries'
-import { ManualPlanRequestError } from './manualPlanQueries'
+import { Badge, EmptyState } from '../../components'
+import type { ManualPlanView, PlanChanges, PublishedTrip } from './manualPlanQueries'
+import { ManualPlanRequestError, useLoadingIssues, useManualPlans, usePlanChanges, useResolveLoadingIssue } from './manualPlanQueries'
+import type { LoadingIssue } from './manualPlanQueries'
 
 export interface DispatchManifestRow {
   vehicle: string
@@ -27,7 +25,6 @@ export interface DispatchManifestRow {
   stops: number
   volume: string
   departs?: string
-  bay?: string
   accentColor?: string
 }
 
@@ -36,7 +33,6 @@ export interface DispatchMetrics {
   totalDrivers: number
   totalOrders: number
   totalVolumeM3: number
-  depotWindow?: string
 }
 
 export interface PlanningStep5ConfirmProps {
@@ -44,16 +40,34 @@ export interface PlanningStep5ConfirmProps {
   planDate: string
   manifestRows?: DispatchManifestRow[]
   metrics?: DispatchMetrics
-  onPublishPlan?: (options: {
-    notifyLoaderApp: boolean
-    notifyDriverSms: boolean
-    notifySupervisorEmail: boolean
-  }) => Promise<void>
+  onPublishPlan?: () => Promise<void>
   candidateView?: ManualPlanView | null
   onPublishCandidate?: (reason: string) => Promise<void>
+  /** Starts a revision of the current published version; 'empty' skips copying its trips. */
+  onRevise?: (startFrom: 'published' | 'empty') => Promise<void>
+  /** Opens another version of this run (the version that replaced a superseded one). */
+  onOpenPlan?: (planId: number) => void
   failure?: Error | null
   onReloadPlan?: () => void
   actionPending?: boolean
+}
+
+const CHANGE_LABELS: Record<string, string> = {
+  ADDED: 'Added', REMOVED: 'Removed (deferred)', MOVED: 'Moved', RESEQUENCED: 'Stop order changed',
+}
+
+function clock(value?: string | null) {
+  return value ? value.slice(0, 5) : '—'
+}
+
+function timeOf(instant?: string | null) {
+  if (!instant) return '—'
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Colombo', hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+    .format(new Date(instant))
+}
+
+function metric(value: number | null | undefined, unit: string, digits = 1) {
+  return value == null ? '—' : `${Number(value).toFixed(digits)} ${unit}`
 }
 
 export function PlanningStep5Confirm({
@@ -64,74 +78,27 @@ export function PlanningStep5Confirm({
   onPublishPlan,
   candidateView,
   onPublishCandidate,
+  onRevise,
+  onOpenPlan,
   failure,
   onReloadPlan,
   actionPending = false,
 }: PlanningStep5ConfirmProps) {
-  const notifyLoaderApp = false
-  const notifyDriverSms = false
-  const notifySupervisorEmail = false
-
-  // 5A+ Modal State
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
-  const [publishReason, setPublishReason] = useState('Publishing finalized delivery routes and locking fuel allocations')
+  const [publishReason, setPublishReason] = useState('Publish the validated delivery plan to the dock and drivers')
   const [publishing, setPublishing] = useState(false)
   const [localPublishError, setLocalPublishError] = useState<string | null>(null)
+  const [showToast, setShowToast] = useState(false)
+  const [revising, setRevising] = useState(false)
+  const [reviseError, setReviseError] = useState<ManualPlanRequestError | Error | null>(null)
 
-  // 5B Plan Sent State: if already published on backend, start in sent state
-  const isAlreadyPublished = candidateView?.plan?.status === 'published'
-  const [planSent, setPlanSent] = useState(isAlreadyPublished)
-  const [showToast, setShowToast] = useState(true)
-
-  // Derive manifest rows from candidateView when present
-  const manifestRows: DispatchManifestRow[] = candidateView
-    ? (candidateView.trips ?? []).map((trip) => {
-        const util = candidateView.utilisation?.[String(trip.id)]
-        const volUsed = util?.volumeUsedM3 != null ? util.volumeUsedM3.toFixed(1) : '—'
-        const volLimit = util?.volumeLimitM3 != null ? util.volumeLimitM3.toFixed(1) : '—'
-        return {
-          vehicle: `${trip.vehicleId} (Slot ${trip.tripIndex ?? 1})`,
-          driver: 'Unassigned', // Drivers are unassigned in Phase 7
-          stops: trip.stops?.length ?? 0,
-          volume: `${volUsed} / ${volLimit} m³`,
-          departs: 'Not provided',
-          bay: 'Unassigned',
-          accentColor: '#FFC20E',
-        }
-      })
-    : propsManifestRows
-
-  // Derive counts & KPIs
-  const vehiclesCount = candidateView
-    ? (candidateView.validation?.metrics?.vehiclesUsed ?? '—')
-    : (propsMetrics?.totalVehicles ?? '—')
-
-  const driversCount = candidateView
-    ? 'Unassigned'
-    : (propsMetrics?.totalDrivers ?? '—')
-
-  const ordersCount = candidateView
-    ? (candidateView.validation?.metrics?.ordersAssigned ?? '—')
-    : (propsMetrics?.totalOrders ?? '—')
-
-  const totalVolumeStr = candidateView
-    ? candidateView.validation?.metrics?.assignedVolumeM3 != null
-      ? `${candidateView.validation.metrics.assignedVolumeM3.toFixed(1)} m³`
-      : '—'
-    : propsMetrics
-      ? `${propsMetrics.totalVolumeM3.toFixed(1)} m³`
-      : '—'
-
-  const totalDistanceStr = candidateView?.validation?.metrics?.totalDistanceKm != null
-    ? `${candidateView.validation.metrics.totalDistanceKm} km`
-    : '—'
-
-  const totalFuelStr = candidateView?.validation?.metrics?.totalFuelLitres != null
-    ? `${candidateView.validation.metrics.totalFuelLitres} L`
-    : '—'
-
-  // The server refuses publication while any order is neither on a trip nor explicitly deferred.
-  const undecidedOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition !== 'DEFERRED')
+  const plan = candidateView?.plan
+  const changes = usePlanChanges(plan?.id ?? undefined)
+  const runPlans = useManualPlans(plan?.planDate ?? '', plan?.depot)
+  // The version publication would replace must still be the current one; the server enforces this too.
+  const current = (runPlans.data ?? []).find(v => v.plan.status === 'published')?.plan
+  const staleBase = plan?.status === 'candidate' && runPlans.isSuccess && (current?.id ?? null) !== (plan.basedOnPlanId ?? null)
+  const metricsView = candidateView?.validation?.metrics
 
   async function handleSendPlan() {
     setPublishing(true)
@@ -140,16 +107,11 @@ export function PlanningStep5Confirm({
       if (candidateView && onPublishCandidate) {
         await onPublishCandidate(publishReason.trim() || 'Published operational delivery plan')
       } else if (onPublishPlan) {
-        await onPublishPlan({
-          notifyLoaderApp,
-          notifyDriverSms,
-          notifySupervisorEmail,
-        })
+        await onPublishPlan()
       } else {
         throw new Error('Publication service is unavailable. No plan has been sent.')
       }
       setConfirmModalOpen(false)
-      setPlanSent(true)
       setShowToast(true)
     } catch (err) {
       setLocalPublishError(err instanceof Error ? err.message : 'Plan could not be published.')
@@ -158,219 +120,125 @@ export function PlanningStep5Confirm({
     }
   }
 
-  // 5B: Plan Sent View
-  if (planSent || isAlreadyPublished) {
+  async function handleRevise(startFrom: 'published' | 'empty') {
+    if (!onRevise) return
+    setRevising(true)
+    setReviseError(null)
+    try {
+      await onRevise(startFrom)
+    } catch (err) {
+      setReviseError(err instanceof Error ? err : new Error('The revision could not be created.'))
+    } finally {
+      setRevising(false)
+    }
+  }
+
+  if (plan && plan.status !== 'candidate') {
     return (
-      <div className="planning-step5-container animate-fade-in">
-        {/* Floating Top Notification Toast */}
-        {showToast && (
-          <div className="top-floating-toast">
-            <div className="toast-left">
-              <CheckCircle size={16} className="text-success" />
-              <span>
-                {candidateView
-                  ? `Plan #${candidateView.plan.id} published and locked. Fuel quota reserved; deferred orders moved to their next run.`
-                  : `Plan sent to ${activeDepot || 'Peliyagoda'} teams`}
-              </span>
-            </div>
-            <div className="toast-right">
-              {!isAlreadyPublished && !candidateView && (
-                <button
-                  type="button"
-                  className="toast-undo-btn"
-                  onClick={() => {
-                    setPlanSent(false)
-                    setShowToast(false)
-                  }}
-                >
-                  <span>Re-open Plan</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className="toast-close-btn"
-                onClick={() => setShowToast(false)}
-                aria-label="Dismiss toast"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Informational Disclaimer on Phase 7 vs Later Workflows */}
-        <div className="alert-card alert-info" style={{ marginBottom: 'var(--space-16)', padding: 'var(--space-12) var(--space-16)', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 'var(--radius-8)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-            <Lock size={18} className="text-brand-blue" style={{ marginTop: '2px', flexShrink: 0 }} />
-            <div>
-              <strong style={{ color: '#0369A1' }}>Plan published: </strong>
-              <span style={{ color: '#0C4A6E', fontSize: '13px' }}>
-                Operational routes are committed and vehicle fuel is reserved in the ledger. Published plans are immutable.
-                Loader and driver dispatch are unavailable.
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="step5-sent-grid">
-          {/* Left Card: Sent Status & Timeline */}
-          <div className="sent-timeline-card">
-            <div className="sent-head-row">
-              <div className="sent-big-icon-box">
-                <CheckCircle size={24} className="text-success" />
-              </div>
-              <div>
-                <h3 className="sent-title">Delivery plan is locked and active</h3>
-                <p className="sent-sub">
-                  {candidateView?.plan?.id ? `Plan #${candidateView.plan.id} (rev ${candidateView.plan.lockVersion}) · ` : ''}
-                  Sent for {planDate} · {activeDepot} Depot · {vehiclesCount} routes active
-                </p>
-              </div>
-            </div>
-
-            <div className="sent-timeline-stepper">
-              <div className="timeline-node complete">
-                <div className="node-marker">✓</div>
-                <div className="node-info">
-                  <div className="node-title">Plan published by Dispatcher</div>
-                  <div className="node-meta">
-                    Confirmed for {activeDepot} Depot {candidateView ? `· Plan ID #${candidateView.plan.id}` : ''}
-                  </div>
-                </div>
-              </div>
-
-              <div className="timeline-node complete">
-                <div className="node-marker">✓</div>
-                <div className="node-info">
-                  <div className="node-title">Fuel quota reserved & locked</div>
-                  <div className="node-meta">
-                    {totalFuelStr !== '—' ? `${totalFuelStr} fuel reserved in vehicle quota ledger` : 'Committed to vehicle ledger'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="timeline-node upcoming">
-                <div className="node-marker">○</div>
-                <div className="node-info">
-                  <div className="node-title">Warehouse loading unavailable</div>
-                  <div className="node-meta">Bay staging and pallet sequence dispatch</div>
-                </div>
-              </div>
-
-              <div className="timeline-node upcoming">
-                <div className="node-marker">○</div>
-                <div className="node-info">
-                  <div className="node-title">Driver dispatch unavailable</div>
-                  <div className="node-meta">Route navigation and ePOD rollout</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="sent-timeline-actions">
-              <button type="button" className="toolbar-btn">
-                <Download size={14} aria-hidden="true" />
-                <span>Export Manifest (PDF)</span>
-              </button>
-              <button type="button" className="toolbar-btn">
-                <Download size={14} aria-hidden="true" />
-                <span>Export CSV</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Right Card: Locked Route Overview Canvas */}
-          <div className="sent-map-card">
-            <div className="sent-map-head">
-              <div className="sent-map-title">
-                <Lock size={15} aria-hidden="true" />
-                <span>Locked Routes Overview · {activeDepot} Depot</span>
-              </div>
-              <span className="live-status-badge">
-                <span className="live-pulse" /> LOCKED & IMMUTABLE
-              </span>
-            </div>
-
-            <div className="sent-canvas-box">
-              <svg viewBox="0 0 600 350" className="sent-map-svg" aria-label="Locked routes map">
-                <rect width="600" height="350" fill="#F8FAFC" />
-                <path d="M 80 0 Q 150 140 160 350" fill="none" stroke="#E2E8F0" strokeWidth="6" />
-
-                {/* Depot Node */}
-                <circle cx="300" cy="80" r="14" fill="#1E293B" />
-                <circle cx="300" cy="80" r="7" fill="#FFC20E" />
-
-                {/* Radiating Locked Routes */}
-                <path d="M 300 80 Q 210 130 180 250" fill="none" stroke="#FFC20E" strokeWidth="3" />
-                <path d="M 300 80 Q 240 180 250 290" fill="none" stroke="#10B981" strokeWidth="3" />
-                <path d="M 300 80 Q 340 170 370 270" fill="none" stroke="#3B82F6" strokeWidth="3" />
-                <path d="M 300 80 Q 400 130 450 210" fill="none" stroke="#8B5CF6" strokeWidth="3" />
-
-                {/* Pins */}
-                <circle cx="180" cy="250" r="6" fill="#FFC20E" />
-                <circle cx="250" cy="290" r="6" fill="#10B981" />
-                <circle cx="370" cy="270" r="6" fill="#3B82F6" />
-                <circle cx="450" cy="210" r="6" fill="#8B5CF6" />
-              </svg>
-              <div className="map-depot-badge" style={{ top: '15px', right: '140px' }}>
-                <Warehouse size={12} aria-hidden="true" />
-                <span>{activeDepot} Hub</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PublishedVersion
+        view={candidateView!}
+        activeDepot={activeDepot}
+        planDate={planDate}
+        showToast={showToast}
+        onDismissToast={() => setShowToast(false)}
+        onRevise={onRevise ? handleRevise : undefined}
+        revising={revising}
+        reviseError={reviseError}
+        onOpenPlan={onOpenPlan}
+      />
     )
   }
 
-  // 5A: Ready to Confirm View
+  // Candidate (5A): the manifest that publication will send, from server data only.
+  const driverBySlot = new Map((changes.data?.trips ?? []).map(t => [`${t.vehicleId}:${t.tripIndex}`, t.driverAfter ?? null]))
+  const manifestRows: DispatchManifestRow[] = candidateView
+    ? (candidateView.trips ?? []).map((trip) => {
+        const util = candidateView.utilisation?.[String(trip.id)]
+        const slot = `${trip.vehicleId}:${trip.tripIndex}`
+        return {
+          vehicle: `${trip.vehicleId} · trip ${trip.tripIndex}`,
+          driver: changes.isSuccess ? (driverBySlot.get(slot) ?? 'No driver linked') : '—',
+          stops: trip.stops?.length ?? 0,
+          volume: `${metric(util?.volumeUsedM3, '')}/ ${metric(util?.volumeLimitM3, 'm³')}`,
+          departs: clock(trip.stops?.[0]?.plannedArrival),
+        }
+      })
+    : propsManifestRows
+
+  const vehiclesCount = candidateView ? (metricsView?.vehiclesUsed ?? '—') : (propsMetrics?.totalVehicles ?? '—')
+  const ordersCount = candidateView ? (metricsView?.ordersAssigned ?? '—') : (propsMetrics?.totalOrders ?? '—')
+  const totalVolumeStr = candidateView ? metric(metricsView?.assignedVolumeM3, 'm³') : propsMetrics ? metric(propsMetrics.totalVolumeM3, 'm³') : '—'
+  const linkedDrivers = changes.data ? new Set((changes.data.trips ?? []).filter(t => t.change !== 'REMOVED' && t.driverAfter).map(t => t.driverAfter)).size : null
+  const driversCount = candidateView ? (linkedDrivers ?? '—') : (propsMetrics?.totalDrivers ?? '—')
+  const undecidedOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition !== 'DEFERRED')
+  const deferredOrders = (candidateView?.unassignedOrders ?? []).filter(item => item.disposition === 'DEFERRED')
+  const notifiedStores = deferredOrders.filter(item => item.notifyStore).length
+  const isRevision = plan?.basedOnPlanId != null
+  const baseVersion = changes.data?.baseVersion
+
   return (
     <div className="planning-step5-container animate-fade-in">
       {failure && (
-        <div className="alert-card alert-danger" style={{ marginBottom: 'var(--space-16)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="step5-alert step5-alert-danger" role="alert">
+          <div className="step5-alert-row">
             <div>
-              <strong>Publication Blocked: </strong>
+              <strong>Publication blocked: </strong>
               <span>{failure.message}</span>
               {failure instanceof ManualPlanRequestError && failure.traceId && (
-                <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
-                  Trace ID: <code>{failure.traceId}</code>
-                </div>
+                <div className="field-hint">Trace ID: <code>{failure.traceId}</code></div>
               )}
             </div>
             {onReloadPlan && (
               <button type="button" className="toolbar-btn small" onClick={onReloadPlan}>
                 <RotateCcw size={12} aria-hidden="true" />
-                <span>Reload Plan</span>
+                <span>Reload plan</span>
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* Ready Banner */}
-      <div className="step5-ready-banner">
-        <div className="ready-banner-left">
-          <div className="ready-icon-box">
+      {staleBase && (
+        <div className="step5-alert step5-alert-warning" role="alert">
+          <div className="step5-alert-row">
+            <span>
+              <strong>Cannot be sent: </strong>
+              version {current?.version} was published after this candidate was created. Open it and choose Revise to start from the current version.
+            </span>
+            {current?.id != null && onOpenPlan && (
+              <button type="button" className="toolbar-btn small" onClick={() => onOpenPlan(current.id!)}>Open version {current.version}</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="confirm-ready-banner">
+        <div className="confirm-banner-left">
+          <div className="confirm-icon-box">
             <CheckCircle size={28} className="text-success" />
           </div>
           <div>
-            <h2 className="ready-title">
-              {manifestRows.length > 0
-                ? 'Delivery plan is ready to send'
-                : 'Confirm & Send Dispatch'}
+            <h2 className="confirm-banner-title">
+              {staleBase
+                ? `${isRevision ? `Revision ${plan?.version}` : 'This candidate'} is out of date`
+                : manifestRows.length > 0
+                  ? isRevision ? `Revision ${plan?.version} is ready to send` : 'Delivery plan is ready to send'
+                  : 'Confirm & Send'}
             </h2>
-            <p className="ready-subtitle">
+            <p className="confirm-banner-subtitle">
               {manifestRows.length > 0
-                ? `Review the saved manifest. Plan for ${planDate} from ${activeDepot} is ready.`
-                : `Finalize notifications and compile dispatch manifest for ${planDate} (${activeDepot} Depot).`}
+                ? isRevision
+                  ? `Publishing replaces version ${baseVersion ?? '…'} for ${planDate} at ${activeDepot}. The dock and drivers switch to this version.`
+                  : `Review the manifest for ${planDate} from ${activeDepot} before sending it to the dock.`
+                : 'Assign orders to trips in Review Allocation to build the manifest.'}
             </p>
           </div>
         </div>
-        <div className="ready-banner-actions">
+        <div className="step5-banner-actions">
           <button
             type="button"
             className="btn-primary-yellow large"
-            disabled={actionPending || manifestRows.length === 0}
+            disabled={actionPending || manifestRows.length === 0 || staleBase}
             onClick={() => setConfirmModalOpen(true)}
           >
             <Send size={16} aria-hidden="true" />
@@ -380,232 +248,106 @@ export function PlanningStep5Confirm({
         </div>
       </div>
 
-      {/* 5 KPI Metric Cards */}
       <div className="kpi-grid-5">
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box orange"><Truck size={15} /></span>
-            <span className="kpi-label">Vehicles</span>
-          </div>
-          <div className="kpi-value">{vehiclesCount}</div>
-          <div className="kpi-sub">routes allocated</div>
-        </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box yellow"><Clock size={15} /></span>
-            <span className="kpi-label">Drivers</span>
-          </div>
-          <div className="kpi-value">{driversCount}</div>
-          <div className="kpi-sub">{candidateView ? 'phase 11+' : 'assigned'}</div>
-        </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box amber"><Box size={15} /></span>
-            <span className="kpi-label">Total orders</span>
-          </div>
-          <div className="kpi-value">{ordersCount}</div>
-          <div className="kpi-sub">scheduled stops</div>
-        </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box green"><Navigation size={15} /></span>
-            <span className="kpi-label">Total volume</span>
-          </div>
-          <div className="kpi-value">{totalVolumeStr}</div>
-          <div className="kpi-sub">payload allocated</div>
-        </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box blue"><Fuel size={15} /></span>
-            <span className="kpi-label">Fuel & Distance</span>
-          </div>
-          <div className="kpi-value">{totalFuelStr}</div>
-          <div className="kpi-sub">{totalDistanceStr}</div>
-        </div>
+        <Kpi icon={<Truck size={15} />} tone="orange" label="Vehicles" value={vehiclesCount} sub="routes allocated" />
+        <Kpi icon={<UserRound size={15} />} tone="yellow" label="Drivers" value={driversCount} sub="linked to these vehicles" />
+        <Kpi icon={<Box size={15} />} tone="amber" label="Total orders" value={ordersCount} sub="scheduled stops" />
+        <Kpi icon={<Navigation size={15} />} tone="green" label="Total volume" value={totalVolumeStr} sub="payload allocated" />
+        <Kpi icon={<Fuel size={15} />} tone="blue" label="Fuel & distance"
+          value={metric(metricsView?.totalFuelLitres, 'L', 2)} sub={metric(metricsView?.totalDistanceKm, 'km', 2)} />
       </div>
 
-      {/* Main Two-Column Layout */}
-      <div className="step5-layout-grid">
-        {/* Left Column: Vehicle Manifest Table */}
-        <div className="step5-manifest-col">
-          <div className="manifest-card">
-            <div className="manifest-card-header">
-              <span className="manifest-title">Vehicle Manifest</span>
-              <span className="manifest-sub">
-                {manifestRows.length > 0 ? `${manifestRows.length} trips assigned` : 'Routes allocation pending'}
+      {isRevision && <ChangeSummary changes={changes.data} loading={changes.isPending} failed={changes.isError} />}
+
+      <div className="confirm-main-grid">
+        <div>
+          <div className="manifests-card">
+            <div className="manifests-head">
+              <span className="manifests-title">Vehicle manifest</span>
+              <span className="manifests-count-badge">
+                {manifestRows.length > 0 ? `${manifestRows.length} trips · one load task each` : 'No trips yet'}
               </span>
             </div>
-
-            <div className="manifest-table-wrapper">
-              <table className="manifest-table">
+            <div className="manifests-table-container">
+              <table className="manifests-table">
+                <caption className="visually-hidden">Trips that publication sends to the dock</caption>
                 <thead>
                   <tr>
                     <th>Vehicle</th>
                     <th>Driver</th>
                     <th>Stops</th>
                     <th>Volume</th>
-                    <th>Departs</th>
-                    <th>Loading Bay</th>
+                    <th>First arrival</th>
                   </tr>
                 </thead>
                 <tbody>
                   {manifestRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: 'var(--space-32)', textAlign: 'center' }}>
-                        <EmptyState
-                          title="No manifest compiled yet"
-                          description="Complete route generation and allocation in steps 2–3 to compile the dispatch manifest."
-                        />
+                      <td colSpan={5}>
+                        <EmptyState title="No manifest yet" description="Assign orders to trips in Review Allocation to build the manifest." />
                       </td>
                     </tr>
-                  ) : (
-                    manifestRows.map((row, idx) => (
-                      <tr key={`${row.vehicle}-${idx}`}>
-                        <td>
-                          <div className="veh-cell">
-                            <span className="veh-color-dot" style={{ background: row.accentColor ?? '#FFC20E' }} />
-                            <strong>{row.vehicle}</strong>
-                          </div>
-                        </td>
-                        <td>{row.driver ?? 'Unassigned'}</td>
-                        <td>{row.stops}</td>
-                        <td>{row.volume}</td>
-                        <td>{row.departs ?? '—'}</td>
-                        <td>
-                          <span className="bay-badge">{row.bay ?? 'Unassigned'}</span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ) : manifestRows.map((row, idx) => (
+                    <tr key={`${row.vehicle}-${idx}`}>
+                      <td><strong>{row.vehicle}</strong></td>
+                      <td>{row.driver ?? '—'}</td>
+                      <td>{row.stops}</td>
+                      <td>{row.volume}</td>
+                      <td>{row.departs ?? '—'}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Execution Configuration */}
-        <div className="step5-side-col">
-          <div className="notifications-card">
-            <h3 className="notif-title">Send Notifications</h3>
-            <p className="notif-sub">Notification delivery is unavailable. Publishing saves the plan and its audit record.</p>
-
-            <div className="notif-toggles-list">
-              {/* Loader App */}
-              <div className="notif-toggle-row">
-                <div className="notif-icon-box blue">
-                  <Smartphone size={16} />
-                </div>
-                <div className="notif-info">
-                  <div className="notif-name">Loader App</div>
-                  <div className="notif-desc">Send loading sequence to warehouse floor</div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={notifyLoaderApp}
-                  className={`toggle-switch ${notifyLoaderApp ? 'active' : ''}`}
-                  disabled
-                >
-                  <span className="toggle-thumb" />
-                </button>
-              </div>
-
-              {/* Driver SMS */}
-              <div className="notif-toggle-row">
-                <div className="notif-icon-box green">
-                  <MessageSquare size={16} />
-                </div>
-                <div className="notif-info">
-                  <div className="notif-name">Driver SMS / App</div>
-                  <div className="notif-desc">Send route & stop lists to drivers</div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={notifyDriverSms}
-                  className={`toggle-switch ${notifyDriverSms ? 'active' : ''}`}
-                  disabled
-                >
-                  <span className="toggle-thumb" />
-                </button>
-              </div>
-
-              {/* Supervisor Email */}
-              <div className="notif-toggle-row">
-                <div className="notif-icon-box yellow">
-                  <Mail size={16} />
-                </div>
-                <div className="notif-info">
-                  <div className="notif-name">Supervisor Email</div>
-                  <div className="notif-desc">Send daily summary report to supervisors</div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={notifySupervisorEmail}
-                  className={`toggle-switch ${notifySupervisorEmail ? 'active' : ''}`}
-                  disabled
-                >
-                  <span className="toggle-thumb" />
-                </button>
-              </div>
-            </div>
-
-            <div className="notif-disclaimer">
+        <div>
+          <div className="notify-card">
+            <h3 className="notify-title">What sending does</h3>
+            <ul className="step5-effects">
+              {isRevision && <li>Replaces version {baseVersion ?? '…'}; its load tasks are withdrawn from the dock.</li>}
+              <li>Creates one load task per trip for the {activeDepot} dock, loaded last stop first.</li>
+              <li>Assigns each trip to the driver linked to its vehicle.</li>
+              <li>Reserves the trips&apos; fuel against each vehicle&apos;s weekly quota{isRevision ? ', replacing the earlier reservation' : ''}.</li>
+              <li>
+                {deferredOrders.length > 0
+                  ? `Moves ${deferredOrders.length} deferred ${deferredOrders.length === 1 ? 'order' : 'orders'} to the next run and notifies ${notifiedStores} ${notifiedStores === 1 ? 'store' : 'stores'}.`
+                  : 'No orders are deferred.'}
+              </li>
+            </ul>
+            <div className="notify-desc step5-note">
               <Clock size={12} aria-hidden="true" />
-              <span>
-                Loader and driver notifications are unavailable.
-              </span>
+              <span>SMS and email delivery are not available. The dock and drivers see their work when they sign in.</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Confirmation Modal */}
       {confirmModalOpen && (
         <div className="modal-overlay" onClick={() => !publishing && setConfirmModalOpen(false)}>
-          <div className="modal-card send-confirm-modal animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+          <div className="modal-dialog-card animate-scale-up" role="dialog" aria-modal="true" aria-labelledby="send-plan-title"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
               <div>
-                <h3 className="modal-title">Confirm and Send Plan</h3>
-                <p className="modal-subtitle">
-                  {planDate} · {activeDepot} Depot
-                </p>
+                <h3 className="modal-title" id="send-plan-title">{isRevision ? `Send revision ${plan?.version}` : 'Confirm and send plan'}</h3>
+                <p className="modal-subtitle">{planDate} · {activeDepot}</p>
               </div>
-              <button
-                type="button"
-                className="modal-close-btn"
-                disabled={publishing}
-                onClick={() => setConfirmModalOpen(false)}
-                aria-label="Close modal"
-              >
+              <button type="button" className="modal-close-btn" disabled={publishing} onClick={() => setConfirmModalOpen(false)} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
 
             <div className="modal-body">
               <div className="confirm-summary-box">
-                <div className="summary-item">
-                  <span className="summary-num">{vehiclesCount}</span>
-                  <span className="summary-lbl">Vehicles</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-num">{ordersCount}</span>
-                  <span className="summary-lbl">Orders</span>
-                </div>
-                <div className="summary-item">
-                  <span className="summary-num">{totalVolumeStr}</span>
-                  <span className="summary-lbl">Volume</span>
-                </div>
+                <div className="summary-item"><span className="summary-num">{vehiclesCount}</span><span className="summary-lbl">Vehicles</span></div>
+                <div className="summary-item"><span className="summary-num">{ordersCount}</span><span className="summary-lbl">Orders</span></div>
+                <div className="summary-item"><span className="summary-num">{totalVolumeStr}</span><span className="summary-lbl">Volume</span></div>
               </div>
 
               {candidateView && (
-                <div className="modal-form-group" style={{ marginTop: 'var(--space-16)' }}>
-                  <label className="field-label" htmlFor="publish-reason">Publication Reason (Required)</label>
+                <div className="modal-form-group">
+                  <label className="field-label" htmlFor="publish-reason">Reason (required)</label>
                   <input
                     id="publish-reason"
                     type="text"
@@ -619,45 +361,26 @@ export function PlanningStep5Confirm({
               )}
 
               {undecidedOrders.length > 0 && (
-                <div className="alert-card alert-danger" role="alert" style={{ marginTop: 'var(--space-12)' }}>
+                <div className="step5-alert step5-alert-danger" role="alert">
                   <strong>Not ready: </strong>
                   <span>{undecidedOrders.map(item => item.order?.orderRef).join(', ')} must be assigned or deferred with a reason before publication.</span>
                 </div>
               )}
 
               <p className="confirm-warning-text">
-                ⚠️ Sending will lock this delivery plan and commit vehicle fuel quotas. The plan cannot be modified or re-optimised after publication.
+                Sending locks this version. To change it later, create a revision; the dock and drivers then switch to the new version.
               </p>
 
-              <div className="modal-checkbox-row">
-                <input
-                  type="checkbox"
-                  id="modal-email-check"
-                  checked
-                  disabled
-                />
-                <label htmlFor="modal-email-check">
-                  Record publication in operational audit ledger
-                </label>
-              </div>
-
               {localPublishError && (
-                <div className="alert-card alert-danger" style={{ marginTop: 'var(--space-12)' }}>
-                  <strong>Publication Failed: </strong>
+                <div className="step5-alert step5-alert-danger" role="alert">
+                  <strong>Publication failed: </strong>
                   <span>{localPublishError}</span>
                 </div>
               )}
             </div>
 
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="toolbar-btn"
-                disabled={publishing}
-                onClick={() => setConfirmModalOpen(false)}
-              >
-                Cancel
-              </button>
+            <div className="modal-actions-footer">
+              <button type="button" className="toolbar-btn" disabled={publishing} onClick={() => setConfirmModalOpen(false)}>Cancel</button>
               <button
                 type="button"
                 className="btn-primary-yellow"
@@ -665,12 +388,318 @@ export function PlanningStep5Confirm({
                 onClick={() => void handleSendPlan()}
               >
                 <Send size={15} aria-hidden="true" />
-                <span>{publishing ? 'Publishing...' : 'Yes, Send Delivery Plan'}</span>
+                <span>{publishing ? 'Sending…' : 'Yes, send delivery plan'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+function Kpi({ icon, tone, label, value, sub }: { icon: React.ReactNode; tone: string; label: string; value: React.ReactNode; sub: string }) {
+  return (
+    <div className="kpi-tile">
+      <div className="kpi-tile-header">
+        <span className={`kpi-icon-box ${tone}`}>{icon}</span>
+        <span className="kpi-label">{label}</span>
+      </div>
+      <div className="kpi-value">{value}</div>
+      <div className="kpi-sub">{sub}</div>
+    </div>
+  )
+}
+
+/** Server-computed difference between a revision and the version it replaces. */
+function ChangeSummary({ changes, loading, failed }: { changes?: PlanChanges; loading: boolean; failed: boolean }) {
+  if (loading) return <div className="manifests-card" aria-busy="true"><p className="field-hint">Comparing with the published version…</p></div>
+  if (failed || !changes) return <div className="step5-alert step5-alert-danger" role="alert">The changes against the published version could not be loaded.</div>
+  const s = { added: 0, removed: 0, moved: 0, resequenced: 0, unchanged: 0, tripsAdded: 0, tripsRemoved: 0, driversChanged: 0, ...changes.summary }
+  const changed = (changes.orders ?? []).filter(o => o.change !== 'UNCHANGED')
+  return (
+    <section className="manifests-card" aria-label="Changes from the published version">
+      <div className="manifests-head">
+        <span className="manifests-title"><GitCompare size={14} aria-hidden="true" /> Changes from version {changes.baseVersion}</span>
+        <span className="manifests-count-badge">{s.unchanged} orders unchanged</span>
+      </div>
+      <div className="step5-change-chips">
+        <Badge tone={s.added > 0 ? 'brand' : 'neutral'}>{s.added} added</Badge>
+        <Badge tone={s.removed > 0 ? 'danger' : 'neutral'}>{s.removed} removed</Badge>
+        <Badge tone={s.moved > 0 ? 'warning' : 'neutral'}>{s.moved} moved</Badge>
+        <Badge tone={s.resequenced > 0 ? 'warning' : 'neutral'}>{s.resequenced} re-sequenced</Badge>
+        <Badge tone="neutral">{s.tripsAdded} trips added · {s.tripsRemoved} removed</Badge>
+        <Badge tone={s.driversChanged > 0 ? 'warning' : 'neutral'}>{s.driversChanged} driver changes</Badge>
+      </div>
+      {changed.length === 0 ? (
+        <p className="field-hint">No order changes trips or position. Publishing still replaces the version the dock holds.</p>
+      ) : (
+        <div className="manifests-table-container">
+          <table className="manifests-table">
+            <caption className="visually-hidden">Orders that change</caption>
+            <thead><tr><th>Order</th><th>Change</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              {changed.map(o => (
+                <tr key={o.orderId}>
+                  <td><strong>{o.orderRef ?? `#${o.orderId}`}</strong><br /><span className="field-hint">{o.outletId}</span></td>
+                  <td>{CHANGE_LABELS[o.change ?? ''] ?? o.change}</td>
+                  <td>{o.before ? `${o.before.vehicleId} · trip ${o.before.tripIndex} · stop ${o.before.seq}` : '—'}</td>
+                  <td>{o.after ? `${o.after.vehicleId} · trip ${o.after.tripIndex} · stop ${o.after.seq}` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** 5B: a published or superseded version, read from the values frozen at publication. */
+function PublishedVersion({ view, activeDepot, planDate, showToast, onDismissToast, onRevise, revising, reviseError, onOpenPlan }: {
+  view: ManualPlanView
+  activeDepot: string
+  planDate: string
+  showToast: boolean
+  onDismissToast: () => void
+  onRevise?: (startFrom: 'published' | 'empty') => void
+  revising: boolean
+  reviseError: Error | null
+  onOpenPlan?: (planId: number) => void
+}) {
+  const plan = view.plan
+  const trips: PublishedTrip[] = view.published ?? []
+  const superseded = plan.status === 'superseded'
+  const metrics = view.validation?.metrics
+  const withDriver = trips.filter(t => t.driverName)
+  const driverNames = [...new Set(withDriver.map(t => t.driverName))]
+  const pending = trips.filter(t => t.loadStatus === 'pending').length
+  const loaded = trips.filter(t => t.loadStatus === 'loaded').length
+  const inProgress = trips.filter(t => t.loadStatus === 'loading').length
+  const held = trips.filter(t => t.held).length
+  const first = [...trips].sort((a, b) => (a.plannedDepart ?? '').localeCompare(b.plannedDepart ?? ''))[0]
+  const copyInfeasible = reviseError instanceof ManualPlanRequestError && reviseError.code === 'REVISION_COPY_INFEASIBLE'
+
+  return (
+    <div className="planning-step5-container animate-fade-in">
+      {showToast && (
+        <div className="top-floating-toast" role="status">
+          <div className="toast-left">
+            <CheckCircle size={16} className="text-success" />
+            <span>Version {plan.version} sent to the {activeDepot} dock: {trips.length} load {trips.length === 1 ? 'task' : 'tasks'} created.</span>
+          </div>
+          <div className="toast-right">
+            <button type="button" className="toast-close-btn" onClick={onDismissToast} aria-label="Dismiss"><X size={14} /></button>
+          </div>
+        </div>
+      )}
+
+      {superseded && (
+        <div className="step5-alert step5-alert-warning" role="status">
+          <div className="step5-alert-row">
+            <span>
+              <strong>Replaced: </strong>
+              version {plan.version} was replaced {timeOf(plan.supersededAt)}. Its load tasks were withdrawn from the dock.
+            </span>
+            {plan.supersededByPlanId != null && onOpenPlan && (
+              <button type="button" className="toolbar-btn small" onClick={() => onOpenPlan(plan.supersededByPlanId!)}>
+                Open the current version
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="step5-sent-grid">
+        <div className="sent-timeline-card">
+          <div className="sent-head-row">
+            <div className="sent-big-icon-box">
+              <CheckCircle size={24} aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="sent-main-title">{superseded ? `Version ${plan.version} (replaced)` : `Version ${plan.version} sent to the dock`}</h2>
+              <p className="sent-main-subtitle">
+                Published {timeOf(plan.publishedAt)} for {planDate} · {activeDepot}
+                {plan.basedOnPlanId != null ? ' · replaced the previous version' : ''} · rules {plan.ruleVersion ?? '—'}
+              </p>
+            </div>
+          </div>
+
+          <ol className="sent-timeline-body" aria-label="Publication progress">
+            <Milestone done time={clock(plan.publishedAt ? new Date(plan.publishedAt).toLocaleTimeString('en-GB', { timeZone: 'Asia/Colombo' }) : null)}
+              title="Plan locked and sent"
+              sub={`${trips.length} load ${trips.length === 1 ? 'task' : 'tasks'} · ${metrics?.ordersAssigned ?? '—'} orders · ${metric(metrics?.assignedVolumeM3, 'm³')}`} />
+            <Milestone done={withDriver.length === trips.length && trips.length > 0}
+              title={`Drivers assigned to ${withDriver.length} of ${trips.length} trips`}
+              sub={driverNames.length > 0 ? driverNames.join(', ') : 'No driver account is linked to these vehicles'} />
+            <Milestone done={!superseded && trips.length > 0 && loaded === trips.length}
+              title={superseded ? 'Load tasks withdrawn' : pending === trips.length ? 'Waiting for the loader' : `${loaded} of ${trips.length} trips loaded`}
+              sub={superseded ? 'The dock works from the version that replaced this one'
+                : [`${inProgress} in progress`, `${pending} not started`, held > 0 ? `${held} held by a shortfall` : null].filter(Boolean).join(' · ')} />
+            {first && (
+              <Milestone time={clock(first.plannedDepart)} title="First vehicle departs"
+                sub={`${first.vehicleId} · ${first.driverName ?? 'no driver linked'} · ${first.district}`} />
+            )}
+          </ol>
+
+          {!superseded && onRevise && (
+            <div className="sent-timeline-actions">
+              <button type="button" className="toolbar-btn" disabled={revising} onClick={() => onRevise('published')}>
+                <RotateCcw size={14} aria-hidden="true" />
+                <span>{revising ? 'Creating revision…' : 'Revise this plan'}</span>
+              </button>
+              {copyInfeasible && (
+                <button type="button" className="toolbar-btn" disabled={revising} onClick={() => onRevise('empty')}>
+                  <span>Start an empty revision</span>
+                </button>
+              )}
+            </div>
+          )}
+          {reviseError && (
+            <div className="step5-alert step5-alert-danger" role="alert">
+              <strong>Revision not created: </strong>
+              <span>{reviseError.message}</span>
+              {copyInfeasible && (reviseError as ManualPlanRequestError).violations.length > 0 && (
+                <ul>{(reviseError as ManualPlanRequestError).violations.map((v, i) => <li key={i}>{v.message}</li>)}</ul>
+              )}
+            </div>
+          )}
+        </div>
+
+        <aside className="sent-glance-card" aria-label="Run at a glance">
+          <div className="glance-head">
+            <span className="glance-title">Run at a glance</span>
+            <span className="badge-locked"><Lock size={11} aria-hidden="true" /> {superseded ? 'Replaced' : 'Locked'}</span>
+          </div>
+          <div className="glance-stats-list">
+            <Stat label="Vehicles" value={metrics?.vehiclesUsed ?? '—'} />
+            <Stat label="Trips" value={trips.length} />
+            <Stat label="Orders" value={metrics?.ordersAssigned ?? '—'} />
+            <Stat label="Volume" value={metric(metrics?.assignedVolumeM3, 'm³')} />
+            <Stat label="Distance" value={metric(metrics?.totalDistanceKm, 'km', 2)} />
+            <Stat label="Fuel reserved" value={metric(trips.reduce((sum, t) => sum + Number(t.fuelLitres ?? 0), 0), 'L', 2)} />
+          </div>
+        </aside>
+      </div>
+
+      {!superseded && <LoadingIssuesPanel planDate={plan.planDate ?? ''} depot={plan.depot ?? ''} />}
+
+      <div className="manifests-card">
+        <div className="manifests-head">
+          <span className="manifests-title">Published manifest</span>
+          <span className="manifests-count-badge">As frozen at publication</span>
+        </div>
+        <div className="manifests-table-container">
+          <table className="manifests-table">
+            <caption className="visually-hidden">Published trips</caption>
+            <thead>
+              <tr><th>Vehicle</th><th>Driver</th><th>Stops</th><th>Departs</th><th>Trip time</th><th>Fuel</th><th>Load task</th></tr>
+            </thead>
+            <tbody>
+              {trips.length === 0 ? (
+                <tr><td colSpan={7}><EmptyState title="No published trips" description="This version has no trips." /></td></tr>
+              ) : trips.map(t => (
+                <tr key={t.tripId}>
+                  <td><strong>{t.vehicleId} · trip {t.tripIndex}</strong><br /><span className="field-hint">{t.brand} · {t.district}</span></td>
+                  <td>{t.driverName ?? 'No driver linked'}</td>
+                  <td>{t.stops?.length ?? 0}</td>
+                  <td>{clock(t.plannedDepart)}</td>
+                  <td>{t.tripMinutes} min</td>
+                  <td>{metric(t.fuelLitres, 'L', 2)}</td>
+                  <td>
+                    <Badge tone={t.loadStatus === 'loaded' ? 'success' : t.loadStatus === 'superseded' ? 'neutral' : 'warning'}>{t.loadStatus ?? '—'}</Badge>
+                    {t.held ? <> <Badge tone="danger">held</Badge></> : (t.openLoadingIssues ?? 0) > 0 ? <> <Badge tone="danger">{t.openLoadingIssues} issue</Badge></> : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Milestone({ done = false, time, title, sub }: { done?: boolean; time?: string; title: string; sub: string }) {
+  return (
+    <li className={`milestone-row${done ? ' done' : ''}`}>
+      <span className="milestone-time">{time ?? ''}</span>
+      <span className={`milestone-node${done ? '' : ' empty'}`} aria-hidden="true">{done ? '✓' : ''}</span>
+      <div className="milestone-content">
+        <div className="milestone-title-row"><span className="milestone-title">{title}</span></div>
+        <div className="milestone-sub">{sub}</div>
+      </div>
+    </li>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="glance-stat-row">
+      <span className="glance-stat-lbl">{label}</span>
+      <span className="glance-stat-val">{value}</span>
+    </div>
+  )
+}
+
+const SHORT_KINDS: Record<string, string> = { MISSING: 'missing', DAMAGED: 'damaged', WRONG_ITEM: 'wrong item' }
+
+/** Shortfalls the dock reported before departure, with the dispatcher's decision (releases a hold). */
+function LoadingIssuesPanel({ planDate, depot }: { planDate: string; depot: string }) {
+  const issues = useLoadingIssues(planDate, depot)
+  const resolve = useResolveLoadingIssue()
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  if (issues.isPending) return null
+  if (issues.isError) return <div className="step5-alert step5-alert-danger" role="alert">Loading issues could not be loaded.</div>
+  const list: LoadingIssue[] = issues.data ?? []
+  if (list.length === 0) return null
+  const open = list.filter(i => i.status === 'OPEN')
+  return (
+    <section className="manifests-card" aria-label="Loading issues">
+      <div className="manifests-head">
+        <span className="manifests-title">Loading issues</span>
+        <span className="manifests-count-badge">{open.length} open · {list.length - open.length} decided</span>
+      </div>
+      <div className="manifests-table-container">
+        <table className="manifests-table">
+          <caption className="visually-hidden">Shortfalls reported by the dock</caption>
+          <thead><tr><th>Order</th><th>Shortfall</th><th>Reported</th><th>Decision</th></tr></thead>
+          <tbody>
+            {list.map(issue => (
+              <tr key={issue.id}>
+                <td><strong>{issue.orderRef}</strong><br /><span className="field-hint">{issue.vehicleId} · trip {issue.tripIndex} · {issue.outletId}</span></td>
+                <td>{issue.shortUnits} of {issue.orderedUnits} units {SHORT_KINDS[issue.kind ?? ''] ?? issue.kind}
+                  {issue.holdsVehicle ? <> <Badge tone="danger">vehicle held</Badge></> : null}
+                  {issue.note ? <><br /><span className="field-hint">“{issue.note}”</span></> : null}</td>
+                <td>{issue.reportedByName}<br /><span className="field-hint">{timeOf(issue.reportedAt)}</span></td>
+                <td>
+                  {issue.status === 'RESOLVED' ? (
+                    <><Badge tone="success">{issue.decision === 'SEND_SHORT' ? 'Send short' : 'Replanned'}</Badge><br />
+                      <span className="field-hint">{issue.resolvedByName} · {issue.decisionNote}</span></>
+                  ) : (
+                    <div className="step5-decision">
+                      <label className="visually-hidden" htmlFor={`decision-note-${issue.id}`}>Decision note for {issue.orderRef}</label>
+                      <input id={`decision-note-${issue.id}`} className="field-input" placeholder="Decision note (required)" maxLength={500}
+                        value={notes[issue.id!] ?? ''} onChange={e => setNotes({ ...notes, [issue.id!]: e.target.value })} />
+                      <div className="step5-banner-actions">
+                        <button type="button" className="toolbar-btn small" disabled={resolve.isPending || !(notes[issue.id!] ?? '').trim()}
+                          onClick={() => resolve.mutate({ id: issue.id!, body: { expectedVersion: issue.version ?? 0, decision: 'SEND_SHORT', note: notes[issue.id!]!.trim() } })}>
+                          Send {issue.orderedUnits! - issue.shortUnits!} units
+                        </button>
+                        <button type="button" className="toolbar-btn small" disabled={resolve.isPending || !(notes[issue.id!] ?? '').trim()}
+                          onClick={() => resolve.mutate({ id: issue.id!, body: { expectedVersion: issue.version ?? 0, decision: 'REPLANNED', note: notes[issue.id!]!.trim() } })}>
+                          Handled by a revision
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {resolve.error && <div className="step5-alert step5-alert-danger" role="alert">{resolve.error.message}</div>}
+    </section>
   )
 }

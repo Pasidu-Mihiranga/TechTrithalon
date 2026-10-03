@@ -408,3 +408,18 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Removed the hard-coded Exceptions badge and the invented capacity, time, fuel and outlet-name defaults in Step 3, and added a guard test.
 - Updated stale e2e selectors (depot label, planning heading, snapshot persistence check). Still failing and unrelated: login Tab order, and `/dispatcher/planning` at 375 px (14 px overflow).
 - API 128 tests, web 80 tests, typecheck, lint, build and main-stack smoke pass.
+
+## 2026-10-03 — Step 3: operational publication and plan versions
+
+- Publishing is one transaction that replaces the current version, returns its fuel and reserves the new fuel (counted once), freezes the schedule on trips and stops, assigns each trip to the driver linked to its vehicle, and creates one load task per trip (last stop loaded first). Migration `V20261003_2000` adds the rule version; the loading module now holds load tasks.
+- Revisions: a post-publication snapshot covers the whole run; new candidates start from a copy of the published trips (or empty when the copy breaks a rule). `GET /plans/{id}/changes` returns the server-computed version diff. Stale candidates get `409 STALE_BASE`.
+- Step 5 Confirm & Send rebuilt on real data: revision change summary, frozen published timeline and manifest, replaced-version banner, Revise action, stale-candidate block. Removed the decorative map, dead export buttons and the "cannot be modified" claim; departures from Figma are listed in the verification doc.
+- Seeded driver linked to `SEED_DRIVER_VEHICLE` (VEH036; VEH901 in CI/tests) with a clear startup error for an unknown vehicle. Owner decision: quantities per order, in units.
+- Verification: API 135, web 83, typecheck, lint, build; curl and SQL on a running API with synthetic fixtures (see `docs/PUBLICATION_VERIFICATION.md`). Docker smoke could not run in the cloud container (proxy breaks image builds).
+
+## 2026-10-03 — Step 4: loader workflow (phone and tablet)
+
+- Read the Figma Loader page (`412:8555`) and recorded the page and frame IDs in `CLAUDE.md`. Built Home, Trip, Order loading, Report shortfall, Manifest update, Trip loaded, Replaced manifest, Issues and Profile, with the Figma dark top navigation (compact on phones). Departures (per-order units, no barcode or photo, no bay) are listed in the verification doc.
+- Backend: loader board and task endpoints; count, shortfall (with hold), acknowledge and handover with optimistic versions; dispatcher loading-issue list and decision. A republish carries counts and open issues to the new task and requires acknowledgement. Migration `V20261003_2200` is additive; publication copies the driver name and vehicle capacity onto load tasks.
+- Step 5 (published) shows a Loading issues panel with the two decisions and marks held trips.
+- Tests: `LoaderWorkflowIT` (5), `loader.test.tsx` (9), Playwright `loader.spec.ts`; the smoke script covers loader reads. Totals: API 140, web 93; lint, typecheck and build clean. Curl, SQL and a full Chromium journey on the synthetic stack (see `docs/LOADING_VERIFICATION.md`).

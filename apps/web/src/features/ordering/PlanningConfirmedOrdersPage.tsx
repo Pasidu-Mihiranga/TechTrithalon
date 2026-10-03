@@ -33,6 +33,7 @@ import { PlanningStep5Confirm } from '../planning/PlanningStep5Confirm'
 import {
   ManualPlanRequestError,
   dispositionReplacement,
+  isLocked,
   useCreateManualPlan,
   useEditManualPlan,
   useManualPlan,
@@ -254,13 +255,41 @@ export function PlanningConfirmedOrdersPage() {
     }
   }
 
+  /**
+   * Revise the current published version: freeze the run's inputs again (including the orders it
+   * planned) and create a candidate based on it. Errors are rethrown for Step 5 to explain.
+   */
+  async function handleRevise(startFrom: 'published' | 'empty') {
+    const generation = scopeVersion.current
+    const { data, response, error: apiError } = await api.POST('/api/v1/dispatcher/planning/snapshots', {
+      body: { planDate, depot: activeDepot },
+    })
+    if (!data) throw new ManualPlanRequestError(response, apiError)
+    if (generation !== scopeVersion.current) return
+    setSnapshot(data)
+    const created = await createManualPlan.mutateAsync({
+      snapshotId: data.id,
+      reason: startFrom === 'empty' ? 'Revision started without the published trips' : 'Revision of the published plan',
+      startFrom,
+    })
+    if (generation !== scopeVersion.current) return
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('planId', String(created.plan.id))
+      next.set('step', '2')
+      return next
+    })
+  }
+
   async function handleApplyCommand(command: Edit) {
     if (!activePlanId || !candidateView) {
       setFailure(new Error('No active candidate plan loaded. Generate or select a candidate first.'))
       return false
     }
-    if (candidateView.plan.status === 'published') {
-      setFailure(new Error('Plan is locked and published. No modifications are permitted.'))
+    if (isLocked(candidateView)) {
+      setFailure(new Error(candidateView.plan.status === 'superseded'
+        ? 'This version was replaced and is read-only. Open the current version to make changes.'
+        : 'This version is published and read-only. Create a revision to change it.'))
       return false
     }
     setFailure(null)
@@ -421,8 +450,8 @@ export function PlanningConfirmedOrdersPage() {
                   fontSize: '11px',
                   fontWeight: 600,
                   textTransform: 'uppercase',
-                  background: candidateView.plan.status === 'published' ? '#D1FAE5' : '#FEF3C7',
-                  color: candidateView.plan.status === 'published' ? '#065F46' : '#92400E',
+                  background: candidateView.plan.status === 'published' ? '#D1FAE5' : candidateView.plan.status === 'superseded' ? '#F1F5F9' : '#FEF3C7',
+                  color: candidateView.plan.status === 'published' ? '#065F46' : candidateView.plan.status === 'superseded' ? '#475569' : '#92400E',
                 }}
               >
                 {candidateView.plan.status}
@@ -590,6 +619,12 @@ export function PlanningConfirmedOrdersPage() {
               },
             })
           }}
+          onRevise={handleRevise}
+          onOpenPlan={(id) => setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.set('planId', String(id))
+            return next
+          })}
           failure={failure}
           onReloadPlan={() => { setFailure(null); void planQuery.refetch(); }}
           actionPending={editManualPlan.isPending}

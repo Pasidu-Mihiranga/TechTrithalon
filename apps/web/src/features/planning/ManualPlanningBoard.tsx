@@ -95,7 +95,8 @@ export function ManualPlanningBoard() {
         <MetricCard label="Distance (km)" value={view.validation?.metrics?.totalDistanceKm ?? 'Unavailable'} />
         <MetricCard label="Fuel (L)" value={view.validation?.metrics?.totalFuelLitres ?? 'Unavailable'} />
       </section>
-      {view.plan.status === 'published' ? <EmptyState title="Plan published" description="Assignments and fuel reservation are committed. This plan is locked." /> : null}
+      {view.plan.status === 'published' ? <EmptyState title="Plan published" description="Assignments, fuel, drivers and load tasks are committed. Create a revision from Confirm & Send to change it." /> : null}
+      {view.plan.status === 'superseded' ? <EmptyState title="Version replaced" description="A later version replaced this plan. It is kept read-only for the record." /> : null}
       <TripCreator view={view} blocked={blocked} onAdd={trip => void apply({ operation: 'addTrip', body: { ...command, trip } })} />
       {(view.trips ?? []).map(trip => <Card key={trip.id} aria-label={`Trip ${trip.id}`}>
         <h2>Trip {trip.id} · {trip.vehicleId} · slot {trip.tripIndex} · {trip.brand} · {trip.district}</h2>

@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Ordering, complete immutable snapshots, the constraint engine and validated manual planning are implemented. The manual path has recorded curl/browser evidence; fresh checks pass 110 API and 66 web tests. Current planning UI corrections, constraint boundary checks and hosted CI remain open; full web lint fails. Loading, driver delivery, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
+> **Status:** Ordering, complete immutable snapshots, the constraint engine, validated manual planning, durable deferrals with store notices, and operational publication (plan versions, fuel counted once, frozen schedule, driver assignment and load tasks) and the loader workflow (phone/tablet counting, shortfalls with vehicle holds, manifest acknowledgement, handover) are implemented. Latest checks: 140 API and 93 web tests, clean lint and typecheck. Hosted CI remains open. The driver screens, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
 
 ---
 
@@ -201,7 +201,7 @@ Open `/login` in the web app. The server chooses your workspace from the account
 
 Passwords have no fallback. Set unique values of at least 12 characters and at most 72 UTF-8 bytes in the ignored `.env` before first startup. The seed runs after reference import and is idempotent: existing accounts and password hashes are preserved. Changing a seed password later does **not** reset an existing account. Local credentials generated during development remain only in `.env`; never publish them or commit the file. To disable account seeding after provisioning, set `SEED_ACCOUNTS_ENABLED=false`.
 
-`SEED_STORE_MANAGER_OUTLET` selects the manager's outlet (`OUT001` by default; `OUT901` for synthetic CI fixtures). `SEED_LOADER_DEPOT` selects the loader's depot. The dispatcher initially covers both depots. Usernames can be overridden with the corresponding `SEED_*_USERNAME` variables.
+`SEED_STORE_MANAGER_OUTLET` selects the manager's outlet (`OUT001` by default; `OUT901` for synthetic CI fixtures). `SEED_LOADER_DEPOT` selects the loader's depot. `SEED_DRIVER_VEHICLE` links the driver account to the vehicle it drives (`VEH036` by default; `VEH901` for synthetic fixtures); published trips on that vehicle are assigned to this driver. The dispatcher initially covers both depots. Usernames can be overridden with the corresponding `SEED_*_USERNAME` variables.
 
 The web uses an opaque `HttpOnly; SameSite=Lax` cookie; PostgreSQL stores only its SHA-256 hash. Sessions expire after 16 hours by default (`SESSION_TTL=PT16H`), and logout revokes them immediately. Unchecked **Remember me** creates a browser-session cookie; checked persists it until server expiry. Neither setting stores credentials in browser storage. Set `COOKIE_SECURE=false` for local HTTP and `true` for HTTPS deployment.
 

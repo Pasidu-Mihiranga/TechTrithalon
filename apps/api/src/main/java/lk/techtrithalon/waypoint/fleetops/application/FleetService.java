@@ -63,6 +63,22 @@ public class FleetService {
             audit.record("vehicle.fuel.reserved",user,"vehicle",entry.getKey(),before,fuel(user,entry.getKey(),date),"Validated plan publication");
         }
     }
+    /**
+     * Republication boundary: returns the fuel a superseded plan reserved, inside the transaction that
+     * reserves the new version's fuel, so each published plan is counted exactly once.
+     */
+    @Transactional
+    public void releasePlanningFuel(CurrentUser user,java.util.Map<String,java.math.BigDecimal> amounts,LocalDate date) {
+        var day=reference.day(date);
+        for (var entry : new java.util.TreeMap<>(amounts).entrySet()) {
+            if (entry.getValue().signum()==0) continue;
+            reference.vehicle(user,entry.getKey());
+            var before=fuel(user,entry.getKey(),date);
+            if (!repository.releasePlanningFuel(entry.getKey(),day.isoYear(),day.isoWeek(),entry.getValue()))
+                throw new ApiException(HttpStatus.CONFLICT,"FUEL_LEDGER_MISMATCH","The fuel ledger no longer holds the superseded plan's reservation");
+            audit.record("vehicle.fuel.released",user,"vehicle",entry.getKey(),before,fuel(user,entry.getKey(),date),"Plan version superseded");
+        }
+    }
     public java.util.List<FleetVehicle> fleet(CurrentUser user, LocalDate date) {
         return fleet(user, date, null);
     }

@@ -139,6 +139,18 @@ public class OrderQueryService {
         return orders.findConfirmedForDateDepot(date, depot);
     }
 
+    /**
+     * Published for planning: every order a planning run must account for. Before the first
+     * publication this equals the confirmed set; afterwards it also holds the orders the current
+     * published version planned, so a revision re-plans the whole run.
+     */
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<CustomerOrder> ordersInPlanningRun(CurrentUser user, LocalDate date, String depot) {
+        if (!user.canAccessDepot(depot)) throw missing();
+        reference.day(date);
+        return orders.findInPlanningRun(date, depot);
+    }
+
     /** Published for planning: load specific orders by id (membership checks stay in planning). */
     @PreAuthorize("hasRole('DISPATCHER')")
     public List<CustomerOrder> ordersByIds(CurrentUser user, List<Long> ids) {

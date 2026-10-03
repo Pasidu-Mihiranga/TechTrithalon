@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, History, House, Package, PackagePlus, Route, Settings, TrendingUp, TriangleAlert, Truck, User } from 'lucide-react'
+import { Activity, ClipboardList, History, House, PackagePlus, Route, Settings, TrendingUp, TriangleAlert, Truck, User } from 'lucide-react'
 import type { NavEntry } from '../components'
 
 export type RoleKey = 'dispatcher' | 'store' | 'loader' | 'driver'
@@ -46,8 +46,9 @@ export const roles: Record<RoleKey, RoleConfig> = {
   loader: {
     key: 'loader', label: 'Loader', basePath: '/loader',
     pages: [
-      { to: '/loader', label: 'Trips', icon: Package, end: true, title: 'Trips to load', description: 'Today’s trips for your depot.', phase: 'Phase 12' },
+      { to: '/loader', label: 'Home', icon: House, end: true, title: 'Trips to load', description: 'Today’s trips for your depot.', phase: 'Phase 12' },
       { to: '/loader/issues', label: 'Issues', icon: TriangleAlert, title: 'Loading issues', description: 'Shortfalls and damage you reported.', phase: 'Phase 12' },
+      { to: '/loader/profile', label: 'Profile', icon: User, title: 'Profile', description: 'Your account and depot.', phase: 'Phase 12' },
     ],
   },
   driver: {

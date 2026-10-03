@@ -11,7 +11,10 @@ public record ManualPlanView(@Schema(requiredMode=Schema.RequiredMode.REQUIRED) 
                              List<UnassignedOrder> unassignedOrders, List<PlanVehicle> fleet,
                              Map<Long, TripLoad> utilisation, Map<String, VehicleUse> vehicleUtilisation,
                              @Schema(description="Repeat-skip evidence for every order in the run, keyed by order ID")
-                             Map<Long, OrderFairness> fairness) {
+                             Map<Long, OrderFairness> fairness,
+                             @Schema(description="Published and superseded plans: the schedule, driver and load task "
+                                 + "frozen at publication. Empty for candidates")
+                             List<PublishedTrip> published) {
     public record UnassignedOrder(PlanOrder order, String disposition, String reason,
                                   java.time.LocalDate nextDeliveryDate,
                                   @Schema(nullable=true) String reasonCode, boolean protectNextRun, boolean notifyStore,

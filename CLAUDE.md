@@ -7,7 +7,9 @@ All project rules for AI agents live in **AGENTS.md** and apply to Claude in ful
 ## Claude-specific notes
 
 - **Figma**: use the Figma MCP to *read* designs (`get_metadata`, `get_screenshot`, `get_design_context`, `get_variable_defs`). Creating or editing anything in Figma counts as an outward-facing change (AGENTS.md §2): get the owner's approval first, and prefer a new page or file over changing existing frames.
-- The live design file is `nfP1ZRvqcF2cJ4cWeZqyvT` (page `412:8554`, "Dispatcher").
+- The live design file is `nfP1ZRvqcF2cJ4cWeZqyvT`. Pages: Dispatcher `412:8554`, Loader `412:8555`, Driver `52:330`, Store Manager `412:8556`. The MCP page list shows only Dispatcher; read the other pages by these IDs.
+- Loader tablet frames (834 wide; each has a phone twin on the same page): Home `93:7502`, Trip `93:7636`, Order Loading `93:7810`, Report Shortfall `553:7136`, Shortfall recorded `749:12866`, All checked `767:12909`, Ready for handover `567:7166`, Trip Completion `94:7621`, Issues `94:7720` (open `789:13121`, resolved `789:13302`), Vehicle hold `801:15378` / `839:19949`, Manifest update `841:19967` (acknowledged `841:20037`), Profile `94:7860`, Login `1116:38070`. Phone: Home `365:7647`, Trip `365:7694`, Order Loading `365:7819`, Report shortfall `365:7862`, Trip Loaded `441:991`.
+- Quantities are per order, in units (owner decision 2026-10-03): the data has no product catalog, so Figma's product-line, barcode and "choose affected item" screens map to one line per order.
 - Before implementing a screen from Figma, load the `figma-design-to-code` skill and map the design to the existing tokens and components. Don't paste the generated reference code as-is.
 - Java builds need JDK 21: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`.
 - Run `./gradlew test` in `apps/api` (needs Docker for Testcontainers), `pytest` in `apps/intelligence`, and `pnpm --dir apps/web build` for the web app.

@@ -45,6 +45,7 @@ public class PlanningSnapshotService {
     private final Clock clock;
     private final ObjectMapper canonical;
     private final AuditService audit;
+    private final ManualPlanRepository plans;
 
     public PlanningSnapshotService(
         PlanningSnapshotRepository snapshots,
@@ -54,8 +55,10 @@ public class PlanningSnapshotService {
         ReferenceProperties referenceProperties,
         Clock clock,
         ObjectMapper mapper,
-        AuditService audit
+        AuditService audit,
+        ManualPlanRepository plans
     ) {
+        this.plans = plans;
         this.snapshots = snapshots;
         this.orders = orders;
         this.fleet = fleet;
@@ -119,7 +122,7 @@ public class PlanningSnapshotService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Map<String, Object> compare(CurrentUser user, long id) {
         PlanningSnapshot snapshot = get(user, id);
-        List<CustomerOrder> eligible = orders.confirmedForPlanning(user, snapshot.planDate(), snapshot.depot());
+        List<CustomerOrder> eligible = orders.ordersInPlanningRun(user, snapshot.planDate(), snapshot.depot());
         List<CustomerOrder> current = "selected".equals(snapshot.selectionMode())
             ? eligible.stream().filter(o -> snapshot.orderIds().contains(o.id())).toList() : eligible;
         String currentHash = hash(writeJson(freezeInputs(user, snapshot.planDate(), snapshot.depot(), current)));
@@ -164,7 +167,7 @@ public class PlanningSnapshotService {
         CurrentUser user, LocalDate day, String depot, List<Long> orderIds
     ) {
         if (orderIds == null || orderIds.isEmpty()) {
-            return orders.confirmedForPlanning(user, day, depot);
+            return orders.ordersInPlanningRun(user, day, depot);
         }
         List<Long> distinct = orderIds.stream().filter(Objects::nonNull).distinct().toList();
         List<CustomerOrder> found = orders.ordersByIds(user, distinct);
@@ -173,9 +176,9 @@ public class PlanningSnapshotService {
                 "One or more selected orders were not found for this depot");
         }
         for (CustomerOrder order : found) {
-            if (!"confirmed".equals(order.status()) && !"deferred".equals(order.status())) {
+            if (!"confirmed".equals(order.status()) && !"deferred".equals(order.status()) && !"planned".equals(order.status())) {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "SELECTION_INVALID",
-                    "Only confirmed or carried-forward orders may enter a planning snapshot");
+                    "Only confirmed, carried-forward or currently planned orders may enter a planning snapshot");
             }
             if (!day.equals(order.planningDate()) || !depot.equals(order.depot())) {
                 throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "SELECTION_INVALID",
@@ -190,6 +193,10 @@ public class PlanningSnapshotService {
             .filter(v -> depot.equals(v.depot()))
             .sorted((a, b) -> a.vehicleId().compareTo(b.vehicleId()))
             .toList();
+        // Fuel the current published version reserved. A revision replaces that reservation, so the
+        // validator must not count it twice; only recorded when a published version exists.
+        Map<String, java.math.BigDecimal> current = plans.currentPublished(day, depot)
+            .map(plans::publishedFuelByVehicle).orElse(Map.of());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (FleetVehicle v : vehicles) {
             FuelBalance fuel = fleet.fuel(user, v.vehicleId(), day);
@@ -207,6 +214,8 @@ public class PlanningSnapshotService {
             row.put("weeklyFuelQuotaL", fuel.quotaLitres());
             row.put("fuelRemainingL", fuel.remainingLitres());
             row.put("fuelRecorded", fuel.recorded());
+            var reserved = current.get(v.vehicleId());
+            if (reserved != null && reserved.signum() > 0) row.put("fuelReservedByCurrentPlanL", reserved);
             rows.add(row);
         }
         return rows;

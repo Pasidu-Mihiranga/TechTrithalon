@@ -15,11 +15,11 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; waiting and timing boundaries verified; input integrity/full acceptance keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
-- [ ] Phase 8 — Deferral & Fairness **(functional gate verified by tests, curl and SQL; browser journey and Figma review pending)**
+- [x] Phase 8 — Deferral & Fairness **(tests, curl, SQL and browser journey verified; Figma comparison done for Deferred Orders only, defer dialog and store notice frames pending)**
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
-- [ ] Phase 11 — Plan Publication & Versioning
-- [ ] Phase 12 — Loader Workflow
+- [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
+- [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 13 — Driver Workflow
 - [ ] Phase 14 — Offline & Sync
 - [ ] Phase 14A — Driver Android App (React Native)
@@ -740,7 +740,7 @@ Capacity shortfalls need durable reasons and repeat-skip protection.
 
 #### Frontend
 
-- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests pass; browser journey and Figma visual review pending.)*
+- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests and the browser journey pass; Figma comparison of the defer dialog and store notice pending.)*
 
 #### Database
 
@@ -770,7 +770,7 @@ Deferral history service, notification display, and UI dialog can proceed in par
 
 ### Evidence (local, verified — 2026-10-03)
 
-Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). Browser and Figma checks are still pending.
+Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). The browser journey passed (see the browser section of that record); the Figma comparison of the defer dialog and store notice is still pending.
 
 ### Result
 
@@ -910,17 +910,17 @@ Execution needs one valid current version and an auditable history.
 
 #### Backend
 
-- [ ] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
-- [ ] Implement republish conflict handling, stale-version response, and version diff.
-- [ ] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
+- [x] Make publish one transaction: revalidate persisted plan, account for all orders, supersede prior version, commit weekly fuel, create load tasks, and write audit.
+- [x] Implement republish conflict handling, stale-version response, and version diff.
+- [x] Freeze the published schedule on `trip`/`stop` rows (planned departure, trip minutes, distance, fuel, planned arrival and service start, plus a calculation/rule version). Today these are recomputed from the immutable snapshot on every read; since 2026-10-03 the `plan.published` audit event also stores them as computed at publication. Needs a migration, so it belongs here rather than in manual planning.
 
 #### Frontend
 
-- [ ] Build Confirm & Send, published state, and current-version indicators.
+- [x] Build Confirm & Send, published state, and current-version indicators.
 
 #### Database
 
-- [ ] Add partial unique current-plan index; keep candidate/historical plans coexisting; stamp load tasks with version.
+- [x] Add partial unique current-plan index; keep candidate/historical plans coexisting; stamp load tasks with version.
 
 #### Python / Intelligence
 
@@ -928,11 +928,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test invalid publish rollback, concurrent publishes, republish, double fuel accounting, and stale-version response.
+- [x] Test invalid publish rollback, concurrent publishes, republish, double fuel accounting, and stale-version response.
 
 #### Documentation
 
-- [ ] Document publication invariants and recovery on conflict.
+- [x] Document publication invariants and recovery on conflict. *([Publication verification](./PUBLICATION_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -940,9 +940,13 @@ Publish service and Figma confirmation UI can progress together; DB uniqueness a
 
 ### Exit Gate
 
-- [ ] Only validated, fully accounted plans become current.
-- [ ] Republish preserves old versions and signals stale clients.
-- [ ] Fuel is committed exactly once per current plan.
+- [x] Only validated, fully accounted plans become current.
+- [x] Republish preserves old versions and signals stale clients.
+- [x] Fuel is committed exactly once per current plan.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 135 passed (7 new in `OperationalPublicationIT`), web 83 passed, typecheck, lint and build clean. Curl and SQL on a running API with synthetic fixtures agree: version 1 publishes with frozen schedule, driver and pending load tasks (ledger 8.00 L); version 2 replaces it, ledger 4.00 L, old load tasks superseded; stale and superseded publishes return 409. Details, design departures and limits: [Publication verification](./PUBLICATION_VERIFICATION.md). The Docker smoke and a real-dataset run were not possible in the cloud container.
 
 ### Result
 
@@ -966,16 +970,16 @@ The dock needs the published stop sequence and a predeparture shortfall path.
 
 #### Backend
 
-- [ ] Expose depot trips and load tasks; record line confirmations and issues; block completion on unresolved shortfall.
-- [ ] Return plan version and changes on stale requests.
+- [x] Expose depot trips and load tasks; record line confirmations and issues; block completion on unresolved shortfall.
+- [x] Return plan version and changes on stale requests.
 
 #### Frontend
 
-- [ ] Build tablet/phone load list in reverse stop order, issue reporting, completion, and stale-plan diff.
+- [x] Build tablet/phone load list in reverse stop order, issue reporting, completion, and stale-plan diff.
 
 #### Database
 
-- [ ] Add load-line and loading-issue records if not present in Phase 11.
+- [x] Add load-line and loading-issue records if not present in Phase 11.
 
 #### Python / Intelligence
 
@@ -983,11 +987,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test LIFO order, issue blocking, handoff, role/depot scope, and mid-load republish E2E.
+- [x] Test LIFO order, issue blocking, handoff, role/depot scope, and mid-load republish E2E. *(Mid-load republish: integration test and curl; the browser spec covers the shortfall and handover journey.)*
 
 #### Documentation
 
-- [ ] Record loader handoff and stale-list behavior.
+- [x] Record loader handoff and stale-list behavior. *([Loading verification](./LOADING_VERIFICATION.md))*
 
 ### Parallel Work
 
@@ -995,9 +999,13 @@ Load API/data and mobile UI can progress in parallel from a published-trip contr
 
 ### Exit Gate
 
-- [ ] Loader completes a published trip’s load.
-- [ ] Shortfall reaches dispatcher and can block departure.
-- [ ] Republish displays a meaningful diff.
+- [x] Loader completes a published trip’s load.
+- [x] Shortfall reaches dispatcher and can block departure.
+- [x] Republish displays a meaningful diff.
+
+### Evidence (local, verified — 2026-10-03)
+
+Full API suite 140 passed (5 new in `LoaderWorkflowIT`), web 93 passed, typecheck, lint and build clean, Playwright `loader.spec.ts` passed on the synthetic stack. Curl and SQL agree on counting, held shortfalls, the dispatcher's decision, handover and the mid-load republish (count carried, acknowledgement required). Details, Figma departures and limits: [Loading verification](./LOADING_VERIFICATION.md).
 
 ### Result
 
@@ -1618,8 +1626,10 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
 | 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
-| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl and SQL; browser/Figma pending | 2026-10-03 |
-| 9–22 | Pending; optional/conditional phases retain their scope labels | — |
+| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl, SQL and browser journey; Figma comparison of two frames pending | 2026-10-03 |
+| 11 | [Publication verification](./PUBLICATION_VERIFICATION.md): tests, curl/SQL, Step 5 browser on synthetic data | 2026-10-03 |
+| 12 | [Loading verification](./LOADING_VERIFICATION.md): tests, curl/SQL, Playwright and browser on synthetic data | 2026-10-03 |
+| 9–10, 13–22 | Pending; optional/conditional phases retain their scope labels | — |
 
 - Earlier Figma/token records say only Dispatcher frames exist; design documentation links Store, Loader and Driver frames in the same file. Current MCP access did not yield metadata. Reconcile the actual submitted frames before declaring design fidelity or inventing missing screens.
 - The supplied calendar ends on 2026-06-28. Choose a seeded demo date inside that range or add explicit later calendar records before testing cutoff and operating-day logic.

@@ -132,6 +132,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dispatcher/loading-issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/loading-issues/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dispatcher/orders": {
         parameters: {
             query?: never;
@@ -253,6 +285,22 @@ export interface paths {
         };
         get: operations["get"];
         put: operations["replace"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dispatcher/plans/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["changes"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -414,6 +462,118 @@ export interface paths {
         get: operations["fuel"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["board"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["issues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/load-tasks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["task"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/load-tasks/{id}/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acknowledge_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/load-tasks/{id}/lines/{lineId}/loaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/load-tasks/{id}/lines/{lineId}/shortfall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["shortfall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/loader/load-tasks/{id}/loaded": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markLoaded"];
         delete?: never;
         options?: never;
         head?: never;
@@ -877,12 +1037,251 @@ export interface components {
             remainingLitres?: number | null;
             vehicleId?: string;
         };
+        LoadLine: {
+            /** @description The count was carried over from the replaced manifest */
+            carried?: boolean;
+            /** Format: date-time */
+            checkedAt?: string | null;
+            /** Format: int64 */
+            id?: number;
+            /** Format: int32 */
+            loadSeq?: number;
+            /**
+             * Format: int32
+             * @description Units actually loaded; null while pending
+             */
+            loadedUnits?: number | null;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outletId?: string;
+            /** @description pending, loaded or short */
+            status?: string;
+            /** Format: int32 */
+            stopSeq?: number;
+            tempRequirement?: string;
+            /** Format: int32 */
+            units?: number;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        LoadShortfallRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+            /** @description True holds the vehicle until the dispatcher decides */
+            holdsVehicle: boolean;
+            kind: string;
+            note?: string;
+            /** Format: int32 */
+            shortUnits: number;
+        };
+        LoadTask: {
+            /** Format: date-time */
+            acknowledgedAt?: string | null;
+            acknowledgementRequired?: boolean;
+            brand?: string;
+            /** Format: date-time */
+            createdAt?: string;
+            depot?: string;
+            district?: string;
+            driverName?: string | null;
+            /** Format: int64 */
+            driverUserId?: number | null;
+            /** Format: int64 */
+            id?: number;
+            /** @description In loading order: the last stop is loaded first */
+            lines?: components["schemas"]["LoadLine"][];
+            /**
+             * Format: date-time
+             * @description When the trip was marked loaded and handed to the driver
+             */
+            loadedAt?: string | null;
+            /** Format: date */
+            planDate?: string;
+            /** Format: int64 */
+            planId?: number;
+            /** Format: int32 */
+            planVersion?: number;
+            plannedDepart?: string;
+            /**
+             * Format: int64
+             * @description Task of the replaced version for the same vehicle and trip
+             */
+            replacesTaskId?: number | null;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** @description pending, loading, loaded or superseded */
+            status?: string;
+            /** Format: int64 */
+            tripId?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+            vehicleId?: string;
+            /** Format: int32 */
+            version?: number;
+            volumeCapM3?: number | null;
+            weightCapKg?: number | null;
+        };
+        LoadTaskCommandRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+        };
+        LoaderBoard: {
+            depot?: string;
+            nextDeparture?: components["schemas"]["LoaderTripCard"];
+            openIssues?: components["schemas"]["LoadingIssue"][];
+            /** Format: date */
+            planDate?: string;
+            /**
+             * Format: int32
+             * @description Version of the current published plan; null when nothing is published
+             */
+            planVersion?: number | null;
+            summary?: components["schemas"]["LoaderSummary"];
+            trips?: components["schemas"]["LoaderTripCard"][];
+        };
+        LoaderManifestChange: {
+            /** @description ADDED, REMOVED (take off the vehicle if loaded) or RESEQUENCED */
+            change?: string;
+            /**
+             * Format: int32
+             * @description Units already on the vehicle from the replaced manifest
+             */
+            loadedUnits?: number | null;
+            orderRef?: string;
+            outletId?: string;
+            /** Format: int32 */
+            stopAfter?: number | null;
+            /** Format: int32 */
+            stopBefore?: number | null;
+        };
+        LoaderStop: {
+            district?: string;
+            lines?: components["schemas"]["LoadLine"][];
+            /** Format: int32 */
+            loadPosition?: number;
+            outletId?: string;
+            /** @description pending, partial or loaded (every order counted) */
+            status?: string;
+            /** Format: int32 */
+            stopNumber?: number;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        LoaderSummary: {
+            /** Format: int32 */
+            openIssues?: number;
+            /** Format: int32 */
+            ordersLoaded?: number;
+            /** Format: int32 */
+            ordersToLoad?: number;
+            /** Format: int32 */
+            tripsAssigned?: number;
+        };
+        LoaderTaskDetail: {
+            card?: components["schemas"]["LoaderTripCard"];
+            changes?: components["schemas"]["LoaderManifestChange"][];
+            /**
+             * Format: int64
+             * @description When this manifest was superseded: the task that replaced it
+             */
+            currentTaskId?: number | null;
+            /** @description Why the trip cannot be marked loaded yet; empty when it can */
+            handoverBlockers?: string[];
+            issues?: components["schemas"]["LoadingIssue"][];
+            /** Format: int32 */
+            replacedPlanVersion?: number | null;
+            stops?: components["schemas"]["LoaderStop"][];
+            task?: components["schemas"]["LoadTask"];
+        };
+        LoaderTripCard: {
+            awaitingAcknowledgement?: boolean;
+            brand?: string;
+            district?: string;
+            driverName?: string | null;
+            held?: boolean;
+            /** Format: int64 */
+            loadTaskId?: number;
+            /** Format: int32 */
+            openIssues?: number;
+            /** Format: int32 */
+            orders?: number;
+            /** Format: int32 */
+            ordersChecked?: number;
+            /** Format: int32 */
+            planVersion?: number;
+            plannedDepart?: string;
+            status?: string;
+            /** Format: int32 */
+            stops?: number;
+            /** Format: int32 */
+            stopsLoaded?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+            volumeCapM3?: number | null;
+            volumeM3?: number;
+            weightCapKg?: number | null;
+            weightKg?: number;
+        };
+        LoadingIssue: {
+            /** @description SEND_SHORT or REPLANNED */
+            decision?: string | null;
+            decisionNote?: string | null;
+            depot?: string;
+            holdsVehicle?: boolean;
+            /** Format: int64 */
+            id?: number;
+            /** @description MISSING, DAMAGED or WRONG_ITEM */
+            kind?: string;
+            /** Format: int64 */
+            loadLineId?: number;
+            /** Format: int64 */
+            loadTaskId?: number;
+            note?: string | null;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            /** Format: int32 */
+            orderedUnits?: number;
+            outletId?: string;
+            /** Format: date */
+            planDate?: string;
+            /** Format: date-time */
+            reportedAt?: string;
+            reportedByName?: string;
+            /** Format: date-time */
+            resolvedAt?: string | null;
+            resolvedByName?: string | null;
+            /** Format: int32 */
+            shortUnits?: number;
+            /** @description OPEN or RESOLVED */
+            status?: string;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+            /** Format: int32 */
+            version?: number;
+        };
+        LoadingIssueDecisionRequest: {
+            decision: string;
+            /** Format: int32 */
+            expectedVersion: number;
+            note: string;
+        };
         LoginRequest: {
             password: string;
             rememberMe?: boolean;
             username: string;
         };
         ManualPlan: {
+            /**
+             * Format: int64
+             * @description The published plan this candidate revises; null for the first version of a run
+             */
+            basedOnPlanId?: number | null;
             /** Format: date-time */
             createdAt?: string;
             /** Format: int64 */
@@ -899,9 +1298,18 @@ export interface components {
             publishedAt?: string;
             /** Format: int64 */
             publishedBy?: number;
+            /** @description Rule set the published schedule was validated with */
+            ruleVersion?: string | null;
             /** Format: int64 */
             snapshotId?: number;
             status?: string;
+            /** Format: date-time */
+            supersededAt?: string | null;
+            /**
+             * Format: int64
+             * @description Set when a later version replaced this published plan
+             */
+            supersededByPlanId?: number | null;
             trips?: components["schemas"]["TripAssignment"][];
             /** Format: date-time */
             updatedAt?: string;
@@ -923,6 +1331,8 @@ export interface components {
             reason: string;
             /** Format: int64 */
             snapshotId: number;
+            /** @description Only when the run already has a published version: 'published' (default) starts the revision from a copy of its trips, 'empty' starts with every order unassigned */
+            startFrom?: string;
         };
         ManualPlanDeferRequest: {
             /** Format: int32 */
@@ -1006,6 +1416,8 @@ export interface components {
             };
             fleet?: components["schemas"]["PlanVehicle"][];
             plan: components["schemas"]["ManualPlan"];
+            /** @description Published and superseded plans: the schedule, driver and load task frozen at publication. Empty for candidates */
+            published?: components["schemas"]["PublishedTrip"][];
             trips?: components["schemas"]["PlanTrip"][];
             unassignedOrders?: components["schemas"]["UnassignedOrder"][];
             utilisation?: {
@@ -1021,6 +1433,15 @@ export interface components {
             availableFromPhase?: string | null;
             /** Format: int32 */
             value?: number | null;
+        };
+        OrderChange: {
+            after?: components["schemas"]["Placement"];
+            before?: components["schemas"]["Placement"];
+            change?: string;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outletId?: string;
         };
         OrderDisposition: {
             code?: string;
@@ -1096,6 +1517,27 @@ export interface components {
             units: number;
             volumeM3: number;
             weightKg: number;
+        };
+        Placement: {
+            /** Format: int32 */
+            seq?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        PlanChanges: {
+            /** Format: int64 */
+            basePlanId?: number | null;
+            /** Format: int32 */
+            baseVersion?: number | null;
+            firstVersion?: boolean;
+            orders?: components["schemas"]["OrderChange"][];
+            /** Format: int64 */
+            planId?: number;
+            summary?: components["schemas"]["Summary"];
+            trips?: components["schemas"]["TripChange"][];
+            /** Format: int32 */
+            version?: number;
         };
         PlanMetrics: {
             assignedVolumeM3?: number;
@@ -1221,6 +1663,38 @@ export interface components {
             /** Format: int64 */
             takenBy?: number;
         };
+        PublishedTrip: {
+            brand?: string;
+            distanceKm?: number;
+            district?: string;
+            driverName?: string | null;
+            /**
+             * Format: int64
+             * @description Null when no active driver account is linked to the vehicle
+             */
+            driverUserId?: number | null;
+            fuelLitres?: number;
+            /** @description A shortfall holds this vehicle at the dock */
+            held?: boolean;
+            /** @description pending, loading, loaded or superseded */
+            loadStatus?: string | null;
+            /** Format: int64 */
+            loadTaskId?: number | null;
+            /**
+             * Format: int32
+             * @description Loading shortfalls awaiting the dispatcher
+             */
+            openLoadingIssues?: number;
+            plannedDepart?: string;
+            stops?: components["schemas"]["Stop"][];
+            /** Format: int64 */
+            tripId?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            tripMinutes?: number;
+            vehicleId?: string;
+        };
         ReferenceSummary: {
             /** Format: int32 */
             calendarDays?: number;
@@ -1241,6 +1715,32 @@ export interface components {
             /** Format: int32 */
             minutes?: number;
         };
+        Stop: {
+            /** Format: int64 */
+            orderId?: number;
+            plannedArrival?: string;
+            /** Format: int32 */
+            seq?: number;
+            serviceStart?: string;
+        };
+        Summary: {
+            /** Format: int32 */
+            added?: number;
+            /** Format: int32 */
+            driversChanged?: number;
+            /** Format: int32 */
+            moved?: number;
+            /** Format: int32 */
+            removed?: number;
+            /** Format: int32 */
+            resequenced?: number;
+            /** Format: int32 */
+            tripsAdded?: number;
+            /** Format: int32 */
+            tripsRemoved?: number;
+            /** Format: int32 */
+            unchanged?: number;
+        };
         SystemHealth: {
             intelligence?: string;
             service?: string;
@@ -1252,6 +1752,14 @@ export interface components {
             /** Format: int64 */
             id?: number;
             orderIds?: number[];
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        TripChange: {
+            change?: string;
+            driverAfter?: string | null;
+            driverBefore?: string | null;
             /** Format: int32 */
             tripIndex?: number;
             vehicleId?: string;
@@ -1509,6 +2017,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FleetVehicle"];
+                };
+            };
+        };
+    };
+    list_1: {
+        parameters: {
+            query: {
+                date: string;
+                depot?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoadingIssue"][];
+                };
+            };
+        };
+    };
+    resolve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadingIssueDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoadingIssue"];
                 };
             };
         };
@@ -1774,6 +2332,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ManualPlanView"];
+                };
+            };
+        };
+    };
+    changes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PlanChanges"];
                 };
             };
         };
@@ -2061,6 +2641,179 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FuelBalance"];
+                };
+            };
+        };
+    };
+    board: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderBoard"];
+                };
+            };
+        };
+    };
+    issues: {
+        parameters: {
+            query?: {
+                date?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoadingIssue"][];
+                };
+            };
+        };
+    };
+    task: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderTaskDetail"];
+                };
+            };
+        };
+    };
+    acknowledge_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadTaskCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderTaskDetail"];
+                };
+            };
+        };
+    };
+    confirmLine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                lineId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadTaskCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderTaskDetail"];
+                };
+            };
+        };
+    };
+    shortfall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                lineId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadShortfallRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderTaskDetail"];
+                };
+            };
+        };
+    };
+    markLoaded: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoadTaskCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LoaderTaskDetail"];
                 };
             };
         };

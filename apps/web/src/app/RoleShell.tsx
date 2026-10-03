@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../features/auth/auth'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { AppShell, Button, ErrorState, Sidebar, SystemStatus, TopBar } from '../components'
+import { AppShell, Button, ErrorState, Sidebar, SystemStatus, TopBar, TopNav } from '../components'
 import { ChevronDown, Warehouse } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiReadError } from '../lib/apiClient'
@@ -30,6 +30,21 @@ export function RoleShell({ role }: { role: RoleConfig }) {
     setError(null)
     try { await auth.logout() } catch (failure) { setError(failure instanceof Error ? failure.message : 'Sign-out failed. Try again.') }
     finally { setPending(false) }
+  }
+  if (role.key === 'loader') {
+    const name = auth.user?.displayName ?? ''
+    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || undefined
+    return (
+      <div className="shell-topnav">
+        <a href="#main" className="skip-link">Skip to content</a>
+        <TopNav items={role.pages} roleLabel={role.label} initials={initials} profileTo={`${role.basePath}/profile`}
+          depotLabel={auth.user?.depot ? (auth.user.depot.endsWith('Depot') ? auth.user.depot : `${auth.user.depot} Depot`) : undefined} />
+        <main id="main" className="shell-main">
+          {error && <ErrorState message={error} />}
+          <Outlet context={{ depot: auth.user?.depot ?? undefined, logout, logoutPending: pending }} />
+        </main>
+      </div>
+    )
   }
   return (
     <AppShell
