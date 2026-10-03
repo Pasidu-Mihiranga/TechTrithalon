@@ -36,4 +36,17 @@ class JdbcUserRepository implements UserRepository {
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """, a.username(), a.displayName(), a.passwordHash(), a.role().name(), a.outletId(), a.depot(), a.active());
     }
+
+    @Override
+    public void linkVehicleIfUnset(String username, String vehicleId) {
+        db.update("UPDATE app_user SET vehicle_id=? WHERE lower(username)=lower(?) AND role='DRIVER' AND vehicle_id IS NULL",
+            vehicleId, username);
+    }
+
+    @Override
+    public Optional<lk.techtrithalon.waypoint.identity.domain.AssignedDriver> activeDriverForVehicle(String vehicleId) {
+        return db.query("SELECT id, display_name FROM app_user WHERE vehicle_id=? AND role='DRIVER' AND active",
+            (rs, i) -> new lk.techtrithalon.waypoint.identity.domain.AssignedDriver(rs.getLong("id"), rs.getString("display_name")),
+            vehicleId).stream().findFirst();
+    }
 }

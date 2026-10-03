@@ -45,6 +45,7 @@ class IdentitySeeder implements ApplicationRunner {
             create(Role.STORE_MANAGER, seed.storeManager());
             create(Role.LOADER, seed.loader());
             create(Role.DRIVER, seed.driver());
+            if (!isBlank(seed.driver().vehicleId())) users.linkVehicleIfUnset(seed.driver().username(), seed.driver().vehicleId());
         });
     }
 
