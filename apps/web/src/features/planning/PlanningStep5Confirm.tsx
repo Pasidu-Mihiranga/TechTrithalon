@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import { Badge, EmptyState } from '../../components'
 import type { ManualPlanView, PlanChanges, PublishedTrip } from './manualPlanQueries'
-import { ManualPlanRequestError, useManualPlans, usePlanChanges } from './manualPlanQueries'
+import { ManualPlanRequestError, useLoadingIssues, useManualPlans, usePlanChanges, useResolveLoadingIssue } from './manualPlanQueries'
+import type { LoadingIssue } from './manualPlanQueries'
 
 export interface DispatchManifestRow {
   vehicle: string
@@ -474,6 +475,8 @@ function PublishedVersion({ view, activeDepot, planDate, showToast, onDismissToa
   const driverNames = [...new Set(withDriver.map(t => t.driverName))]
   const pending = trips.filter(t => t.loadStatus === 'pending').length
   const loaded = trips.filter(t => t.loadStatus === 'loaded').length
+  const inProgress = trips.filter(t => t.loadStatus === 'loading').length
+  const held = trips.filter(t => t.held).length
   const first = [...trips].sort((a, b) => (a.plannedDepart ?? '').localeCompare(b.plannedDepart ?? ''))[0]
   const copyInfeasible = reviseError instanceof ManualPlanRequestError && reviseError.code === 'REVISION_COPY_INFEASIBLE'
 
@@ -531,7 +534,8 @@ function PublishedVersion({ view, activeDepot, planDate, showToast, onDismissToa
               sub={driverNames.length > 0 ? driverNames.join(', ') : 'No driver account is linked to these vehicles'} />
             <Milestone done={!superseded && trips.length > 0 && loaded === trips.length}
               title={superseded ? 'Load tasks withdrawn' : pending === trips.length ? 'Waiting for the loader' : `${loaded} of ${trips.length} trips loaded`}
-              sub={superseded ? 'The dock works from the version that replaced this one' : `${pending} of ${trips.length} load tasks not started`} />
+              sub={superseded ? 'The dock works from the version that replaced this one'
+                : [`${inProgress} in progress`, `${pending} not started`, held > 0 ? `${held} held by a shortfall` : null].filter(Boolean).join(' · ')} />
             {first && (
               <Milestone time={clock(first.plannedDepart)} title="First vehicle departs"
                 sub={`${first.vehicleId} · ${first.driverName ?? 'no driver linked'} · ${first.district}`} />
@@ -578,6 +582,8 @@ function PublishedVersion({ view, activeDepot, planDate, showToast, onDismissToa
         </aside>
       </div>
 
+      {!superseded && <LoadingIssuesPanel planDate={plan.planDate ?? ''} depot={plan.depot ?? ''} />}
+
       <div className="manifests-card">
         <div className="manifests-head">
           <span className="manifests-title">Published manifest</span>
@@ -600,7 +606,10 @@ function PublishedVersion({ view, activeDepot, planDate, showToast, onDismissToa
                   <td>{clock(t.plannedDepart)}</td>
                   <td>{t.tripMinutes} min</td>
                   <td>{metric(t.fuelLitres, 'L', 2)}</td>
-                  <td><Badge tone={t.loadStatus === 'loaded' ? 'success' : t.loadStatus === 'superseded' ? 'neutral' : 'warning'}>{t.loadStatus ?? '—'}</Badge></td>
+                  <td>
+                    <Badge tone={t.loadStatus === 'loaded' ? 'success' : t.loadStatus === 'superseded' ? 'neutral' : 'warning'}>{t.loadStatus ?? '—'}</Badge>
+                    {t.held ? <> <Badge tone="danger">held</Badge></> : (t.openLoadingIssues ?? 0) > 0 ? <> <Badge tone="danger">{t.openLoadingIssues} issue</Badge></> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -630,5 +639,67 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="glance-stat-lbl">{label}</span>
       <span className="glance-stat-val">{value}</span>
     </div>
+  )
+}
+
+const SHORT_KINDS: Record<string, string> = { MISSING: 'missing', DAMAGED: 'damaged', WRONG_ITEM: 'wrong item' }
+
+/** Shortfalls the dock reported before departure, with the dispatcher's decision (releases a hold). */
+function LoadingIssuesPanel({ planDate, depot }: { planDate: string; depot: string }) {
+  const issues = useLoadingIssues(planDate, depot)
+  const resolve = useResolveLoadingIssue()
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  if (issues.isPending) return null
+  if (issues.isError) return <div className="step5-alert step5-alert-danger" role="alert">Loading issues could not be loaded.</div>
+  const list: LoadingIssue[] = issues.data ?? []
+  if (list.length === 0) return null
+  const open = list.filter(i => i.status === 'OPEN')
+  return (
+    <section className="manifests-card" aria-label="Loading issues">
+      <div className="manifests-head">
+        <span className="manifests-title">Loading issues</span>
+        <span className="manifests-count-badge">{open.length} open · {list.length - open.length} decided</span>
+      </div>
+      <div className="manifests-table-container">
+        <table className="manifests-table">
+          <caption className="visually-hidden">Shortfalls reported by the dock</caption>
+          <thead><tr><th>Order</th><th>Shortfall</th><th>Reported</th><th>Decision</th></tr></thead>
+          <tbody>
+            {list.map(issue => (
+              <tr key={issue.id}>
+                <td><strong>{issue.orderRef}</strong><br /><span className="field-hint">{issue.vehicleId} · trip {issue.tripIndex} · {issue.outletId}</span></td>
+                <td>{issue.shortUnits} of {issue.orderedUnits} units {SHORT_KINDS[issue.kind ?? ''] ?? issue.kind}
+                  {issue.holdsVehicle ? <> <Badge tone="danger">vehicle held</Badge></> : null}
+                  {issue.note ? <><br /><span className="field-hint">“{issue.note}”</span></> : null}</td>
+                <td>{issue.reportedByName}<br /><span className="field-hint">{timeOf(issue.reportedAt)}</span></td>
+                <td>
+                  {issue.status === 'RESOLVED' ? (
+                    <><Badge tone="success">{issue.decision === 'SEND_SHORT' ? 'Send short' : 'Replanned'}</Badge><br />
+                      <span className="field-hint">{issue.resolvedByName} · {issue.decisionNote}</span></>
+                  ) : (
+                    <div className="step5-decision">
+                      <label className="visually-hidden" htmlFor={`decision-note-${issue.id}`}>Decision note for {issue.orderRef}</label>
+                      <input id={`decision-note-${issue.id}`} className="field-input" placeholder="Decision note (required)" maxLength={500}
+                        value={notes[issue.id!] ?? ''} onChange={e => setNotes({ ...notes, [issue.id!]: e.target.value })} />
+                      <div className="step5-banner-actions">
+                        <button type="button" className="toolbar-btn small" disabled={resolve.isPending || !(notes[issue.id!] ?? '').trim()}
+                          onClick={() => resolve.mutate({ id: issue.id!, body: { expectedVersion: issue.version ?? 0, decision: 'SEND_SHORT', note: notes[issue.id!]!.trim() } })}>
+                          Send {issue.orderedUnits! - issue.shortUnits!} units
+                        </button>
+                        <button type="button" className="toolbar-btn small" disabled={resolve.isPending || !(notes[issue.id!] ?? '').trim()}
+                          onClick={() => resolve.mutate({ id: issue.id!, body: { expectedVersion: issue.version ?? 0, decision: 'REPLANNED', note: notes[issue.id!]!.trim() } })}>
+                          Handled by a revision
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {resolve.error && <div className="step5-alert step5-alert-danger" role="alert">{resolve.error.message}</div>}
+    </section>
   )
 }

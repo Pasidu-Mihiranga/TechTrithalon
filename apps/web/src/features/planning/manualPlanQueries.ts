@@ -171,3 +171,37 @@ export function useEditManualPlan(id: number) {
     onSuccess: saved,
   })
 }
+
+export type LoadingIssue = Schema['LoadingIssue']
+
+/** Loading shortfalls for a run, reported by the dock before departure. */
+export function useLoadingIssues(date?: string, depot?: string) {
+  return useQuery({
+    queryKey: ['dispatcher', 'loading-issues', date, depot],
+    enabled: Boolean(date && depot),
+    retry: false,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/loading-issues', { params: { query: { date: date!, depot } } })
+      if (!data) throw new ManualPlanRequestError(response, error)
+      return data
+    },
+  })
+}
+
+/** The dispatcher's decision on a shortfall; releases a vehicle hold. */
+export function useResolveLoadingIssue() {
+  const cache = useQueryClient()
+  return useMutation({
+    retry: false,
+    mutationFn: async ({ id, body }: { id: number; body: Schema['LoadingIssueDecisionRequest'] }) => {
+      const { data, error, response } = await api.POST('/api/v1/dispatcher/loading-issues/{id}/resolve', { params: { path: { id } }, body })
+      if (!data) throw new ManualPlanRequestError(response, error)
+      return data
+    },
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: ['dispatcher', 'loading-issues'] })
+      void cache.invalidateQueries({ queryKey: ['dispatcher', 'manual-plan'] })
+    },
+  })
+}

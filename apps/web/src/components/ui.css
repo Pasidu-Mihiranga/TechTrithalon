@@ -4067,3 +4067,4 @@ th[aria-sort='descending'] .th-sort::after { content: ' ↓'; }
   .confirm-ready-banner { flex-direction: column; align-items: flex-start; gap: var(--space-12); }
 }
 .btn-primary-yellow:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+.step5-decision { display: flex; flex-direction: column; gap: var(--space-6); min-width: 220px; }
