@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import type { FormEvent } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -7,566 +8,1168 @@ import {
   ChevronDown,
   Clock,
   Info,
-  Layers,
-  RotateCw,
-  Truck,
-  Warehouse,
+  Plus,
+  RotateCcw,
+  Trash2,
   X,
 } from 'lucide-react'
+import { useVehicles } from '../../lib/referenceQueries'
+import { EmptyState, ErrorState, ViolationCard } from '../../components'
+import { InteractiveRouteMap } from './InteractiveRouteMap'
+import type { Edit, ManualPlanView } from './manualPlanQueries'
+import { ManualPlanRequestError } from './manualPlanQueries'
 
-export interface PlanningStep3AllocationProps {
-  onBackToSummary: () => void
-  onContinueToExceptions: () => void
+export interface VehicleTripInfo {
+  name: string
+  tag: string
+  stops: number
 }
 
-interface VehicleCardData {
+export interface VehicleRouteStop {
+  seq: number
+  ref: string
+  outletName: string
+  window: string
+  volume: string
+  brand: string
+  isChilled?: boolean
+  district?: string
+  outletId?: string
+  orderId?: number
+  tripId?: number
+}
+
+export interface VehicleAllocationCard {
   id: string
+  tripId?: number
+  tripIndex?: number
+  vehicleId?: string
+  brand?: string
+  district?: string
   type: string
   badge: 'Reefer' | 'Lorry' | 'Van'
-  driver: string
-  region: string
-  tripsSummary: string
-  trips: Array<{ name: string; tag: string; stops: number }>
+  driver?: string
+  region?: string
+  tripsSummary?: string
+  trips?: VehicleTripInfo[]
   volume: { used: number; total: number; unit: string }
   weight: { used: number; total: number; unit: string }
-  time: { used: number; total: number; unit: string }
-  fuel: { remaining: number; total: number; unit: string }
+  time?: { used: number; total: number; unit: string }
+  fuel?: { remaining: number; total: number; unit: string }
   freshBudget?: string
   warning?: string
   accentColor: string
+  stops?: VehicleRouteStop[]
 }
 
-const VEHICLES: VehicleCardData[] = [
-  {
-    id: 'VEH014',
-    type: 'Reefer 5T',
-    badge: 'Reefer',
-    driver: 'Kasun Perera',
-    region: 'Colombo',
-    tripsSummary: '2 trips · 98 km',
-    trips: [
-      { name: 'Trip 1', tag: 'Fresh · Colombo', stops: 6 },
-      { name: 'Trip 2', tag: 'Style · Gampaha', stops: 4 },
-    ],
-    volume: { used: 34.2, total: 38, unit: 'm³' },
-    weight: { used: 2840, total: 5000, unit: 'kg' },
-    time: { used: 213, total: 270, unit: 'min' },
-    fuel: { remaining: 238, total: 380, unit: 'L left' },
-    freshBudget: '03:30–08:00',
-    accentColor: '#FFC20E',
-  },
-  {
-    id: 'VEH021',
-    type: 'Lorry 5T',
-    badge: 'Lorry',
-    driver: 'Dinesh Silva',
-    region: 'Dehiwala & Mt Lavinia',
-    tripsSummary: '1 trip · 86 km',
-    trips: [{ name: 'Trip 1', tag: 'Dry & Ambient · Dehiwala', stops: 15 }],
-    volume: { used: 31.8, total: 38, unit: 'm³' },
-    weight: { used: 3200, total: 5000, unit: 'kg' },
-    time: { used: 245, total: 270, unit: 'min' },
-    fuel: { remaining: 290, total: 380, unit: 'L left' },
-    warning: '1 stop may miss its window · ORD-1186 08:25',
-    accentColor: '#10B981',
-  },
-  {
-    id: 'VEH055',
-    type: 'Van 1T',
-    badge: 'Van',
-    driver: 'Chaminda Bandara',
-    region: 'Rajagiriya & Battaramulla',
-    tripsSummary: '1 trip · 42 km',
-    trips: [{ name: 'Trip 1', tag: 'Narrow Access · Rajagiriya', stops: 8 }],
-    volume: { used: 8.5, total: 10, unit: 'm³' },
-    weight: { used: 850, total: 1000, unit: 'kg' },
-    time: { used: 165, total: 240, unit: 'min' },
-    fuel: { remaining: 340, total: 380, unit: 'L left' },
-    accentColor: '#8B5CF6',
-  },
-  {
-    id: 'VEH009',
-    type: 'Reefer 3T',
-    badge: 'Reefer',
-    driver: 'Nuwan Pradeep',
-    region: 'Colombo 03 & 07',
-    tripsSummary: '1 trip · 64 km',
-    trips: [{ name: 'Trip 1', tag: 'Dairy & Fresh · Col 03', stops: 7 }],
-    volume: { used: 22.4, total: 24, unit: 'm³' },
-    weight: { used: 2400, total: 3000, unit: 'kg' },
-    time: { used: 190, total: 260, unit: 'min' },
-    fuel: { remaining: 275, total: 380, unit: 'L left' },
-    freshBudget: '04:00–08:30',
-    accentColor: '#3B82F6',
-  },
-]
-
-interface StopItem {
-  id: string
-  outletName: string
-  address: string
-  window: string
-  volume: string
+export interface PlanningStep3AllocationProps {
+  routes?: VehicleAllocationCard[]
+  activeDepot?: string
+  candidateView?: ManualPlanView | null
+  onApplyCommand?: (edit: Edit) => Promise<void>
+  reason?: string
+  onReasonChange?: (reason: string) => void
+  failure?: Error | null
+  onReloadPlan?: () => void
+  actionPending?: boolean
+  onBackToSummary: () => void
+  onContinueToExceptions: () => void
+  onChangeVehicle?: (oldVehId: string, newVehId: string) => void
 }
 
-const STOPS_FOR_VEH021: StopItem[] = [
-  { id: 'ORD-1101', outletName: 'Fort Bazaar Wholesale', address: 'Church St, Dehiwala', window: '08:00–10:00', volume: '3.2 m³' },
-  { id: 'ORD-1102', outletName: 'Waypoint Fresh Dehiwala', address: 'Lighthouse St, Dehiwala', window: '08:30–10:30', volume: '2.8 m³' },
-  { id: 'ORD-1103', outletName: 'Waypoint Fresh Mt Lavinia', address: 'Galle Rd, Mt Lavinia', window: '09:00–11:00', volume: '4.1 m³' },
-  { id: 'ORD-1104', outletName: 'Waypoint Fresh Dehiwala 02', address: 'Pedlar St, Dehiwala', window: '10:00–12:00', volume: '1.9 m³' },
-  { id: 'ORD-1105', outletName: 'Waypoint Express Kawdana', address: 'Station Rd, Dehiwala', window: '10:30–12:30', volume: '2.5 m³' },
-]
+type SortOption = 'utilisation' | 'id' | 'capacity'
 
 export function PlanningStep3Allocation({
+  routes,
+  activeDepot = 'Peliyagoda',
+  candidateView,
+  onApplyCommand,
+  reason = 'Manual allocation edit',
+  onReasonChange,
+  failure,
+  onReloadPlan,
   onBackToSummary,
   onContinueToExceptions,
+  onChangeVehicle,
 }: PlanningStep3AllocationProps) {
-  const [filterType, setFilterType] = useState<'All' | 'Lorry' | 'Reefer' | 'Van'>('All')
-  const [selectedVehId, setSelectedVehId] = useState<string>('VEH014')
-  const [routeViewMode, setRouteViewMode] = useState<'this' | 'all'>('this')
+  const [activeTab, setActiveTab] = useState<'all' | 'reefer' | 'lorry' | 'van'>('all')
+  const [sortBy, setSortBy] = useState<SortOption>('utilisation')
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null)
 
-  // Drawer 3C state
+  // Drawer (3C) & Modal (3D) states
   const [drawerOpen, setDrawerOpen] = useState(false)
-  // Modal 3D state
-  const [modalOpen, setModalOpen] = useState(false)
-  const [targetOrderForSwap, setTargetOrderForSwap] = useState<StopItem | null>(null)
-  const [selectedSwapVeh, setSelectedSwapVeh] = useState('VEH055')
+  const [changeModalOpen, setChangeModalOpen] = useState(false)
+  const [targetSwapId, setTargetSwapId] = useState<string | null>(null)
+  const [targetSwapSlot, setTargetSwapSlot] = useState(1)
 
-  const activeVehicle = VEHICLES.find((v) => v.id === selectedVehId) || VEHICLES[0]
+  // Add Trip Modal state
+  const [addTripModalOpen, setAddTripModalOpen] = useState(false)
+  const [newTripVehicle, setNewTripVehicle] = useState('')
+  const [newTripSlot, setNewTripSlot] = useState(1)
+  const [newTripBrand, setNewTripBrand] = useState('')
+  const [newTripDistrict, setNewTripDistrict] = useState('')
+  const [assignTargetOrderId, setAssignTargetOrderId] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const filteredVehicles = VEHICLES.filter((v) => {
-    if (filterType === 'All') return true
-    return v.badge === filterType
-  })
+  // Fetch real reference vehicles from backend database
+  const vehiclesQuery = useVehicles()
+  const realVehicles = vehiclesQuery.data ?? []
 
-  function handleOpenChangeVehicle(stop: StopItem) {
-    setTargetOrderForSwap(stop)
-    setModalOpen(true)
+  const isLocked = candidateView?.plan.status === 'published'
+  const blocked = isLocked || isSubmitting
+
+  const displayVehicles = useMemo<VehicleAllocationCard[]>(() => {
+    if (routes && routes.length > 0) return routes
+
+    if (candidateView) {
+      const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
+      const cards: VehicleAllocationCard[] = []
+      const trips = candidateView.trips ?? []
+      const fleet = candidateView.fleet ?? []
+
+      // First map all active trips
+      trips.forEach((trip, idx) => {
+        const util = candidateView.utilisation?.[String(trip.id)]
+        const fleetVeh = fleet.find((f) => f.vehicleId === trip.vehicleId)
+        const refVeh = realVehicles.find((r) => r.vehicleId === trip.vehicleId)
+        const temp = fleetVeh?.temp?.toLowerCase() || refVeh?.temp?.toLowerCase() || ''
+        const isReefer = temp.includes('reefer') || temp.includes('chilled')
+        const isVan = fleetVeh?.vehicleId?.toLowerCase().includes('van') || refVeh?.type?.toLowerCase().includes('van')
+        const badge: 'Reefer' | 'Lorry' | 'Van' = isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry'
+        const weightCap = util?.weightLimitKg ?? refVeh?.weightCapKg ?? 3000
+        const volumeCap = util?.volumeLimitM3 ?? refVeh?.volumeCapM3 ?? 20
+
+        cards.push({
+          id: trip.vehicleId ?? `Trip-${trip.id}`,
+          tripId: trip.id,
+          tripIndex: trip.tripIndex,
+          vehicleId: trip.vehicleId,
+          brand: trip.brand,
+          district: trip.district,
+          type: `${badge} · Slot ${trip.tripIndex ?? 1} · ${trip.brand ?? ''}`,
+          badge,
+          driver: undefined,
+          region: `${trip.district ?? activeDepot} Fleet`,
+          tripsSummary: `Trip ${trip.id} · ${trip.stops?.length ?? 0} stops · ${trip.tripMinutes ?? '—'} min · ${trip.distanceKm ?? '—'} km`,
+          trips: [
+            {
+              name: `Slot ${trip.tripIndex ?? 1}`,
+              tag: trip.brand ?? 'All',
+              stops: trip.stops?.length ?? 0,
+            },
+          ],
+          volume: {
+            used: util?.volumeUsedM3 ?? 0,
+            total: volumeCap,
+            unit: 'm³',
+          },
+          weight: {
+            used: util?.weightUsedKg ?? 0,
+            total: weightCap,
+            unit: 'kg',
+          },
+          time: {
+            used: trip.tripMinutes ?? 0,
+            total: 540,
+            unit: 'min',
+          },
+          fuel: {
+            remaining: trip.fuelLitres ?? 0,
+            total: refVeh?.weeklyFuelQuotaL ?? 300,
+            unit: 'L trip',
+          },
+          accentColor: colors[idx % colors.length],
+          stops: (trip.stops ?? []).map((s, sIdx) => ({
+            seq: s.stopIndex ?? sIdx + 1,
+            ref: s.order?.orderRef ?? `ORD-${s.orderId}`,
+            outletName: s.order ? `Waypoint ${s.order.brand ?? ''} ${s.order.district ?? s.order.outletId}` : `Outlet ${s.orderId}`,
+            window: s.plannedArrival && s.serviceStart ? `${s.plannedArrival}–${s.serviceStart}` : '06:00–08:00',
+            volume: `${s.order?.volumeM3?.toFixed(1) ?? '0.0'} m³`,
+            brand: s.order?.brand ?? trip.brand ?? '',
+            isChilled: Boolean(s.order?.temp && (s.order.temp.toLowerCase().includes('chilled') || s.order.temp.toLowerCase().includes('reefer'))),
+            district: s.order?.district ?? trip.district,
+            outletId: s.order?.outletId,
+            orderId: s.orderId,
+            tripId: trip.id,
+          })),
+        })
+      })
+
+      // Also append available standby fleet vehicles that have no trip yet
+      fleet.forEach((veh, idx) => {
+        if (!trips.some((t) => t.vehicleId === veh.vehicleId)) {
+          const refVeh = realVehicles.find((r) => r.vehicleId === veh.vehicleId)
+          const temp = veh.temp?.toLowerCase() || refVeh?.temp?.toLowerCase() || ''
+          const isReefer = temp.includes('reefer') || temp.includes('chilled')
+          const isVan = veh.vehicleId?.toLowerCase().includes('van') || refVeh?.type?.toLowerCase().includes('van')
+          const badge: 'Reefer' | 'Lorry' | 'Van' = isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry'
+          cards.push({
+            id: veh.vehicleId ?? `VEH-${idx}`,
+            vehicleId: veh.vehicleId,
+            type: `${badge} (Standby)`,
+            badge,
+            driver: undefined,
+            region: `${activeDepot} Fleet`,
+            tripsSummary: 'Standby · Ready for routes',
+            trips: [],
+            volume: { used: 0, total: refVeh?.volumeCapM3 ?? 20, unit: 'm³' },
+            weight: { used: 0, total: refVeh?.weightCapKg ?? 3000, unit: 'kg' },
+            time: { used: 0, total: 540, unit: 'min' },
+            fuel: { remaining: refVeh?.weeklyFuelQuotaL ?? 300, total: refVeh?.weeklyFuelQuotaL ?? 300, unit: 'L' },
+            accentColor: '#94a3b8',
+            stops: [],
+          })
+        }
+      })
+
+      if (cards.length > 0) return cards
+    }
+
+    // Fallback: Map real reference vehicles for the depot
+    const depotVehicles = realVehicles.filter(
+      (v) => !activeDepot || !v.depot || v.depot.toLowerCase() === activeDepot.toLowerCase()
+    )
+    const list = depotVehicles.length > 0 ? depotVehicles : realVehicles
+    const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
+
+    return list.slice(0, 14).map((v, i) => {
+      const isReefer = v.temp?.toLowerCase() === 'reefer'
+      const isVan = v.type?.toLowerCase() === 'van'
+      const weightTons = Math.round((v.weightCapKg ?? 3000) / 1000)
+
+      return {
+        id: v.vehicleId,
+        type: `${isReefer ? 'Reefer' : isVan ? 'Van' : 'Truck'} ${weightTons}T`,
+        badge: (isReefer ? 'Reefer' : isVan ? 'Van' : 'Lorry') as 'Reefer' | 'Lorry' | 'Van',
+        driver: undefined,
+        region: v.depot ? `${v.depot} Depot Fleet` : 'Depot Fleet',
+        tripsSummary: 'Standby · Ready for routes',
+        trips: [],
+        volume: { used: 0, total: v.volumeCapM3 ?? 20, unit: 'm³' },
+        weight: { used: 0, total: v.weightCapKg ?? 3000, unit: 'kg' },
+        time: { used: 0, total: 360, unit: 'min' },
+        fuel: { remaining: v.weeklyFuelQuotaL ?? 300, total: v.weeklyFuelQuotaL ?? 300, unit: 'L quota' },
+        accentColor: colors[i % colors.length],
+        stops: [],
+      }
+    })
+  }, [routes, candidateView, realVehicles, activeDepot])
+
+  // Category counts
+  const lorryCount = displayVehicles.filter((v) => v.badge === 'Lorry').length
+  const reeferCount = displayVehicles.filter((v) => v.badge === 'Reefer').length
+  const vanCount = displayVehicles.filter((v) => v.badge === 'Van').length
+
+  // Filter & Sort
+  const processedVehicles = useMemo(() => {
+    let list = displayVehicles.filter((v) => {
+      if (activeTab === 'all') return true
+      if (activeTab === 'reefer') return v.badge === 'Reefer'
+      if (activeTab === 'lorry') return v.badge === 'Lorry'
+      if (activeTab === 'van') return v.badge === 'Van'
+      return true
+    })
+
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'utilisation') {
+        const utilA = (a.volume.used / (a.volume.total || 1)) + (a.weight.used / (a.weight.total || 1))
+        const utilB = (b.volume.used / (b.volume.total || 1)) + (b.weight.used / (b.weight.total || 1))
+        return utilB - utilA
+      }
+      if (sortBy === 'id') {
+        return a.id.localeCompare(b.id, undefined, { numeric: true })
+      }
+      if (sortBy === 'capacity') {
+        return b.volume.total - a.volume.total
+      }
+      return 0
+    })
+
+    return list
+  }, [displayVehicles, activeTab, sortBy])
+
+  const activeVehicle = displayVehicles.find((v) => v.id === selectedVehicleId) || processedVehicles[0] || displayVehicles[0]
+
+  const allocatedVehiclesCount = displayVehicles.filter((v) => v.volume.used > 0).length
+  const totalOrdersPlaced = displayVehicles.reduce((acc, v) => acc + (v.stops?.length ?? 0), 0)
+
+  // Map representation of all routes
+  const allRoutesForMap = useMemo(() => {
+    return displayVehicles.map((v) => ({
+      vehicleId: v.id,
+      color: v.accentColor,
+      stops: v.stops ?? [],
+    }))
+  }, [displayVehicles])
+
+  const availableBrands = useMemo(() => {
+    const list = new Set<string>()
+    candidateView?.unassignedOrders?.forEach((o) => { if (o.order?.brand) list.add(o.order.brand) })
+    candidateView?.trips?.forEach((t) => { if (t.brand) list.add(t.brand) })
+    return list.size > 0 ? Array.from(list) : ['Fresh', 'Perishable', 'General']
+  }, [candidateView])
+
+  const availableDistricts = useMemo(() => {
+    const list = new Set<string>()
+    candidateView?.unassignedOrders?.forEach((o) => { if (o.order?.district) list.add(o.order.district) })
+    candidateView?.trips?.forEach((t) => { if (t.district) list.add(t.district) })
+    return list.size > 0 ? Array.from(list) : ['Colombo', 'Gampaha', 'Kalutara']
+  }, [candidateView])
+
+  function handleOpenDrawer(v: VehicleAllocationCard) {
+    setSelectedVehicleId(v.id)
+    setDrawerOpen(true)
   }
 
-  function handleConfirmSwap() {
-    setModalOpen(false)
-    setDrawerOpen(false)
+  function handleOpenSwapModal(v: VehicleAllocationCard) {
+    setSelectedVehicleId(v.id)
+    setTargetSwapId(null)
+    setTargetSwapSlot(v.tripIndex ?? 1)
+    setChangeModalOpen(true)
+  }
+
+  async function handleConfirmSwap() {
+    if (!activeVehicle || !targetSwapId) return
+    setIsSubmitting(true)
+    try {
+      if (activeVehicle.tripId && onApplyCommand && candidateView?.plan.lockVersion !== undefined) {
+        await onApplyCommand({
+          operation: 'vehicle',
+          tripId: activeVehicle.tripId,
+          body: {
+            expectedVersion: candidateView.plan.lockVersion,
+            reason: reason.trim() || `Switch vehicle to ${targetSwapId} slot ${targetSwapSlot}`,
+            vehicleId: targetSwapId,
+            tripIndex: targetSwapSlot,
+          },
+        })
+      } else if (onChangeVehicle) {
+        onChangeVehicle(activeVehicle.id, targetSwapId)
+      }
+      setChangeModalOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleMoveStopEarlier(tripId: number, stopIdx: number) {
+    if (!candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    const trip = candidateView.trips?.find((t) => t.id === tripId)
+    if (!trip || !trip.stops) return
+    const orderIds = trip.stops.map((s) => s.orderId!).filter(Boolean)
+    if (stopIdx <= 0 || stopIdx >= orderIds.length) return
+    ;[orderIds[stopIdx - 1], orderIds[stopIdx]] = [orderIds[stopIdx], orderIds[stopIdx - 1]]
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'sequence',
+        tripId,
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Resequence stop earlier in trip ${tripId}`,
+          orderIds,
+        },
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleMoveStopLater(tripId: number, stopIdx: number) {
+    if (!candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    const trip = candidateView.trips?.find((t) => t.id === tripId)
+    if (!trip || !trip.stops) return
+    const orderIds = trip.stops.map((s) => s.orderId!).filter(Boolean)
+    if (stopIdx < 0 || stopIdx >= orderIds.length - 1) return
+    ;[orderIds[stopIdx], orderIds[stopIdx + 1]] = [orderIds[stopIdx + 1], orderIds[stopIdx]]
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'sequence',
+        tripId,
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Resequence stop later in trip ${tripId}`,
+          orderIds,
+        },
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleRemoveStop(tripId: number, orderId?: number) {
+    if (!orderId || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'move',
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Unassign order ${orderId} from trip ${tripId}`,
+          orderId,
+          fromTripId: tripId,
+        },
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleAssignOrderToTrip(tripId: number, orderId: number) {
+    if (!orderId || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'move',
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Assign order ${orderId} to trip ${tripId}`,
+          orderId,
+          toTripId: tripId,
+        },
+      })
+      setAssignTargetOrderId('')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleAddTrip(e: FormEvent) {
+    e.preventDefault()
+    if (!newTripVehicle || !candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'addTrip',
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Add trip for vehicle ${newTripVehicle}`,
+          trip: {
+            vehicleId: newTripVehicle,
+            tripIndex: newTripSlot,
+            brand: newTripBrand || availableBrands[0] || 'Fresh',
+            district: newTripDistrict || availableDistricts[0] || 'Colombo',
+            orderIds: [],
+          },
+        },
+      })
+      setAddTripModalOpen(false)
+      setNewTripVehicle('')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  async function handleRemoveTrip(tripId: number) {
+    if (!candidateView || candidateView.plan.lockVersion === undefined || !onApplyCommand) return
+    setIsSubmitting(true)
+    try {
+      await onApplyCommand({
+        operation: 'removeTrip',
+        tripId,
+        body: {
+          expectedVersion: candidateView.plan.lockVersion,
+          reason: reason.trim() || `Remove trip ${tripId}`,
+        },
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Compatible swap options from real reference fleet
+  const compatibleVehicles = useMemo(() => {
+    if (!activeVehicle) return []
+    const fleetList = candidateView?.fleet?.map((f) => ({
+      vehicleId: f.vehicleId!,
+      temp: f.temp,
+      volumeCapM3: realVehicles.find((r) => r.vehicleId === f.vehicleId)?.volumeCapM3 ?? 20,
+      weightCapKg: realVehicles.find((r) => r.vehicleId === f.vehicleId)?.weightCapKg ?? 3000,
+    })) ?? realVehicles
+    return fleetList.filter((v) => v.vehicleId !== activeVehicle.id)
+  }, [candidateView?.fleet, realVehicles, activeVehicle])
+
+  function cycleSort() {
+    setSortBy((prev) => {
+      if (prev === 'utilisation') return 'id'
+      if (prev === 'id') return 'capacity'
+      return 'utilisation'
+    })
   }
 
   return (
     <div className="planning-step3-container animate-fade-in">
-      {/* Step 3 Main Layout: Left Vehicle Cards, Right Route Map */}
+      {/* Main Two-Column Layout Matching Figma Frame 3A */}
       <div className="step3-grid">
-        {/* Left Column: Vehicles List */}
-        <div className="step3-left-col">
+        {/* Left Column: Vehicles List & Utilization Cards */}
+        <div className="step3-left-card">
+          {/* Header Row: Count & Sort */}
           <div className="step3-list-toolbar">
             <div className="step3-veh-count-row">
               <span className="step3-veh-title">Vehicles</span>
-              <span className="step3-veh-count-badge">14</span>
+              <span className="step3-veh-count-badge">{displayVehicles.length}</span>
             </div>
 
-            <div className="step3-sort-dropdown">
-              <span>Sort: utilisation</span>
+            <button
+              type="button"
+              className="step3-sort-dropdown"
+              onClick={cycleSort}
+              title="Click to toggle vehicle sort"
+            >
+              <span>Sort: {sortBy}</span>
               <ChevronDown size={14} aria-hidden="true" />
-            </div>
+            </button>
+
+            {candidateView && onApplyCommand && !isLocked && (
+              <button
+                type="button"
+                className="toolbar-btn small"
+                disabled={blocked}
+                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                onClick={() => setAddTripModalOpen(true)}
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span>Add Trip</span>
+              </button>
+            )}
           </div>
 
-          {/* Filter Pills */}
-          <div className="step3-filter-pills" role="tablist">
-            {(['All', 'Lorry', 'Reefer', 'Van'] as const).map((t) => {
-              const count = t === 'All' ? 14 : t === 'Lorry' ? 9 : t === 'Reefer' ? 3 : 2
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  className={`filter-pill ${filterType === t ? 'active' : ''}`}
-                  onClick={() => setFilterType(t)}
-                >
-                  <span>{t}</span>
-                  <span className="pill-badge">{count}</span>
+          {/* Reason & Authoritative Status Bar */}
+          {candidateView && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', padding: '8px 12px', background: '#f8fafc', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid #e2e8f0', fontSize: '12px' }}>
+              <span style={{ fontWeight: '600', color: 'var(--color-text-secondary)' }}>Edit reason:</span>
+              <input
+                type="text"
+                className="field-input"
+                style={{ flex: 1, padding: '4px 8px', height: '28px', fontSize: '12px' }}
+                value={reason}
+                disabled={blocked}
+                placeholder="Reason for changes (required)"
+                onChange={(e) => onReasonChange?.(e.target.value)}
+              />
+              {onReloadPlan && (
+                <button type="button" className="toolbar-btn small" onClick={onReloadPlan} title="Reload authoritative plan state">
+                  <RotateCcw size={12} aria-hidden="true" />
+                  <span>Reload</span>
                 </button>
-              )
-            })}
+              )}
+            </div>
+          )}
+
+          {/* Failure & Violations Alert */}
+          {failure && (
+            <div style={{ marginBottom: '12px' }}>
+              <ErrorState
+                error={failure}
+                message={failure.message}
+                traceId={failure instanceof ManualPlanRequestError ? failure.traceId : undefined}
+                onRetry={onReloadPlan}
+              />
+              {failure instanceof ManualPlanRequestError && failure.violations.length > 0 && (
+                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {failure.violations.map((v, i) => (
+                    <ViolationCard
+                      key={`${v.ruleCode}-${i}`}
+                      violation={{
+                        ruleCode: v.ruleCode ?? 'RULE_VIOLATION',
+                        message: v.message ?? 'Constraint violation',
+                        severity: v.severity === 'INFO' ? 'INFO' : 'HARD',
+                        actualValue: v.actualValue,
+                        allowedValue: v.allowedValue,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Filter Pills matching Figma */}
+          <div className="step3-filter-pills" role="tablist" aria-label="Vehicle type filters">
+            <button
+              type="button"
+              className={`step3-filter-pill ${activeTab === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveTab('all')}
+            >
+              <span>All</span>
+              <span className="step3-pill-count">{displayVehicles.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`step3-filter-pill ${activeTab === 'lorry' ? 'active' : ''}`}
+              onClick={() => setActiveTab('lorry')}
+            >
+              <span>Lorry</span>
+              <span className="step3-pill-count">{lorryCount}</span>
+            </button>
+            <button
+              type="button"
+              className={`step3-filter-pill ${activeTab === 'reefer' ? 'active' : ''}`}
+              onClick={() => setActiveTab('reefer')}
+            >
+              <span>Reefer</span>
+              <span className="step3-pill-count">{reeferCount}</span>
+            </button>
+            <button
+              type="button"
+              className={`step3-filter-pill ${activeTab === 'van' ? 'active' : ''}`}
+              onClick={() => setActiveTab('van')}
+            >
+              <span>Van</span>
+              <span className="step3-pill-count">{vanCount}</span>
+            </button>
           </div>
 
-          {/* Vehicle Cards */}
+          {/* Scrollable Vehicle Cards List */}
           <div className="step3-vehicle-cards-list">
-            {filteredVehicles.map((v) => {
-              const isSelected = v.id === selectedVehId
-              const volPct = Math.round((v.volume.used / v.volume.total) * 100)
-              const wtPct = Math.round((v.weight.used / v.weight.total) * 100)
-              const timePct = Math.round((v.time.used / v.time.total) * 100)
+            {processedVehicles.length === 0 ? (
+              <div style={{ background: '#ffffff', padding: 'var(--space-20)', borderRadius: 'var(--radius-md)' }}>
+                <EmptyState
+                  title="No vehicles in this category"
+                  description={`No vehicles matching "${activeTab}" found for ${activeDepot} depot.`}
+                />
+              </div>
+            ) : (
+              processedVehicles.map((v) => {
+                const isSelected = activeVehicle?.id === v.id
+                const volPct = Math.min(100, Math.round((v.volume.used / (v.volume.total || 1)) * 100))
+                const wtPct = Math.min(100, Math.round((v.weight.used / (v.weight.total || 1)) * 100))
+                const timePct = v.time ? Math.min(100, Math.round((v.time.used / (v.time.total || 1)) * 100)) : 0
 
-              return (
-                <div
-                  key={v.id}
-                  className={`veh-alloc-card ${isSelected ? 'selected' : ''}`}
-                  onClick={() => setSelectedVehId(v.id)}
-                >
-                  <div className="veh-card-accent-bar" style={{ background: v.accentColor }} />
-                  <div className="veh-card-body">
-                    {/* Header */}
-                    <div className="veh-card-head">
-                      <div className="veh-card-title-group">
-                        <span className="veh-card-id">{v.id}</span>
-                        <span className="veh-card-type-tag">{v.type}</span>
-                      </div>
-                      <span className="veh-card-trips-summary">{v.tripsSummary}</span>
-                    </div>
+                return (
+                  <div
+                    key={v.id}
+                    className={`veh-alloc-card ${isSelected ? 'selected' : ''}`}
+                    onClick={() => setSelectedVehicleId(v.id)}
+                  >
+                    {/* Left vertical color accent bar */}
+                    <div
+                      className="veh-card-accent-bar"
+                      style={{ background: isSelected ? 'var(--color-brand-primary)' : v.accentColor }}
+                    />
 
-                    <div className="veh-card-driver">
-                      {v.driver} · {v.region}
-                    </div>
-
-                    {/* Trips badges */}
-                    <div className="veh-trips-tags">
-                      {v.trips.map((tr) => (
-                        <span key={tr.name} className="veh-trip-pill">
-                          <strong>{tr.name}</strong> {tr.tag} · {tr.stops} stops
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Utilisation multi-bars */}
-                    <div className="veh-util-bars">
-                      <div className="util-row">
-                        <span className="util-metric-name">Volume</span>
-                        <div className="util-bar-bg">
-                          <div className="util-bar-fill blue" style={{ width: `${volPct}%` }} />
+                    <div className="veh-card-body">
+                      {/* Top Row: Vehicle ID, Badge, Trip count summary, and Action buttons */}
+                      <div className="veh-card-head">
+                        <div className="veh-card-title-group">
+                          <span className="veh-card-id">{v.id}</span>
+                          <span className={`veh-card-type-tag badge-${v.badge.toLowerCase()}`}>
+                            {v.type}
+                          </span>
                         </div>
-                        <span className="util-metric-vals">{v.volume.used} / {v.volume.total} m³</span>
-                      </div>
 
-                      <div className="util-row">
-                        <span className="util-metric-name">Weight</span>
-                        <div className="util-bar-bg">
-                          <div className="util-bar-fill purple" style={{ width: `${wtPct}%` }} />
+                        <div className="veh-card-meta-right">
+                          <span className="veh-card-trips-summary">
+                            {v.tripsSummary ?? (v.stops && v.stops.length > 0 ? `${v.stops.length} stops` : 'Standby')}
+                          </span>
+                          <div className="veh-card-action-btns">
+                            <button
+                              type="button"
+                              className="card-action-btn"
+                              title="Review stops and timeline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenDrawer(v)
+                              }}
+                            >
+                              Review
+                            </button>
+                            <button
+                              type="button"
+                              className="card-action-btn"
+                              title="Change or reassign vehicle"
+                              disabled={blocked}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenSwapModal(v)
+                              }}
+                            >
+                              Change
+                            </button>
+                            {v.tripId && onApplyCommand && !isLocked && (
+                              <button
+                                type="button"
+                                className="card-action-btn"
+                                title="Remove trip"
+                                disabled={blocked}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void handleRemoveTrip(v.tripId!)
+                                }}
+                              >
+                                <Trash2 size={12} aria-hidden="true" />
+                                <span>Remove</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <span className="util-metric-vals">{v.weight.used.toLocaleString()} / {v.weight.total.toLocaleString()} kg</span>
                       </div>
 
-                      <div className="util-row">
-                        <span className="util-metric-name">Time</span>
-                        <div className="util-bar-bg">
-                          <div className="util-bar-fill green" style={{ width: `${timePct}%` }} />
+                      {/* Driver & Territory / Fleet line */}
+                      <div className="veh-card-driver">
+                        <span>👤</span>
+                        <span>{v.driver ? v.driver : 'Unassigned driver'}</span>
+                        <span>·</span>
+                        <span>{v.region ?? `${activeDepot} Fleet`}</span>
+                      </div>
+
+                      {/* Warning banner if any */}
+                      {v.warning && (
+                        <div className="veh-warning-banner">
+                          <AlertTriangle size={13} aria-hidden="true" />
+                          <span>{v.warning}</span>
                         </div>
-                        <span className="util-metric-vals">{v.time.used} / {v.time.total} min</span>
+                      )}
+
+                      {/* Trip breakdown chips if trips exist */}
+                      {v.trips && v.trips.length > 0 && (
+                        <div className="veh-trips-tags">
+                          {v.trips.map((trip, idx) => (
+                            <div key={idx} className="veh-trip-pill">
+                              <strong>{trip.name}:</strong>
+                              <span>{trip.tag}</span>
+                              <span>({trip.stops} stops)</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 4 Multi-metric progress bars: Volume, Weight, Time, Fuel */}
+                      <div className="veh-util-bars">
+                        {/* Volume */}
+                        <div className="util-row">
+                          <span className="util-metric-name">Volume</span>
+                          <div className="util-bar-bg">
+                            <div className="util-bar-fill blue" style={{ width: `${volPct}%` }} />
+                          </div>
+                          <span className="util-metric-vals">
+                            {v.volume.used} / {v.volume.total} {v.volume.unit}
+                          </span>
+                        </div>
+
+                        {/* Weight */}
+                        <div className="util-row">
+                          <span className="util-metric-name">Weight</span>
+                          <div className="util-bar-bg">
+                            <div className="util-bar-fill purple" style={{ width: `${wtPct}%` }} />
+                          </div>
+                          <span className="util-metric-vals">
+                            {v.weight.used.toLocaleString()} / {v.weight.total.toLocaleString()} {v.weight.unit}
+                          </span>
+                        </div>
+
+                        {/* Time */}
+                        <div className="util-row">
+                          <span className="util-metric-name">Time</span>
+                          <div className="util-bar-bg">
+                            <div className="util-bar-fill green" style={{ width: `${timePct}%` }} />
+                          </div>
+                          <span className="util-metric-vals">
+                            {v.time ? `${v.time.used} / ${v.time.total} min` : '0 / 360 min'}
+                          </span>
+                        </div>
+
+                        {/* Fuel */}
+                        <div className="util-row">
+                          <span className="util-metric-name">Fuel</span>
+                          <div className="util-bar-bg">
+                            <div
+                              className="util-bar-fill amber"
+                              style={{
+                                width: v.fuel ? `${Math.min(100, Math.round((v.fuel.remaining / v.fuel.total) * 100))}%` : '100%',
+                              }}
+                            />
+                          </div>
+                          <span className="util-metric-vals">
+                            {v.fuel ? `${v.fuel.remaining} / ${v.fuel.total} L left` : '300 / 300 L left'}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="util-row">
-                        <span className="util-metric-name">Fuel</span>
-                        <span className="util-metric-fuel">{v.fuel.remaining} / {v.fuel.total} L left</span>
-                      </div>
-
+                      {/* Fresh Delivery Budget Footer */}
                       {v.freshBudget && (
                         <div className="veh-fresh-budget">
-                          Fresh budget: {v.freshBudget}
+                          <Clock size={11} aria-hidden="true" />
+                          <span>Fresh delivery budget: {v.freshBudget}</span>
                         </div>
                       )}
                     </div>
-
-                    {/* Warning Callout if present */}
-                    {v.warning && (
-                      <div className="veh-warning-banner">
-                        <AlertTriangle size={13} aria-hidden="true" />
-                        <span>{v.warning}</span>
-                      </div>
-                    )}
-
-                    <div className="veh-card-actions">
-                      <button
-                        type="button"
-                        className="veh-view-stops-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedVehId(v.id)
-                          setDrawerOpen(true)
-                        }}
-                      >
-                        <Layers size={13} aria-hidden="true" />
-                        <span>View stops sequence</span>
-                      </button>
-                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
         </div>
 
-        {/* Right Column: Route Map Inspection */}
+        {/* Right Column: Route Inspector with Interactive Leaflet Map */}
         <div className="step3-right-col">
-          <div className="route-inspect-card">
-            {/* Inspector Header */}
-            <div className="route-inspect-head">
-              <div>
-                <div className="route-inspect-title">
-                  <span className="route-veh-accent" style={{ background: activeVehicle.accentColor }} />
-                  <span>{activeVehicle.id} - {activeVehicle.region}</span>
-                </div>
-                <div className="route-inspect-sub">
-                  {activeVehicle.driver} · Trip 1 · 6 stops · 98 km · departs 04:30 · 213/270 min
-                </div>
-              </div>
-
-              <div className="route-inspect-controls">
-                <div className="segmented-control" role="group">
-                  <button
-                    type="button"
-                    className={`segmented-btn ${routeViewMode === 'this' ? 'active' : ''}`}
-                    onClick={() => setRouteViewMode('this')}
-                  >
-                    This route
-                  </button>
-                  <button
-                    type="button"
-                    className={`segmented-btn ${routeViewMode === 'all' ? 'active' : ''}`}
-                    onClick={() => setRouteViewMode('all')}
-                  >
-                    All routes
-                  </button>
-                </div>
-
-                <button type="button" className="toolbar-btn">
-                  <RotateCw size={13} aria-hidden="true" />
-                  <span>Re-optimise</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Canvas Map View */}
-            <div className="route-map-canvas-container">
-              <svg viewBox="0 0 750 480" className="route-detail-svg" preserveAspectRatio="xMidYMid slice" aria-label="Route detail path">
-                <defs>
-                  <filter id="routeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feDropShadow dx="0" dy="2" stdDeviation="4" floodOpacity="0.2" />
-                  </filter>
-                </defs>
-
-                {/* Base Map */}
-                <rect width="750" height="480" fill="#F1F5F9" />
-                <path d="M 120 0 L 750 0 L 750 480 L 220 480 Q 180 400 190 320 Q 210 240 160 170 Q 130 90 120 0 Z" fill="#F8FAFC" />
-                <ellipse cx="380" cy="220" rx="90" ry="60" fill="#E2F0D9" opacity="0.8" />
-
-                {/* Secondary non-active route lines if All routes is clicked */}
-                {routeViewMode === 'all' && (
-                  <>
-                    <path d="M 320 80 Q 420 180 460 300" fill="none" stroke="#F97316" strokeWidth="3" opacity="0.5" />
-                    <path d="M 320 80 Q 220 160 180 320" fill="none" stroke="#10B981" strokeWidth="3" opacity="0.5" />
-                    <path d="M 320 80 Q 480 150 560 260" fill="none" stroke="#3B82F6" strokeWidth="3" opacity="0.5" />
-                  </>
-                )}
-
-                {/* Active Route Path */}
-                <path
-                  d="M 320 80 Q 400 160 380 230 T 260 340 T 210 400"
-                  fill="none"
-                  stroke="#4F46E5"
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                  filter="url(#routeShadow)"
-                />
-
-                {/* Depot */}
-                <circle cx="320" cy="80" r="9" fill="#1E293B" />
-                <circle cx="320" cy="80" r="4" fill="#FFC20E" />
-
-                {/* Sequential Stop Pins */}
-                <g transform="translate(380, 230)">
-                  <circle r="12" fill="#4F46E5" />
-                  <text textAnchor="middle" dy="4" fill="#FFFFFF" fontSize="11" fontWeight="700">1</text>
-                </g>
-                <g transform="translate(320, 290)">
-                  <circle r="12" fill="#4F46E5" />
-                  <text textAnchor="middle" dy="4" fill="#FFFFFF" fontSize="11" fontWeight="700">2</text>
-                </g>
-                <g transform="translate(260, 340)">
-                  <circle r="12" fill="#4F46E5" />
-                  <text textAnchor="middle" dy="4" fill="#FFFFFF" fontSize="11" fontWeight="700">3</text>
-                </g>
-                <g transform="translate(210, 400)">
-                  <circle r="12" fill="#4F46E5" />
-                  <text textAnchor="middle" dy="4" fill="#FFFFFF" fontSize="11" fontWeight="700">4</text>
-                </g>
-              </svg>
-
-              {/* Peliyagoda Depot Badge */}
-              <div className="map-depot-badge" style={{ top: '24px', left: '200px' }}>
-                <Warehouse size={13} aria-hidden="true" />
-                <span>From Peliyagoda Depot</span>
-              </div>
-            </div>
-          </div>
+          {activeVehicle && (
+            <InteractiveRouteMap
+              activeDepot={activeDepot}
+              vehicleId={activeVehicle.id}
+              vehicleType={activeVehicle.type}
+              accentColor={activeVehicle.accentColor}
+              stops={activeVehicle.stops}
+              allRoutes={allRoutesForMap}
+              onViewStops={() => setDrawerOpen(true)}
+            />
+          )}
         </div>
       </div>
 
-      {/* Drawer 3C: Vehicle Plan Review (Stops Sequence) */}
-      {drawerOpen && (
+      {/* Slide-out Stops Review Drawer (3C) */}
+      {drawerOpen && activeVehicle && (
         <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}>
           <div className="drawer-panel animate-slide-left" onClick={(e) => e.stopPropagation()}>
             <div className="drawer-header">
-              <div className="drawer-head-info">
-                <div className="drawer-title">{activeVehicle.driver} · {activeVehicle.type}</div>
-                <div className="drawer-subtitle">{activeVehicle.region}</div>
+              <div>
+                <h3 className="drawer-title">{activeVehicle.id} Delivery Sequence</h3>
+                <p className="drawer-subtitle">
+                  {activeVehicle.type} · {activeVehicle.region}
+                </p>
               </div>
               <button
                 type="button"
                 className="drawer-close-btn"
                 onClick={() => setDrawerOpen(false)}
-                aria-label="Close stops drawer"
+                aria-label="Close drawer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Quick stats pills */}
-            <div className="drawer-stats-row">
-              <div className="drawer-stat-tile">
-                <span className="drawer-stat-val">15</span>
-                <span className="drawer-stat-lbl">Stops</span>
-              </div>
-              <div className="drawer-stat-tile">
-                <span className="drawer-stat-val">86%</span>
-                <span className="drawer-stat-lbl">Capacity</span>
-              </div>
+            <div className="drawer-body" style={{ padding: '16px' }}>
+              {activeVehicle.stops && activeVehicle.stops.length > 0 ? (
+                <div className="drawer-stops-timeline">
+                  {activeVehicle.stops.map((stop, stopIdx) => (
+                    <div key={stop.ref} className="drawer-stop-item" style={{ display: 'flex', gap: '12px', marginBottom: '14px', alignItems: 'flex-start' }}>
+                      <div className="stop-seq-badge" style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--color-brand-primary)', color: '#000', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', flexShrink: 0 }}>
+                        {stop.seq}
+                      </div>
+                      <div className="stop-info" style={{ flex: 1 }}>
+                        <div className="stop-name" style={{ fontWeight: '700', fontSize: '13px', color: 'var(--color-text-primary)' }}>
+                          {stop.outletName}
+                        </div>
+                        <div className="stop-meta" style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '6px', marginTop: '2px' }}>
+                          <span className="stop-ref">{stop.ref}</span>
+                          <span>·</span>
+                          <span className="stop-window">🕒 {stop.window}</span>
+                          <span>·</span>
+                          <span className="stop-vol">{stop.volume}</span>
+                        </div>
+                      </div>
+                      {activeVehicle.tripId && onApplyCommand && !isLocked && (
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            className="toolbar-btn small"
+                            disabled={blocked || stopIdx === 0}
+                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            title="Move stop earlier"
+                            onClick={() => void handleMoveStopEarlier(activeVehicle.tripId!, stopIdx)}
+                          >
+                            Earlier
+                          </button>
+                          <button
+                            type="button"
+                            className="toolbar-btn small"
+                            disabled={blocked || stopIdx === (activeVehicle.stops?.length ?? 1) - 1}
+                            style={{ padding: '2px 6px', fontSize: '11px' }}
+                            title="Move stop later"
+                            onClick={() => void handleMoveStopLater(activeVehicle.tripId!, stopIdx)}
+                          >
+                            Later
+                          </button>
+                          <button
+                            type="button"
+                            className="toolbar-btn small"
+                            disabled={blocked}
+                            style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--color-danger, #ef4444)' }}
+                            title="Remove stop from trip"
+                            onClick={() => void handleRemoveStop(activeVehicle.tripId!, stop.orderId)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No stops allocated"
+                  description="When the solver runs or stops are assigned, sequential stops with delivery windows will appear here."
+                />
+              )}
+
+              {activeVehicle.tripId && candidateView && (candidateView.unassignedOrders?.length ?? 0) > 0 && onApplyCommand && !isLocked && (
+                <div style={{ marginTop: '16px', padding: '12px', background: '#f8fafc', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid #e2e8f0' }}>
+                  <h4 style={{ fontSize: '12px', fontWeight: '700', marginBottom: '8px', color: 'var(--color-text-primary)' }}>
+                    Assign Unassigned Order to Trip
+                  </h4>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                      className="field-select"
+                      style={{ flex: 1, fontSize: '12px' }}
+                      value={assignTargetOrderId}
+                      disabled={blocked}
+                      onChange={(e) => setAssignTargetOrderId(e.target.value)}
+                    >
+                      <option value="">Select unassigned order...</option>
+                      {candidateView.unassignedOrders?.map((item) => (
+                        <option key={item.order?.id} value={item.order?.id}>
+                          {item.order?.orderRef} · {item.order?.outletId} ({item.order?.volumeM3?.toFixed(1) ?? '0.0'} m³)
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-primary-yellow small"
+                      disabled={!assignTargetOrderId || blocked}
+                      onClick={() => void handleAssignOrderToTrip(activeVehicle.tripId!, Number(assignTargetOrderId))}
+                    >
+                      Assign
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="drawer-stops-section">
-              <div className="drawer-section-title">STOPS ON THIS ROUTE</div>
-              <div className="drawer-stops-list">
-                {STOPS_FOR_VEH021.map((stop, idx) => (
-                  <div key={stop.id} className="drawer-stop-card">
-                    <div className="drawer-stop-top">
-                      <span className="stop-idx-badge">{idx + 1}</span>
-                      <div>
-                        <div className="stop-outlet-title">
-                          <strong>{stop.id}</strong> {stop.outletName}
-                        </div>
-                        <div className="stop-outlet-address">{stop.address}</div>
-                      </div>
-                    </div>
-
-                    <div className="drawer-stop-meta">
-                      <span className="stop-time-badge">
-                        <Clock size={12} aria-hidden="true" />
-                        <span>{stop.window}</span>
-                      </span>
-                      <span className="stop-vol">{stop.volume}</span>
-                    </div>
-
-                    <div className="drawer-stop-actions">
-                      <button
-                        type="button"
-                        className="btn-change-vehicle"
-                        onClick={() => handleOpenChangeVehicle(stop)}
-                      >
-                        <Truck size={13} aria-hidden="true" />
-                        <span>Change Vehicle</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="drawer-footer" style={{ padding: '16px', borderTop: '1px solid var(--color-border-default)' }}>
+              <button
+                type="button"
+                className="btn-primary-yellow full-width"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Close Sequence Review
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal 3D: Change Vehicle */}
-      {modalOpen && (
-        <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-dialog-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3 className="modal-title">Change vehicle</h3>
-              <p className="modal-subtitle">
-                {targetOrderForSwap?.id || 'ORD-1115'} · {targetOrderForSwap?.outletName || 'Waypoint Fresh Kalubowila'} · {targetOrderForSwap?.window || '06:30–07:00 window'}
-              </p>
-            </div>
-
-            <div className="modal-section-label">COMPATIBLE VEHICLES NEARBY</div>
-
-            <div className="swap-options-list">
-              {[
-                {
-                  id: 'VEH055',
-                  name: 'Van 1T',
-                  stats: '61% capacity · +12 min detour',
-                  badge: 'Compatible · Recommended',
-                  badgeType: 'success',
-                },
-                {
-                  id: 'VEH027',
-                  name: 'Lorry 5T',
-                  stats: '78% capacity · +26 min detour',
-                  badge: 'Tight capacity',
-                  badgeType: 'warning',
-                },
-                {
-                  id: 'VEH009',
-                  name: 'Reefer 3T',
-                  stats: '71% capacity · +34 min detour',
-                  badge: 'Compatible · over-spec',
-                  badgeType: 'neutral',
-                },
-                {
-                  id: 'VEH033',
-                  name: 'Lorry 5T',
-                  stats: '86% capacity · +18 min detour',
-                  badge: 'Near capacity limit',
-                  badgeType: 'warning',
-                },
-              ].map((veh) => (
-                <label
-                  key={veh.id}
-                  className={`swap-veh-option ${selectedSwapVeh === veh.id ? 'active' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="swap-vehicle"
-                    value={veh.id}
-                    checked={selectedSwapVeh === veh.id}
-                    onChange={() => setSelectedSwapVeh(veh.id)}
-                    className="swap-radio"
-                  />
-                  <div className="swap-veh-info">
-                    <div className="swap-veh-name">
-                      <strong>{veh.id}</strong> {veh.name}
-                    </div>
-                    <div className="swap-veh-stats">{veh.stats}</div>
-                  </div>
-                  <span className={`swap-badge swap-badge-${veh.badgeType}`}>
-                    {veh.badge}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            <div className="modal-actions-footer">
+      {/* Change Vehicle Modal (3D) */}
+      {changeModalOpen && activeVehicle && (
+        <div className="modal-overlay" onClick={() => setChangeModalOpen(false)}>
+          <div className="modal-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Change Vehicle for Route</h3>
+                <p className="modal-subtitle">
+                  Currently assigned: <strong>{activeVehicle.id}</strong> ({activeVehicle.type})
+                </p>
+              </div>
               <button
                 type="button"
-                className="btn-modal-cancel"
-                onClick={() => setModalOpen(false)}
+                className="modal-close-btn"
+                onClick={() => setChangeModalOpen(false)}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p className="modal-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
+                Select a compatible vehicle from the {activeDepot} fleet:
+              </p>
+              <div className="swap-options-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {compatibleVehicles.slice(0, 6).map((veh) => {
+                  const isChosen = targetSwapId === veh.vehicleId
+                  const isReefer = veh.temp?.toLowerCase() === 'reefer'
+                  return (
+                    <div
+                      key={veh.vehicleId}
+                      className={`swap-option-card ${isChosen ? 'chosen' : ''}`}
+                      onClick={() => setTargetSwapId(veh.vehicleId)}
+                      style={{
+                        padding: '10px 14px',
+                        border: isChosen ? '1.5px solid var(--color-brand-primary)' : '1px solid var(--color-border-default)',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        background: isChosen ? '#fffbeb' : '#ffffff',
+                      }}
+                    >
+                      <div className="swap-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="swap-id" style={{ fontWeight: '800', fontFamily: 'var(--font-family-mono)', fontSize: '13px' }}>
+                          {veh.vehicleId}
+                        </span>
+                        <span className={`veh-card-type-tag badge-${isReefer ? 'reefer' : 'lorry'}`}>
+                          {isReefer ? 'Reefer' : 'Lorry'}
+                        </span>
+                        <span className="swap-cap" style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                          Cap: {veh.volumeCapM3} m³ · {veh.weightCapKg} kg
+                        </span>
+                      </div>
+                      <div className="swap-status">
+                        {isChosen ? (
+                          <span className="swap-selected-mark" style={{ color: '#b45309', fontWeight: '700', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Check size={14} /> Selected
+                          </span>
+                        ) : (
+                          <span className="swap-avail" style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Available</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div style={{ marginTop: '12px' }}>
+                <label className="field-label" htmlFor="swap-slot-select" style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>
+                  Trip Slot:
+                </label>
+                <select
+                  id="swap-slot-select"
+                  className="field-select full-width"
+                  value={targetSwapSlot}
+                  onChange={(e) => setTargetSwapSlot(Number(e.target.value))}
+                >
+                  <option value={1}>Slot 1 (Morning delivery)</option>
+                  <option value={2}>Slot 2 (Afternoon delivery)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => setChangeModalOpen(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn-modal-confirm"
+                className="btn-primary-yellow"
+                disabled={!targetSwapId || blocked}
                 onClick={handleConfirmSwap}
               >
-                <Check size={16} aria-hidden="true" />
-                <span>Confirm Change</span>
+                Confirm Vehicle Switch
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Step 3 Sticky Bottom Bar */}
+      {/* Add Trip Modal */}
+      {addTripModalOpen && (
+        <div className="modal-overlay" onClick={() => setAddTripModalOpen(false)}>
+          <div className="modal-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <form onSubmit={(e) => void handleAddTrip(e)}>
+              <div className="modal-header">
+                <div>
+                  <h3 className="modal-title">Add Vehicle Trip</h3>
+                  <p className="modal-subtitle">{activeDepot} Depot · Manual Allocation</p>
+                </div>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setAddTripModalOpen(false)}
+                  aria-label="Close modal"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <label className="field-label" htmlFor="new-trip-veh">Vehicle:</label>
+                  <select
+                    id="new-trip-veh"
+                    className="field-select full-width"
+                    required
+                    value={newTripVehicle}
+                    onChange={(e) => setNewTripVehicle(e.target.value)}
+                  >
+                    <option value="">Select vehicle...</option>
+                    {(candidateView?.fleet ?? realVehicles).map((veh) => (
+                      <option key={veh.vehicleId} value={veh.vehicleId}>
+                        {veh.vehicleId} · {veh.temp ?? 'Ambient'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="new-trip-slot">Trip Slot:</label>
+                  <select
+                    id="new-trip-slot"
+                    className="field-select full-width"
+                    value={newTripSlot}
+                    onChange={(e) => setNewTripSlot(Number(e.target.value))}
+                  >
+                    <option value={1}>Slot 1 (Morning)</option>
+                    <option value={2}>Slot 2 (Afternoon)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="new-trip-brand">Brand:</label>
+                  <select
+                    id="new-trip-brand"
+                    className="field-select full-width"
+                    value={newTripBrand || availableBrands[0]}
+                    onChange={(e) => setNewTripBrand(e.target.value)}
+                  >
+                    {availableBrands.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="new-trip-dist">District:</label>
+                  <select
+                    id="new-trip-dist"
+                    className="field-select full-width"
+                    value={newTripDistrict || availableDistricts[0]}
+                    onChange={(e) => setNewTripDistrict(e.target.value)}
+                  >
+                    {availableDistricts.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="toolbar-btn"
+                  onClick={() => setAddTripModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary-yellow"
+                  disabled={!newTripVehicle || blocked}
+                >
+                  Create Trip
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Bottom Bar Matching Figma 3A */}
       <div className="planning-bottom-bar">
         <div className="bottom-bar-left">
-          <div className="bottom-bar-metric">
-            <Info size={16} className="text-info inline-icon" aria-hidden="true" />
-            <span>180 orders allocated across 14 vehicles</span>
+          <div style={{ color: 'var(--color-brand-primary)', display: 'flex', alignItems: 'center' }}>
+            <Info size={18} aria-hidden="true" />
           </div>
-          <div className="bottom-bar-sub">
-            6 orders couldn't be placed automatically. You'll handle them in the next step.
+          <div>
+            <div className="bottom-bar-metric">
+              {totalOrdersPlaced > 0
+                ? `${totalOrdersPlaced} orders allocated across ${allocatedVehiclesCount || displayVehicles.length} vehicles`
+                : `${displayVehicles.length} vehicles available`}
+            </div>
+            <div className="bottom-bar-sub">
+              {totalOrdersPlaced > 0
+                ? 'Review allocations or proceed to triage exceptions'
+                : `Standby at ${activeDepot} Depot · Ready for routes`}
+            </div>
           </div>
         </div>
         <div className="bottom-bar-right">
@@ -580,7 +1183,8 @@ export function PlanningStep3Allocation({
           </button>
           <button
             type="button"
-            className="btn-primary-yellow"
+            className="btn-generate-plan"
+            aria-label="Proceed to exceptions"
             onClick={onContinueToExceptions}
           >
             <span>Continue to exceptions</span>

@@ -322,7 +322,7 @@
 }
 
 .topbar-user { margin-inline-start: auto; display: flex; align-items: center; gap: var(--space-8); font-size: var(--font-body-s-medium-size); font-weight: var(--font-body-s-medium-weight); color: var(--color-text-secondary); }
-.shell-main { flex: 1; padding: var(--space-28) var(--space-24); background: var(--color-bg-surface); }
+.shell-main { flex: 1; padding: var(--space-16) var(--space-24); background: var(--color-bg-surface); }
 
 .grid-metrics { display: grid; gap: var(--space-16); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: var(--space-24); }
 .dashboard-split { display: grid; gap: var(--space-16); grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); margin-bottom: var(--space-24); }

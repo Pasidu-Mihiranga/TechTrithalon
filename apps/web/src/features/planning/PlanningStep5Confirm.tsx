@@ -2,65 +2,162 @@ import { useState } from 'react'
 import {
   ArrowRight,
   Box,
-  Check,
   CheckCircle,
   Clock,
   Download,
+  Fuel,
   Lock,
   Mail,
   MessageSquare,
   Navigation,
+  RotateCcw,
   Send,
   Smartphone,
   Truck,
+  Warehouse,
   X,
 } from 'lucide-react'
+import { EmptyState } from '../../components'
+import type { ManualPlanView } from './manualPlanQueries'
+import { ManualPlanRequestError } from './manualPlanQueries'
+
+export interface DispatchManifestRow {
+  vehicle: string
+  driver?: string
+  stops: number
+  volume: string
+  departs?: string
+  bay?: string
+  accentColor?: string
+}
+
+export interface DispatchMetrics {
+  totalVehicles: number
+  totalDrivers: number
+  totalOrders: number
+  totalVolumeM3: number
+  depotWindow?: string
+}
 
 export interface PlanningStep5ConfirmProps {
   activeDepot: string
   planDate: string
+  manifestRows?: DispatchManifestRow[]
+  metrics?: DispatchMetrics
+  onPublishPlan?: (options: {
+    notifyLoaderApp: boolean
+    notifyDriverSms: boolean
+    notifySupervisorEmail: boolean
+  }) => Promise<void>
+  candidateView?: ManualPlanView | null
+  onPublishCandidate?: (reason: string) => Promise<void>
+  failure?: Error | null
+  onReloadPlan?: () => void
+  actionPending?: boolean
 }
 
-interface ManifestRow {
-  vehicle: string
-  driver: string
-  stops: number
-  volume: string
-  departs: string
-  bay: string
-  accentColor: string
-}
-
-const MANIFESTS: ManifestRow[] = [
-  { vehicle: 'VEH014', driver: 'Kasun Perera', stops: 6, volume: '34.2 m³', departs: '04:30', bay: 'Bay 1', accentColor: '#FFC20E' },
-  { vehicle: 'VEH021', driver: 'Dinesh Silva', stops: 15, volume: '31.8 m³', departs: '04:35', bay: 'Bay 1', accentColor: '#10B981' },
-  { vehicle: 'VEH055', driver: 'Chaminda Bandara', stops: 8, volume: '8.5 m³', departs: '04:45', bay: 'Bay 2', accentColor: '#8B5CF6' },
-  { vehicle: 'VEH009', driver: 'Nuwan Pradeep', stops: 7, volume: '22.4 m³', departs: '04:40', bay: 'Bay 2', accentColor: '#3B82F6' },
-  { vehicle: 'VEH072', driver: 'Sunil Jayasuriya', stops: 6, volume: '9.2 m³', departs: '05:00', bay: 'Bay 3', accentColor: '#F97316' },
-  { vehicle: 'VEH033', driver: 'Saman Kumara', stops: 8, volume: '28.5 m³', departs: '05:15', bay: 'Bay 3', accentColor: '#EC4899' },
-]
-
-export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5ConfirmProps) {
-  const [notifyLoaderApp, setNotifyLoaderApp] = useState(true)
-  const [notifyDriverSms, setNotifyDriverSms] = useState(true)
+export function PlanningStep5Confirm({
+  activeDepot,
+  planDate,
+  manifestRows: propsManifestRows = [],
+  metrics: propsMetrics,
+  onPublishPlan,
+  candidateView,
+  onPublishCandidate,
+  failure,
+  onReloadPlan,
+  actionPending = false,
+}: PlanningStep5ConfirmProps) {
+  const [notifyLoaderApp, setNotifyLoaderApp] = useState(false)
+  const [notifyDriverSms, setNotifyDriverSms] = useState(false)
   const [notifySupervisorEmail, setNotifySupervisorEmail] = useState(false)
 
   // 5A+ Modal State
   const [confirmModalOpen, setConfirmModalOpen] = useState(false)
   const [modalEmailChecked, setModalEmailChecked] = useState(false)
+  const [publishReason, setPublishReason] = useState('Publishing finalized delivery routes and locking fuel allocations')
+  const [publishing, setPublishing] = useState(false)
+  const [localPublishError, setLocalPublishError] = useState<string | null>(null)
 
-  // 5B Plan Sent State
-  const [planSent, setPlanSent] = useState(false)
+  // 5B Plan Sent State: if already published on backend, start in sent state
+  const isAlreadyPublished = candidateView?.plan?.status === 'published'
+  const [planSent, setPlanSent] = useState(isAlreadyPublished)
   const [showToast, setShowToast] = useState(true)
 
-  function handleSendPlan() {
-    setConfirmModalOpen(false)
-    setPlanSent(true)
-    setShowToast(true)
+  // Derive manifest rows from candidateView when present
+  const manifestRows: DispatchManifestRow[] = candidateView
+    ? (candidateView.trips ?? []).map((trip) => {
+        const util = candidateView.utilisation?.[String(trip.id)]
+        const volUsed = util?.volumeUsedM3 != null ? util.volumeUsedM3.toFixed(1) : '—'
+        const volLimit = util?.volumeLimitM3 != null ? util.volumeLimitM3.toFixed(1) : '—'
+        const firstStop = trip.stops?.[0]
+        return {
+          vehicle: `${trip.vehicleId} (Slot ${trip.tripIndex ?? 1})`,
+          driver: 'Unassigned', // Drivers are unassigned in Phase 7
+          stops: trip.stops?.length ?? 0,
+          volume: `${volUsed} / ${volLimit} m³`,
+          departs: firstStop?.plannedArrival ? `Depot -> ${firstStop.plannedArrival}` : '—',
+          bay: `Bay ${trip.tripIndex ?? 1}`,
+          accentColor: '#FFC20E',
+        }
+      })
+    : propsManifestRows
+
+  // Derive counts & KPIs
+  const vehiclesCount = candidateView
+    ? new Set((candidateView.trips ?? []).map((t) => t.vehicleId)).size
+    : (propsMetrics?.totalVehicles ?? manifestRows.length)
+
+  const driversCount = candidateView
+    ? 'Unassigned'
+    : (propsMetrics?.totalDrivers ?? manifestRows.filter((m) => Boolean(m.driver)).length)
+
+  const ordersCount = candidateView
+    ? (candidateView.validation?.metrics?.ordersAssigned ??
+       (candidateView.trips ?? []).reduce((acc, t) => acc + (t.stops?.length ?? 0), 0))
+    : (propsMetrics?.totalOrders ?? manifestRows.reduce((acc, m) => acc + m.stops, 0))
+
+  const totalVolumeStr = candidateView
+    ? `${Object.values(candidateView.utilisation ?? {}).reduce((acc, u) => acc + (u.volumeUsedM3 ?? 0), 0).toFixed(1)} m³`
+    : propsMetrics
+      ? `${propsMetrics.totalVolumeM3.toFixed(1)} m³`
+      : manifestRows.length > 0
+        ? `${manifestRows.length * 15} m³`
+        : '0.0 m³'
+
+  const totalDistanceStr = candidateView?.validation?.metrics?.totalDistanceKm != null
+    ? `${candidateView.validation.metrics.totalDistanceKm} km`
+    : '—'
+
+  const totalFuelStr = candidateView?.validation?.metrics?.totalFuelLitres != null
+    ? `${candidateView.validation.metrics.totalFuelLitres} L`
+    : '—'
+
+  async function handleSendPlan() {
+    setPublishing(true)
+    setLocalPublishError(null)
+    try {
+      if (candidateView && onPublishCandidate) {
+        await onPublishCandidate(publishReason.trim() || 'Published operational delivery plan')
+      } else if (onPublishPlan) {
+        await onPublishPlan({
+          notifyLoaderApp,
+          notifyDriverSms,
+          notifySupervisorEmail: modalEmailChecked || notifySupervisorEmail,
+        })
+      }
+      setConfirmModalOpen(false)
+      setPlanSent(true)
+      setShowToast(true)
+    } catch (err) {
+      setLocalPublishError(err instanceof Error ? err.message : 'Plan could not be published.')
+    } finally {
+      setPublishing(false)
+    }
   }
 
   // 5B: Plan Sent View
-  if (planSent) {
+  if (planSent || isAlreadyPublished) {
     return (
       <div className="planning-step5-container animate-fade-in">
         {/* Floating Top Notification Toast */}
@@ -68,19 +165,25 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
           <div className="top-floating-toast">
             <div className="toast-left">
               <CheckCircle size={16} className="text-success" />
-              <span>Plan sent to {activeDepot || 'Peliyagoda'} loader team</span>
+              <span>
+                {candidateView
+                  ? `Plan #${candidateView.plan.id} published and locked. Fuel quota reserved.`
+                  : `Plan sent to ${activeDepot || 'Peliyagoda'} teams`}
+              </span>
             </div>
             <div className="toast-right">
-              <button
-                type="button"
-                className="toast-undo-btn"
-                onClick={() => {
-                  setPlanSent(false)
-                  setShowToast(false)
-                }}
-              >
-                <span>Undo · 4:52</span>
-              </button>
+              {!isAlreadyPublished && !candidateView && (
+                <button
+                  type="button"
+                  className="toast-undo-btn"
+                  onClick={() => {
+                    setPlanSent(false)
+                    setShowToast(false)
+                  }}
+                >
+                  <span>Re-open Plan</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="toast-close-btn"
@@ -93,121 +196,122 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
           </div>
         )}
 
+        {/* Informational Disclaimer on Phase 7 vs Later Workflows */}
+        <div className="alert-card alert-info" style={{ marginBottom: 'var(--space-16)', padding: 'var(--space-12) var(--space-16)', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 'var(--radius-8)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <Lock size={18} className="text-brand-blue" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div>
+              <strong style={{ color: '#0369A1' }}>Phase 7 Publication Complete: </strong>
+              <span style={{ color: '#0C4A6E', fontSize: '13px' }}>
+                Operational routes are committed and vehicle fuel is reserved in the ledger. Published plans are immutable.
+                Note: Loader mobile apps and driver dispatch notifications belong to Phase 11+ and are not simulated here.
+              </span>
+            </div>
+          </div>
+        </div>
+
         <div className="step5-sent-grid">
           {/* Left Card: Sent Status & Timeline */}
           <div className="sent-timeline-card">
             <div className="sent-head-row">
               <div className="sent-big-icon-box">
-                <Check size={28} className="text-white" />
+                <CheckCircle size={24} className="text-success" />
               </div>
               <div>
-                <h2 className="sent-main-title">Plan sent to loader</h2>
-                <p className="sent-main-subtitle">
-                  Sent Mon 28 Sep at 18:42 by Dispatcher · Morning shift. The {activeDepot || 'Peliyagoda'} loader team acknowledged at 18:44.
+                <h3 className="sent-title">Delivery plan is locked and active</h3>
+                <p className="sent-sub">
+                  {candidateView?.plan?.id ? `Plan #${candidateView.plan.id} (rev ${candidateView.plan.lockVersion}) · ` : ''}
+                  Sent for {planDate} · {activeDepot} Depot · {vehiclesCount} routes active
                 </p>
               </div>
             </div>
 
-            {/* Timeline milestone nodes */}
-            <div className="sent-timeline-body">
-              <div className="milestone-row done">
-                <div className="milestone-time">18:42</div>
-                <div className="milestone-node">
-                  <Check size={12} />
-                </div>
-                <div className="milestone-content">
-                  <div className="milestone-title">Plan locked and sent</div>
-                  <div className="milestone-sub">15 manifests · 185 orders · 410.5 m³</div>
-                </div>
-              </div>
-
-              <div className="milestone-row done">
-                <div className="milestone-time">18:43</div>
-                <div className="milestone-node">
-                  <Check size={12} />
-                </div>
-                <div className="milestone-content">
-                  <div className="milestone-title">SMS delivered to 15 drivers</div>
-                  <div className="milestone-sub">Route link and first stop for each driver</div>
-                </div>
-              </div>
-
-              <div className="milestone-row done">
-                <div className="milestone-time">18:44</div>
-                <div className="milestone-node">
-                  <Check size={12} />
-                </div>
-                <div className="milestone-content">
-                  <div className="milestone-title">Loader acknowledged</div>
-                  <div className="milestone-sub">Kamal Jayawardena · Bay supervisor, {activeDepot || 'Peliyagoda'}</div>
-                </div>
-              </div>
-
-              <div className="milestone-row pending">
-                <div className="milestone-time">04:00</div>
-                <div className="milestone-node empty" />
-                <div className="milestone-content">
-                  <div className="milestone-title-row">
-                    <span className="milestone-title">Loading starts</span>
-                    <span className="badge-tomorrow">Tomorrow</span>
+            <div className="sent-timeline-stepper">
+              <div className="timeline-node complete">
+                <div className="node-marker">✓</div>
+                <div className="node-info">
+                  <div className="node-title">Plan published by Dispatcher</div>
+                  <div className="node-meta">
+                    Confirmed for {activeDepot} Depot {candidateView ? `· Plan ID #${candidateView.plan.id}` : ''}
                   </div>
-                  <div className="milestone-sub">Bays 1–4 · reefers first, as noted</div>
                 </div>
               </div>
 
-              <div className="milestone-row pending">
-                <div className="milestone-time">04:30</div>
-                <div className="milestone-node empty" />
-                <div className="milestone-content">
-                  <div className="milestone-title-row">
-                    <span className="milestone-title">First vehicle departs</span>
-                    <span className="badge-tomorrow">Tomorrow</span>
+              <div className="timeline-node complete">
+                <div className="node-marker">✓</div>
+                <div className="node-info">
+                  <div className="node-title">Fuel quota reserved & locked</div>
+                  <div className="node-meta">
+                    {totalFuelStr !== '—' ? `${totalFuelStr} fuel reserved in vehicle quota ledger` : 'Committed to vehicle ledger'}
                   </div>
-                  <div className="milestone-sub">VEH014 · Kasun Perera · Colombo</div>
                 </div>
               </div>
+
+              <div className="timeline-node upcoming">
+                <div className="node-marker">○</div>
+                <div className="node-info">
+                  <div className="node-title">Warehouse loading execution (Phase 11+)</div>
+                  <div className="node-meta">Bay staging and pallet sequence dispatch</div>
+                </div>
+              </div>
+
+              <div className="timeline-node upcoming">
+                <div className="node-marker">○</div>
+                <div className="node-info">
+                  <div className="node-title">Driver mobile dispatch (Phase 11+)</div>
+                  <div className="node-meta">Route navigation and ePOD rollout</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="sent-timeline-actions">
+              <button type="button" className="toolbar-btn">
+                <Download size={14} aria-hidden="true" />
+                <span>Export Manifest (PDF)</span>
+              </button>
+              <button type="button" className="toolbar-btn">
+                <Download size={14} aria-hidden="true" />
+                <span>Export CSV</span>
+              </button>
             </div>
           </div>
 
-          {/* Right Card: Tomorrow at a Glance */}
-          <div className="sent-glance-card">
-            <div className="glance-head">
-              <span className="glance-title">Tomorrow at a glance</span>
-              <span className="badge-locked">
-                <Lock size={12} aria-hidden="true" />
-                <span>Locked</span>
+          {/* Right Card: Locked Route Overview Canvas */}
+          <div className="sent-map-card">
+            <div className="sent-map-head">
+              <div className="sent-map-title">
+                <Lock size={15} aria-hidden="true" />
+                <span>Locked Routes Overview · {activeDepot} Depot</span>
+              </div>
+              <span className="live-status-badge">
+                <span className="live-pulse" /> LOCKED & IMMUTABLE
               </span>
             </div>
 
-            <div className="glance-map-preview">
-              <svg viewBox="0 0 400 240" className="glance-map-svg" aria-label="Route map overview">
-                <rect width="400" height="240" fill="#F8FAFC" />
-                <ellipse cx="200" cy="120" rx="90" ry="50" fill="#E2F0D9" opacity="0.8" />
-                <path d="M 200 40 Q 140 100 120 180" fill="none" stroke="#FFC20E" strokeWidth="3.5" />
-                <path d="M 200 40 Q 180 120 190 200" fill="none" stroke="#EF4444" strokeWidth="3" />
-                <path d="M 200 40 Q 240 100 270 190" fill="none" stroke="#3B82F6" strokeWidth="3" />
-                <path d="M 200 40 Q 280 80 320 160" fill="none" stroke="#8B5CF6" strokeWidth="3" />
-                <circle cx="200" cy="40" r="7" fill="#1E293B" />
-                <circle cx="200" cy="40" r="3" fill="#FFC20E" />
-              </svg>
-            </div>
+            <div className="sent-canvas-box">
+              <svg viewBox="0 0 600 350" className="sent-map-svg" aria-label="Locked routes map">
+                <rect width="600" height="350" fill="#F8FAFC" />
+                <path d="M 80 0 Q 150 140 160 350" fill="none" stroke="#E2E8F0" strokeWidth="6" />
 
-            <div className="glance-stats-list">
-              <div className="glance-stat-row">
-                <span className="glance-stat-lbl"><Truck size={14} /> Vehicles</span>
-                <span className="glance-stat-val">15</span>
-              </div>
-              <div className="glance-stat-row">
-                <span className="glance-stat-lbl"><Box size={14} /> Orders</span>
-                <span className="glance-stat-val">185</span>
-              </div>
-              <div className="glance-stat-row">
-                <span className="glance-stat-lbl"><Navigation size={14} /> Volume</span>
-                <span className="glance-stat-val">410.5 m³</span>
-              </div>
-              <div className="glance-stat-row">
-                <span className="glance-stat-lbl"><Clock size={14} /> Distance</span>
-                <span className="glance-stat-val">1,195 km</span>
+                {/* Depot Node */}
+                <circle cx="300" cy="80" r="14" fill="#1E293B" />
+                <circle cx="300" cy="80" r="7" fill="#FFC20E" />
+
+                {/* Radiating Locked Routes */}
+                <path d="M 300 80 Q 210 130 180 250" fill="none" stroke="#FFC20E" strokeWidth="3" />
+                <path d="M 300 80 Q 240 180 250 290" fill="none" stroke="#10B981" strokeWidth="3" />
+                <path d="M 300 80 Q 340 170 370 270" fill="none" stroke="#3B82F6" strokeWidth="3" />
+                <path d="M 300 80 Q 400 130 450 210" fill="none" stroke="#8B5CF6" strokeWidth="3" />
+
+                {/* Pins */}
+                <circle cx="180" cy="250" r="6" fill="#FFC20E" />
+                <circle cx="250" cy="290" r="6" fill="#10B981" />
+                <circle cx="370" cy="270" r="6" fill="#3B82F6" />
+                <circle cx="450" cy="210" r="6" fill="#8B5CF6" />
+              </svg>
+              <div className="map-depot-badge" style={{ top: '15px', right: '140px' }}>
+                <Warehouse size={12} aria-hidden="true" />
+                <span>{activeDepot} Hub</span>
               </div>
             </div>
           </div>
@@ -216,140 +320,186 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
     )
   }
 
-  // 5A: Confirm & Send Overview
+  // 5A: Ready to Confirm View
   return (
     <div className="planning-step5-container animate-fade-in">
+      {failure && (
+        <div className="alert-card alert-danger" style={{ marginBottom: 'var(--space-16)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong>Publication Blocked: </strong>
+              <span>{failure.message}</span>
+              {failure instanceof ManualPlanRequestError && failure.traceId && (
+                <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
+                  Trace ID: <code>{failure.traceId}</code>
+                </div>
+              )}
+            </div>
+            {onReloadPlan && (
+              <button type="button" className="toolbar-btn small" onClick={onReloadPlan}>
+                <RotateCcw size={12} aria-hidden="true" />
+                <span>Reload Plan</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Ready Banner */}
-      <div className="confirm-ready-banner">
-        <div className="confirm-banner-left">
-          <div className="confirm-icon-box">
-            <Send size={24} className="text-warning" />
+      <div className="step5-ready-banner">
+        <div className="ready-banner-left">
+          <div className="ready-icon-box">
+            <CheckCircle size={28} className="text-success" />
           </div>
           <div>
-            <h2 className="confirm-banner-title">Ready to send tomorrow's plan</h2>
-            <p className="confirm-banner-subtitle">
-              Check the manifests, choose who gets notified, then send to the {activeDepot || 'Peliyagoda'} loader team.
+            <h2 className="ready-title">
+              {manifestRows.length > 0
+                ? 'Delivery plan is ready to send'
+                : 'Confirm & Send Dispatch'}
+            </h2>
+            <p className="ready-subtitle">
+              {manifestRows.length > 0
+                ? `All exceptions are resolved and all constraints are satisfied. Plan for ${planDate} from ${activeDepot} is ready.`
+                : `Finalize notifications and compile dispatch manifest for ${planDate} (${activeDepot} Depot).`}
             </p>
           </div>
         </div>
-        <div className="confirm-banner-badge">
-          <Clock size={14} aria-hidden="true" />
-          <span>Editable until 05:00 tomorrow</span>
+        <div className="ready-banner-actions">
+          <button
+            type="button"
+            className="btn-primary-yellow large"
+            disabled={actionPending || manifestRows.length === 0}
+            onClick={() => setConfirmModalOpen(true)}
+          >
+            <Send size={16} aria-hidden="true" />
+            <span>Confirm & Send Plan</span>
+            <ArrowRight size={16} aria-hidden="true" />
+          </button>
         </div>
       </div>
 
-      {/* 5 KPI Tiles */}
+      {/* 5 KPI Metric Cards */}
       <div className="kpi-grid-5">
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <span className="kpi-icon-box orange"><Truck size={15} /></span>
             <span className="kpi-label">Vehicles</span>
           </div>
-          <div className="kpi-value">15</div>
-          <div className="kpi-sub">incl. 1 standby van</div>
+          <div className="kpi-value">{vehiclesCount}</div>
+          <div className="kpi-sub">routes allocated</div>
+        </div>
+
+        <div className="kpi-tile">
+          <div className="kpi-tile-header">
+            <span className="kpi-icon-box yellow"><Clock size={15} /></span>
+            <span className="kpi-label">Drivers</span>
+          </div>
+          <div className="kpi-value">{driversCount}</div>
+          <div className="kpi-sub">{candidateView ? 'phase 11+' : 'assigned'}</div>
         </div>
 
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <span className="kpi-icon-box amber"><Box size={15} /></span>
-            <span className="kpi-label">Orders</span>
+            <span className="kpi-label">Total orders</span>
           </div>
-          <div className="kpi-value">185</div>
-          <div className="kpi-sub">1 deferred to Wed</div>
+          <div className="kpi-value">{ordersCount}</div>
+          <div className="kpi-sub">scheduled stops</div>
         </div>
 
         <div className="kpi-tile">
           <div className="kpi-tile-header">
             <span className="kpi-icon-box green"><Navigation size={15} /></span>
-            <span className="kpi-label">Volume</span>
+            <span className="kpi-label">Total volume</span>
           </div>
-          <div className="kpi-value">410.5 m³</div>
-          <div className="kpi-sub">of 412.5 m³ confirmed</div>
+          <div className="kpi-value">{totalVolumeStr}</div>
+          <div className="kpi-sub">payload allocated</div>
         </div>
 
         <div className="kpi-tile">
           <div className="kpi-tile-header">
-            <span className="kpi-icon-box teal"><Clock size={15} /></span>
-            <span className="kpi-label">Distance</span>
+            <span className="kpi-icon-box blue"><Fuel size={15} /></span>
+            <span className="kpi-label">Fuel & Distance</span>
           </div>
-          <div className="kpi-value">1,195 km</div>
-          <div className="kpi-sub">100% on-time</div>
-        </div>
-
-        <div className="kpi-tile">
-          <div className="kpi-tile-header">
-            <span className="kpi-icon-box blue"><Send size={15} /></span>
-            <span className="kpi-label">First departure</span>
-          </div>
-          <div className="kpi-value">04:30</div>
-          <div className="kpi-sub">VEH014 · Bay 1</div>
+          <div className="kpi-value">{totalFuelStr}</div>
+          <div className="kpi-sub">{totalDistanceStr}</div>
         </div>
       </div>
 
-      {/* Main Split: Manifests Table (Left) + Notify Card (Right) */}
-      <div className="confirm-main-grid">
-        {/* Left Column: Vehicle Manifests */}
-        <div className="manifests-card">
-          <div className="manifests-head">
-            <div className="manifests-title-group">
-              <span className="manifests-title">Vehicle manifests</span>
-              <span className="manifests-count-badge">15</span>
+      {/* Main Two-Column Layout */}
+      <div className="step5-layout-grid">
+        {/* Left Column: Vehicle Manifest Table */}
+        <div className="step5-manifest-col">
+          <div className="manifest-card">
+            <div className="manifest-card-header">
+              <span className="manifest-title">Vehicle Manifest</span>
+              <span className="manifest-sub">
+                {manifestRows.length > 0 ? `${manifestRows.length} trips assigned` : 'Routes allocation pending'}
+              </span>
             </div>
-            <button type="button" className="toolbar-btn">
-              <Download size={14} aria-hidden="true" />
-              <span>Download all (PDF)</span>
-            </button>
-          </div>
 
-          <div className="manifests-table-container">
-            <table className="manifests-table">
-              <thead>
-                <tr>
-                  <th>VEHICLE</th>
-                  <th>DRIVER</th>
-                  <th>STOPS</th>
-                  <th>VOLUME</th>
-                  <th>DEPARTS</th>
-                  <th>BAY</th>
-                  <th>STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MANIFESTS.map((m) => (
-                  <tr key={m.vehicle}>
-                    <td className="td-veh-id">
-                      <span className="veh-accent-bar" style={{ background: m.accentColor }} />
-                      <strong>{m.vehicle}</strong>
-                    </td>
-                    <td>{m.driver}</td>
-                    <td>{m.stops}</td>
-                    <td>{m.volume}</td>
-                    <td className="td-time">{m.departs}</td>
-                    <td><span className="bay-badge">{m.bay}</span></td>
-                    <td>
-                      <span className="status-badge-ready">
-                        <Check size={11} aria-hidden="true" />
-                        <span>Ready</span>
-                      </span>
-                    </td>
+            <div className="manifest-table-wrapper">
+              <table className="manifest-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Driver</th>
+                    <th>Stops</th>
+                    <th>Volume</th>
+                    <th>Departs</th>
+                    <th>Loading Bay</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {manifestRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ padding: 'var(--space-32)', textAlign: 'center' }}>
+                        <EmptyState
+                          title="No manifest compiled yet"
+                          description="Complete route generation and allocation in steps 2–3 to compile the dispatch manifest."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    manifestRows.map((row, idx) => (
+                      <tr key={`${row.vehicle}-${idx}`}>
+                        <td>
+                          <div className="veh-cell">
+                            <span className="veh-color-dot" style={{ background: row.accentColor ?? '#FFC20E' }} />
+                            <strong>{row.vehicle}</strong>
+                          </div>
+                        </td>
+                        <td>{row.driver ?? 'Unassigned'}</td>
+                        <td>{row.stops}</td>
+                        <td>{row.volume}</td>
+                        <td>{row.departs ?? '—'}</td>
+                        <td>
+                          <span className="bay-badge">{row.bay ?? 'Bay 1'}</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Notify Card & Send Action */}
-        <div className="confirm-side-col">
-          <div className="notify-card">
-            <h3 className="notify-title">Notify</h3>
+        {/* Right Column: Execution Configuration */}
+        <div className="step5-side-col">
+          <div className="notifications-card">
+            <h3 className="notif-title">Send Notifications</h3>
+            <p className="notif-sub">Choose who receives updates when the plan is confirmed:</p>
 
-            <div className="notify-rows">
-              <div className="notify-row">
-                <div className="notify-icon-box"><Smartphone size={16} /></div>
-                <div className="notify-info">
-                  <div className="notify-name">Loader app – {activeDepot || 'Peliyagoda'}</div>
-                  <div className="notify-desc">Manifests + load order per bay</div>
+            <div className="notif-toggles-list">
+              {/* Loader App */}
+              <div className="notif-toggle-row">
+                <div className="notif-icon-box blue">
+                  <Smartphone size={16} />
+                </div>
+                <div className="notif-info">
+                  <div className="notif-name">Loader App</div>
+                  <div className="notif-desc">Send loading sequence to warehouse floor</div>
                 </div>
                 <button
                   type="button"
@@ -362,11 +512,14 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
                 </button>
               </div>
 
-              <div className="notify-row">
-                <div className="notify-icon-box"><MessageSquare size={16} /></div>
-                <div className="notify-info">
-                  <div className="notify-name">SMS to drivers</div>
-                  <div className="notify-desc">15 drivers · route link & first stop</div>
+              {/* Driver SMS */}
+              <div className="notif-toggle-row">
+                <div className="notif-icon-box green">
+                  <MessageSquare size={16} />
+                </div>
+                <div className="notif-info">
+                  <div className="notif-name">Driver SMS / App</div>
+                  <div className="notif-desc">Send route & stop lists to drivers</div>
                 </div>
                 <button
                   type="button"
@@ -379,11 +532,14 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
                 </button>
               </div>
 
-              <div className="notify-row">
-                <div className="notify-icon-box"><Mail size={16} /></div>
-                <div className="notify-info">
-                  <div className="notify-name">Email depot supervisor</div>
-                  <div className="notify-desc">PDF summary of the plan</div>
+              {/* Supervisor Email */}
+              <div className="notif-toggle-row">
+                <div className="notif-icon-box yellow">
+                  <Mail size={16} />
+                </div>
+                <div className="notif-info">
+                  <div className="notif-name">Supervisor Email</div>
+                  <div className="notif-desc">Send daily summary report to supervisors</div>
                 </div>
                 <button
                   type="button"
@@ -397,78 +553,113 @@ export function PlanningStep5Confirm({ activeDepot, planDate }: PlanningStep5Con
               </div>
             </div>
 
-            <div className="notify-send-action">
-              <button
-                type="button"
-                className="btn-primary-yellow full-width"
-                onClick={() => setConfirmModalOpen(true)}
-              >
-                <Send size={16} aria-hidden="true" />
-                <span>Send plan to loaders</span>
-                <ArrowRight size={16} aria-hidden="true" />
-              </button>
+            <div className="notif-disclaimer">
+              <Clock size={12} aria-hidden="true" />
+              <span>
+                {candidateView
+                  ? 'Phase 7 locks routes and commits fuel. Operational dispatch apps connect in Phase 11+.'
+                  : 'Once confirmed, changes will notify affected drivers and loaders automatically.'}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal 5A+: Send Confirmation Modal */}
+      {/* Confirmation Modal */}
       {confirmModalOpen && (
-        <div className="modal-overlay" onClick={() => setConfirmModalOpen(false)}>
-          <div className="modal-dialog-card animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head-center">
-              <div className="confirm-modal-icon-box">
-                <Send size={24} className="text-warning" />
+        <div className="modal-overlay" onClick={() => !publishing && setConfirmModalOpen(false)}>
+          <div className="modal-card send-confirm-modal animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Confirm and Send Plan</h3>
+                <p className="modal-subtitle">
+                  {planDate} · {activeDepot} Depot
+                </p>
               </div>
-              <h3 className="modal-title">Send plan to loader?</h3>
-              <p className="modal-subtitle">
-                15 vehicle manifests for {planDate || 'Tue 29 Sep 2026'} will go to the {activeDepot || 'Peliyagoda Depot'} loader team. You can still make changes until 05:00.
+              <button
+                type="button"
+                className="modal-close-btn"
+                disabled={publishing}
+                onClick={() => setConfirmModalOpen(false)}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="confirm-summary-box">
+                <div className="summary-item">
+                  <span className="summary-num">{vehiclesCount}</span>
+                  <span className="summary-lbl">Vehicles</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-num">{ordersCount}</span>
+                  <span className="summary-lbl">Orders</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-num">{totalVolumeStr}</span>
+                  <span className="summary-lbl">Volume</span>
+                </div>
+              </div>
+
+              {candidateView && (
+                <div className="modal-form-group" style={{ marginTop: 'var(--space-16)' }}>
+                  <label className="field-label" htmlFor="publish-reason">Publication Reason (Required)</label>
+                  <input
+                    id="publish-reason"
+                    type="text"
+                    className="field-input full-width"
+                    value={publishReason}
+                    maxLength={500}
+                    onChange={(e) => setPublishReason(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              <p className="confirm-warning-text">
+                ⚠️ Sending will lock this delivery plan and commit vehicle fuel quotas. The plan cannot be modified or re-optimised after publication.
               </p>
+
+              <div className="modal-checkbox-row">
+                <input
+                  type="checkbox"
+                  id="modal-email-check"
+                  checked={modalEmailChecked}
+                  onChange={(e) => setModalEmailChecked(e.target.checked)}
+                />
+                <label htmlFor="modal-email-check">
+                  Record publication in operational audit ledger
+                </label>
+              </div>
+
+              {localPublishError && (
+                <div className="alert-card alert-danger" style={{ marginTop: 'var(--space-12)' }}>
+                  <strong>Publication Failed: </strong>
+                  <span>{localPublishError}</span>
+                </div>
+              )}
             </div>
 
-            <div className="confirm-checklist-box">
-              <div className="checklist-item">
-                <CheckCircle size={16} className="text-success" />
-                <span>185 orders · 410.5 m³ across 15 vehicles</span>
-              </div>
-              <div className="checklist-item">
-                <CheckCircle size={16} className="text-success" />
-                <span>1 order deferred to Wed 30 Sep</span>
-              </div>
-              <div className="checklist-item">
-                <CheckCircle size={16} className="text-success" />
-                <span>Loader app + SMS to 15 drivers</span>
-              </div>
-            </div>
-
-            <label className="confirm-email-checkbox">
-              <input
-                type="checkbox"
-                checked={modalEmailChecked}
-                onChange={(e) => setModalEmailChecked(e.target.checked)}
-              />
-              <span>Also email the depot supervisor</span>
-            </label>
-
-            <div className="modal-actions-footer">
-              <span className="keyboard-hint">Press ⌘Enter</span>
-              <div className="modal-btn-group">
-                <button
-                  type="button"
-                  className="btn-modal-cancel"
-                  onClick={() => setConfirmModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn-modal-confirm"
-                  onClick={handleSendPlan}
-                >
-                  <Send size={15} aria-hidden="true" />
-                  <span>Send to loader</span>
-                </button>
-              </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="toolbar-btn"
+                disabled={publishing}
+                onClick={() => setConfirmModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary-yellow"
+                disabled={publishing || (candidateView != null && !publishReason.trim())}
+                onClick={() => void handleSendPlan()}
+              >
+                <Send size={15} aria-hidden="true" />
+                <span>{publishing ? 'Publishing...' : 'Yes, Send Delivery Plan'}</span>
+              </button>
             </div>
           </div>
         </div>

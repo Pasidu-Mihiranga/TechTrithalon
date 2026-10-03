@@ -1,3 +1,26 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import {
+  ArrowRight,
+  Box,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Map as MapIcon,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Snowflake,
+  Sparkles,
+  Table,
+} from 'lucide-react'
+import { Button, EmptyState, ErrorState, LoadingState } from '../../components'
+import { useReferenceSummary } from '../shell/useReferenceSummary'
+import { useDispatcherScope } from '../shell/useDispatcherScope'
+import { useOutlets } from '../../lib/referenceQueries'
+import { useDispatcherOrders } from './orderQueries'
+import { api, apiReadError } from '../../lib/apiClient'
 import { PlanningStageTabs } from '../planning/PlanningStages'
 import { Step1BulkActionBar } from '../planning/Step1BulkActionBar'
 import { Step1MapSplitView } from '../planning/Step1MapSplitView'
@@ -5,29 +28,14 @@ import { PlanningStep2Generate } from '../planning/PlanningStep2Generate'
 import { PlanningStep3Allocation } from '../planning/PlanningStep3Allocation'
 import { PlanningStep4Exceptions } from '../planning/PlanningStep4Exceptions'
 import { PlanningStep5Confirm } from '../planning/PlanningStep5Confirm'
-import { useEffect, useMemo, useState } from 'react'
-import { Button, EmptyState, ErrorState, LoadingState } from '../../components'
-import { useReferenceSummary } from '../shell/useReferenceSummary'
-import { useDispatcherScope } from '../shell/useDispatcherScope'
-import { useOutlets } from '../../lib/referenceQueries'
-import { useDispatcherOrders } from './orderQueries'
-import { api, apiReadError } from '../../lib/apiClient'
-import { Link } from 'react-router-dom'
 import {
-  ArrowRight,
-  Ban,
-  Box,
-  Calendar,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Map as MapIcon,
-  Search,
-  SlidersHorizontal,
-  Snowflake,
-  Sparkles,
-  Table,
-} from 'lucide-react'
+  ManualPlanRequestError,
+  useCreateManualPlan,
+  useEditManualPlan,
+  useManualPlan,
+  useManualPlans,
+} from '../planning/manualPlanQueries'
+import type { Edit } from '../planning/manualPlanQueries'
 import type { components } from '../../generated/api'
 
 type Snapshot = components['schemas']['PlanningSnapshot']
@@ -49,7 +57,23 @@ function formatDisplayDate(dateStr: string) {
 }
 
 export function PlanningConfirmedOrdersPage() {
-  const [stage, setStage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const planIdParam = searchParams.get('planId')
+  const activePlanId = planIdParam ? Number(planIdParam) : null
+  const stageParam = searchParams.get('step')
+  const initialStage = stageParam ? Number(stageParam) : 0
+
+  const [stage, setStageState] = useState(initialStage)
+  const setStage = (s: number) => {
+    setStageState(s)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (s === 0) next.delete('step')
+      else next.set('step', String(s))
+      return next
+    })
+  }
+
   const summary = useReferenceSummary()
   const scope = useDispatcherScope()
   const outlets = useOutlets()
@@ -61,6 +85,7 @@ export function PlanningConfirmedOrdersPage() {
   const [depotsError, setDepotsError] = useState<Error | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [failure, setFailure] = useState<Error | null>(null)
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [comparison, setComparison] = useState<Comparison | null>(null)
 
@@ -81,13 +106,20 @@ export function PlanningConfirmedOrdersPage() {
         setDepots(names)
         const initial = scope.depot || (names.includes('Peliyagoda') ? 'Peliyagoda' : names[0]) || ''
         setDepot(initial)
-      } catch (failure) { if (!cancelled) setDepotsError(failure instanceof Error ? failure : new Error('Depots could not be loaded')) }
+      } catch (f) { if (!cancelled) setDepotsError(f instanceof Error ? f : new Error('Depots could not be loaded')) }
     })()
     return () => { cancelled = true }
   }, [scope.depot])
 
   const activeDepot = scope.depot || depot || (depots?.includes('Peliyagoda') ? 'Peliyagoda' : depots?.[0]) || 'Peliyagoda'
   const planDate = date || summary.data?.demoOperatingDate || ''
+
+  // Authoritative manual plan hooks
+  const planQuery = useManualPlan(activePlanId ?? undefined)
+  const candidateView = planQuery.data ?? null
+  const savedPlansQuery = useManualPlans(planDate, activeDepot)
+  const createManualPlan = useCreateManualPlan()
+  const editManualPlan = useEditManualPlan(activePlanId ?? 0)
 
   const outletsMap = useMemo(() => {
     const list = Array.isArray(outlets.data) ? outlets.data : []
@@ -118,12 +150,12 @@ export function PlanningConfirmedOrdersPage() {
   })
 
   const { normalCount, chilledCount, vanCount, totalVolume } = useMemo(() => {
-    const items = allOrdersQuery.data?.items ?? []
+    const itemsList = allOrdersQuery.data?.items ?? []
     let normal = 0
     let chilled = 0
     let van = 0
     let vol = 0
-    for (const item of items) {
+    for (const item of itemsList) {
       vol += item.volumeM3 ?? 0
       if (item.tempRequirement === 'ambient') normal++
       if (item.tempRequirement === 'chilled') chilled++
@@ -149,6 +181,7 @@ export function PlanningConfirmedOrdersPage() {
   async function createSnapshot(useSelection: boolean, regenerate = false) {
     setSubmitting(true)
     setError(null)
+    setFailure(null)
     try {
       const orderIds = regenerate && snapshot?.selectionMode === 'selected'
         ? snapshot.orderIds
@@ -174,13 +207,78 @@ export function PlanningConfirmedOrdersPage() {
   }
 
   async function handleGeneratePlan() {
-    if (!snapshot) {
-      await createSnapshot(false)
+    setSubmitting(true)
+    setError(null)
+    setFailure(null)
+    try {
+      let snap = snapshot
+      if (!snap) {
+        const orderIds = selectedKeys.size > 0 ? [...selectedKeys].map(Number) : undefined
+        const { data, error: apiError } = await api.POST('/api/v1/dispatcher/planning/snapshots', {
+          body: { planDate, depot: activeDepot, orderIds },
+        })
+        if (!data) {
+          const code = apiError && typeof apiError === 'object' && 'code' in apiError ? String((apiError as { code?: string }).code) : undefined
+          setError(code === 'ORDERS_NOT_CLOSED' ? 'Orders close at 16:00 Asia/Colombo on the day before delivery.'
+            : code === 'SELECTION_INVALID' ? 'Some selected orders are no longer eligible. Refresh and select them again.'
+              : code === 'OPERATING_DAY' ? 'Choose an operating delivery day.' : 'The snapshot could not be created.')
+          return
+        }
+        snap = data
+        setSnapshot(snap)
+      }
+
+      // Create authoritative candidate from frozen snapshot
+      const created = await createManualPlan.mutateAsync({
+        snapshotId: snap.id,
+        reason: 'Initial candidate created from confirmed orders snapshot',
+      })
+
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('planId', String(created.plan.id))
+        next.set('step', '1')
+        return next
+      })
+      setStageState(1)
+    } catch (err) {
+      setFailure(err instanceof Error ? err : new Error('Candidate plan could not be created.'))
+    } finally {
+      setSubmitting(false)
     }
-    setStage(1)
   }
 
-  function clearScope() { setSelectedKeys(new Set()); setSnapshot(null); setComparison(null); setError(null) }
+  async function handleApplyCommand(command: Edit) {
+    if (!activePlanId || !candidateView) {
+      setFailure(new Error('No active candidate plan loaded. Generate or select a candidate first.'))
+      return
+    }
+    if (candidateView.plan.status === 'published') {
+      setFailure(new Error('Plan is locked and published. No modifications are permitted.'))
+      return
+    }
+    setFailure(null)
+    try {
+      await editManualPlan.mutateAsync(command)
+    } catch (err) {
+      setFailure(err instanceof Error ? err : new Error('The plan edit could not be applied.'))
+    }
+  }
+
+  function clearScope() {
+    setSelectedKeys(new Set())
+    setSnapshot(null)
+    setComparison(null)
+    setError(null)
+    setFailure(null)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('planId')
+      next.delete('step')
+      return next
+    })
+    setStageState(0)
+  }
 
   function toggleExclude(id: number) {
     setExcludedKeys((prev) => {
@@ -192,11 +290,11 @@ export function PlanningConfirmedOrdersPage() {
   }
 
   function toggleSelectAll() {
-    const items = ordersQuery.data?.items ?? []
-    if (selectedKeys.size === items.length && items.length > 0) {
+    const itemsList = ordersQuery.data?.items ?? []
+    if (selectedKeys.size === itemsList.length && itemsList.length > 0) {
       setSelectedKeys(new Set())
     } else {
-      setSelectedKeys(new Set(items.map((i) => String(i.id))))
+      setSelectedKeys(new Set(itemsList.map((i) => String(i.id))))
     }
   }
 
@@ -234,6 +332,75 @@ export function PlanningConfirmedOrdersPage() {
           </p>
         </div>
         <div className="planning-header-right">
+          {/* Active Candidate Badge / Switcher */}
+          {candidateView && (
+            <div
+              className="planning-candidate-badge"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#F8FAFC',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-8)',
+                border: '1px solid #E2E8F0',
+                fontSize: '13px',
+              }}
+            >
+              <span style={{ fontWeight: 600, color: '#1E293B' }}>Plan #{candidateView.plan.id}</span>
+              <span style={{ color: '#64748B' }}>v{candidateView.plan.version} (rev {candidateView.plan.lockVersion})</span>
+              <span
+                style={{
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  background: candidateView.plan.status === 'published' ? '#D1FAE5' : '#FEF3C7',
+                  color: candidateView.plan.status === 'published' ? '#065F46' : '#92400E',
+                }}
+              >
+                {candidateView.plan.status}
+              </span>
+              <button
+                type="button"
+                className="toolbar-btn small"
+                title="Reload latest plan state"
+                style={{ padding: '2px 6px', height: '24px' }}
+                onClick={() => { setFailure(null); void planQuery.refetch(); }}
+              >
+                <RotateCcw size={12} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {/* Saved Plans Dropdown Switcher */}
+          {(savedPlansQuery.data?.length ?? 0) > 0 && (
+            <select
+              aria-label="Switch candidate plan"
+              className="field-select"
+              style={{ fontSize: '12px', height: '36px', padding: '0 8px' }}
+              value={String(activePlanId ?? '')}
+              onChange={(e) => {
+                const val = e.target.value
+                setFailure(null)
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev)
+                  if (val) next.set('planId', val)
+                  else next.delete('planId')
+                  return next
+                })
+              }}
+            >
+              <option value="">{activePlanId ? 'Change Plan...' : 'Saved Candidates...'}</option>
+              {savedPlansQuery.data?.map((p) => (
+                <option key={p.plan.id} value={String(p.plan.id)}>
+                  Plan #{p.plan.id} · v{p.plan.version} ({p.plan.status})
+                </option>
+              ))}
+            </select>
+          )}
+
           <label className="planning-date-card" htmlFor="planning-delivery-date">
             <div className="planning-date-icon-box" aria-hidden="true">
               <Calendar size={18} />
@@ -259,27 +426,73 @@ export function PlanningConfirmedOrdersPage() {
         </div>
       </header>
 
+      {/* Concurrent Conflict or Edit Failure Banner */}
+      {failure && (
+        <div
+          className="planning-conflict-banner"
+          style={{
+            margin: 'var(--space-16) 0',
+            padding: 'var(--space-12) var(--space-16)',
+            background: '#FEF2F2',
+            border: '1px solid #FCA5A5',
+            borderRadius: 'var(--radius-8)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ color: '#991B1B' }}>
+                {failure instanceof ManualPlanRequestError && failure.status === 409
+                  ? 'Concurrent Edit Conflict (409): '
+                  : 'Planning Error: '}
+              </strong>
+              <span style={{ color: '#7F1D1D' }}>
+                {failure instanceof ManualPlanRequestError && failure.status === 409
+                  ? 'Another user or process has updated this candidate plan. To avoid overwriting work, your change was not applied. Please reload the latest plan.'
+                  : failure.message}
+              </span>
+              {failure instanceof ManualPlanRequestError && failure.traceId && (
+                <div style={{ fontSize: '12px', marginTop: '4px', color: '#991B1B' }}>
+                  Trace ID: <code>{failure.traceId}</code>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="toolbar-btn small"
+              onClick={() => { setFailure(null); void planQuery.refetch(); }}
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+              <span>Reload Latest Plan</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stepper */}
       <PlanningStageTabs stage={stage} onChange={setStage} />
 
       {stage === 1 && (
         <PlanningStep2Generate
           snapshot={snapshot}
+          candidateView={candidateView}
           orderCount={totalOrders}
           totalVolume={totalVolume}
           chilledCount={chilledCount}
           activeDepot={activeDepot}
           onContinueToAllocation={() => setStage(2)}
-          onGeneratePlan={async () => {
-            if (!snapshot) {
-              await createSnapshot(false)
-            }
-          }}
+          onGeneratePlan={handleGeneratePlan}
+          onReloadPlan={() => void planQuery.refetch()}
         />
       )}
 
       {stage === 2 && (
         <PlanningStep3Allocation
+          activeDepot={activeDepot}
+          candidateView={candidateView}
+          onApplyCommand={handleApplyCommand}
+          failure={failure}
+          onReloadPlan={() => { setFailure(null); void planQuery.refetch(); }}
+          actionPending={editManualPlan.isPending}
           onBackToSummary={() => setStage(1)}
           onContinueToExceptions={() => setStage(3)}
         />
@@ -287,6 +500,11 @@ export function PlanningConfirmedOrdersPage() {
 
       {stage === 3 && (
         <PlanningStep4Exceptions
+          candidateView={candidateView}
+          onApplyCommand={handleApplyCommand}
+          failure={failure}
+          onReloadPlan={() => { setFailure(null); void planQuery.refetch(); }}
+          actionPending={editManualPlan.isPending}
           onContinueToConfirm={() => setStage(4)}
         />
       )}
@@ -295,6 +513,21 @@ export function PlanningConfirmedOrdersPage() {
         <PlanningStep5Confirm
           activeDepot={activeDepot}
           planDate={formatDisplayDate(planDate)}
+          candidateView={candidateView}
+          onPublishCandidate={async (pubReason: string) => {
+            if (!activePlanId || !candidateView) return
+            setFailure(null)
+            await editManualPlan.mutateAsync({
+              operation: 'publish',
+              body: {
+                expectedVersion: candidateView.plan.lockVersion as number,
+                reason: pubReason.trim() || 'Published operational delivery plan',
+              },
+            })
+          }}
+          failure={failure}
+          onReloadPlan={() => { setFailure(null); void planQuery.refetch(); }}
+          actionPending={editManualPlan.isPending}
         />
       )}
 
@@ -379,56 +612,36 @@ export function PlanningConfirmedOrdersPage() {
               </button>
             </div>
 
-            {/* Table alert banner if orders are excluded (1B) */}
-            {excludedKeys.size > 0 && (
-              <div className="table-alert-banner">
-                <div className="alert-banner-left">
-                  <Ban size={15} aria-hidden="true" />
-                  <span>
-                    {excludedKeys.size === 1
-                      ? `ORD-${Array.from(excludedKeys)[0]} excluded from plan`
-                      : `${excludedKeys.size} orders excluded from plan`}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="alert-banner-undo"
-                  onClick={() => setExcludedKeys(new Set())}
-                >
-                  Undo
-                </button>
-              </div>
-            )}
-
-            {/* Table or Map Split View */}
-            {ordersQuery.isPending && <LoadingState rows={4} label="Loading confirmed orders" />}
-            {ordersQuery.isError && (
-              <ErrorState error={ordersQuery.error} message="Orders could not be loaded." onRetry={() => void ordersQuery.refetch()} />
-            )}
-            {ordersQuery.data && items.length === 0 && (
-              <EmptyState title="No orders" description="No confirmed orders match these filters for the demo delivery day." />
-            )}
-            {ordersQuery.data && items.length > 0 && (
-              viewMode === 'map' ? (
-                <Step1MapSplitView
-                  orders={items}
-                  outletsMap={outletsMap}
-                  selectedKeys={selectedKeys}
-                  onToggleSelect={(orderId) => {
-                    setSelectedKeys((prev) => {
-                      const next = new Set(prev)
-                      const k = String(orderId)
-                      if (next.has(k)) next.delete(k)
-                      else next.add(k)
-                      return next
-                    })
-                  }}
-                  excludedKeys={excludedKeys}
-                  totalCount={totalOrders}
+            {/* Main Content Area */}
+            {viewMode === 'map' ? (
+              <Step1MapSplitView
+                orders={items}
+                outletsMap={outletsMap}
+                selectedKeys={selectedKeys}
+                onToggleSelect={(id: number) => {
+                  setSelectedKeys((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(String(id))) next.delete(String(id))
+                    else next.add(String(id))
+                    return next
+                  })
+                }}
+                excludedKeys={excludedKeys}
+                totalCount={totalOrders}
+              />
+            ) : (
+              ordersQuery.isPending ? (
+                <LoadingState label="Loading confirmed orders" />
+              ) : ordersQuery.isError ? (
+                <ErrorState error={ordersQuery.error} message="Orders could not be loaded." onRetry={() => void ordersQuery.refetch()} />
+              ) : items.length === 0 ? (
+                <EmptyState
+                  title="No confirmed orders"
+                  description="Orders become eligible for route planning once confirmed by store managers and cutoff has passed."
                 />
               ) : (
                 <>
-                  <div className="planning-table-container">
+                  <div className="planning-table-wrapper">
                     <table className="planning-table">
                       <thead>
                         <tr>
@@ -436,34 +649,31 @@ export function PlanningConfirmedOrdersPage() {
                             <input
                               type="checkbox"
                               aria-label="Select all orders"
-                              checked={items.length > 0 && selectedKeys.size === items.length}
+                              checked={selectedKeys.size === items.length && items.length > 0}
                               onChange={toggleSelectAll}
                             />
                           </th>
-                          <th>ORDER ID</th>
-                          <th>OUTLET</th>
-                          <th>WINDOW</th>
-                          <th>VOLUME</th>
-                          <th>TYPE</th>
-                          <th>FLAGS</th>
-                          <th className="th-include">INCLUDE</th>
+                          <th>Order ID</th>
+                          <th>Outlet</th>
+                          <th>District</th>
+                          <th>Volume</th>
+                          <th>Type</th>
+                          <th>Flags</th>
+                          <th>Include</th>
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((order) => {
                           const orderId = order.id ?? 0
-                          const outlet = outletsMap.get(order.outletId)
-                          const isExcluded = excludedKeys.has(orderId)
                           const isSelected = selectedKeys.has(String(orderId))
-                          const outletName = outlet
-                            ? `Waypoint ${outlet.brand} ${outlet.district}`
-                            : (order.brand ? `Waypoint ${order.brand} ${order.district ?? ''}` : order.outletId)
-                          const windowText = outlet?.effectiveWindowOpen && outlet?.effectiveWindowClose
-                            ? `${outlet.effectiveWindowOpen.slice(0, 5)}–${outlet.effectiveWindowClose.slice(0, 5)}`
-                            : '06:00–08:00'
+                          const isExcluded = excludedKeys.has(orderId)
+                          const outlet = order.outletId ? outletsMap.get(order.outletId) : undefined
 
                           return (
-                            <tr key={orderId} className={isExcluded ? 'row-excluded' : ''}>
+                            <tr
+                              key={order.id ?? order.ref}
+                              className={`${isSelected ? 'tr-selected' : ''} ${isExcluded ? 'tr-excluded' : ''}`}
+                            >
                               <td className="td-checkbox">
                                 <input
                                   type="checkbox"
@@ -472,28 +682,32 @@ export function PlanningConfirmedOrdersPage() {
                                   onChange={() => {
                                     setSelectedKeys((prev) => {
                                       const next = new Set(prev)
-                                      const k = String(orderId)
-                                      if (next.has(k)) next.delete(k)
-                                      else next.add(k)
+                                      if (next.has(String(orderId))) next.delete(String(orderId))
+                                      else next.add(String(orderId))
                                       return next
                                     })
                                   }}
                                 />
                               </td>
                               <td className="td-ref">
-                                <Link to={`/dispatcher/orders/${orderId}`} className="order-ref-link">
+                                <Link to={`/dispatcher/orders/${order.id}`} className="order-link">
                                   {order.ref}
                                 </Link>
                               </td>
                               <td className="td-outlet">
-                                <div className="outlet-name">{outletName}</div>
+                                <div className="outlet-name">{outlet?.outletId ?? order.outletId}</div>
                                 <div className="outlet-sub">
-                                  <span className="outlet-dot" aria-hidden="true" />
-                                  <span>{order.outletId} · {order.district ?? outlet?.district ?? ''}</span>
+                                  {outlet?.windowOpen && outlet?.windowClose
+                                    ? `${outlet.windowOpen}–${outlet.windowClose}`
+                                    : 'Standard window'}
                                 </div>
                               </td>
-                              <td className="td-window">{windowText}</td>
-                              <td className="td-volume">{order.volumeM3?.toFixed(1) ?? '0.0'} m³</td>
+                              <td className="td-district">
+                                <span className="district-pill">{order.district ?? 'Colombo'}</span>
+                              </td>
+                              <td className="td-volume">
+                                <strong>{order.volumeM3?.toFixed(1) ?? '—'} m³</strong>
+                              </td>
                               <td className="td-type">
                                 {order.tempRequirement === 'chilled' ? (
                                   <span className="type-pill type-pill-fridge">

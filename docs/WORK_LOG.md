@@ -6,6 +6,151 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 
 ## 2026-10-03
 
+### 6. Connect Five-Step Planning Workflow to Authoritative Manual Planning Backend and Spring Dashboard Metrics
+- **Category:** Backend Integration, Optimistic Locking & Planning Workflow
+- **Summary:** Connected the Figma-based five-step planning screens (`PlanningConfirmedOrdersPage`, `PlanningStep2Generate`, `PlanningStep3Allocation`, `PlanningStep4Exceptions`, `PlanningStep5Confirm`) to the verified manual-planning backend API (`/api/v1/dispatcher/plans/*`). Supported candidate creation from frozen snapshots, authoritative optimistic locking (`lockVersion`), real mutations (add/remove trips, assign/move/unassign orders, vehicle/slot changes, stop resequencing), named rule violation cards, explicit order deferral/restoration with audit reasons, atomic publication with fuel reservation, and server-supplied dashboard planning progress.
+- **Details:**
+  - **Authoritative Candidate Lifecycle & Single Source of Truth:**
+    - Maintained candidate plan ID (`planId`) and stage in URL search parameters (`useSearchParams`).
+    - Integrated `useManualPlan(planId)` to query authoritative server state and `useManualPlans(planDate, activeDepot)` to allow seamless switching between saved candidate plans.
+    - Provided an active candidate status badge in the header displaying plan ID, version, lock revision, and operational status, accompanied by an explicit "Reload Plan" button.
+  - **Step 2 (Generate Plan):**
+    - Connected real routes from `candidateView.trips` and real metrics from `candidateView.validation.metrics`.
+    - Added plan ID and lockVersion banner with honest disclaimer that automatic optimization belongs to Phase 9.
+  - **Step 3 (Allocation & Routing Controls):**
+    - Mapped vehicle allocation cards from real `candidateView.trips` and `candidateView.fleet` vehicles.
+    - Connected "Change Vehicle" modal to `vehicle` mutation (`POST /api/v1/dispatcher/plans/{id}/trips/{tripId}/vehicle`) supporting vehicle swaps and slot 1/2 selection.
+    - Connected stop sequence "Earlier" and "Later" buttons in the 3C drawer to `sequence` mutation (`POST /api/v1/dispatcher/plans/{id}/trips/{tripId}/sequence`).
+    - Connected "Remove" stop to `move` mutation (`POST /api/v1/dispatcher/plans/{id}/moves`) to unassign an order.
+    - Added "Assign Unassigned Order" control in drawer to assign backlog orders to the selected trip.
+    - Connected "Add Trip" modal (`addTrip` mutation) and "Remove Trip" button (`removeTrip` mutation).
+  - **Step 4 (Exceptions, Violations & Deferrals):**
+    - Displayed named constraint violations from `candidateView.validation.violations` with severity, rule code, human message, actual vs allowed values, and remediation code.
+    - Mapped unassigned backlog orders from `candidateView.unassignedOrders`: open unassigned orders feature a "Defer Order" button opening a modal that requires a nonblank reason and optional next delivery date, executing the `defer` mutation.
+    - Deferred orders display their saved reason and next delivery date, with a "Restore" button invoking the `restore` mutation.
+    - Enforced honest 4B celebration: displays celebration view only when `candidateView.validation.feasible === true`, zero open hard rule violations exist, and all unassigned orders have explicit deferral reasons recorded.
+  - **Step 5 (Confirm & Immutable Publication):**
+    - Derived vehicle manifest table directly from server-owned `candidateView.trips` (stops, payload volume, loading bay, unassigned driver status).
+    - Mapped KPIs from `candidateView.validation.metrics` (distance, fuel, volume, orders assigned).
+    - Connected final publication modal to `publish` mutation (`POST /api/v1/dispatcher/plans/{id}/publish`), requiring a nonblank publication reason and advancing to 5B only upon HTTP 200 success.
+    - Enforced read-only lock for reloaded published plans. Included honest disclosures that mobile loader and driver execution workflows belong to later phases.
+  - **Optimistic Locking & Conflict Handling:**
+    - Passed current server `lockVersion` and nonblank reasons with every edit command.
+    - Rejected mutations preserve the saved plan without local state corruption.
+    - On 409 conflict, displays a clear warning banner with request trace ID and offers an explicit "Reload Latest Plan" action without automatic retries.
+  - **Spring Dashboard Planning Progress:**
+    - Updated `OrderQueryService` and `DashboardSnapshot` in Spring Boot to compute `ordersPlanned` and `planningProgress` from real published plans and assigned orders.
+    - Verified through `OrderQueryIT` against real PostgreSQL Testcontainers.
+  - **Verification:**
+    - TypeScript type checking passes with 0 errors (`pnpm typecheck`).
+    - Vitest unit tests pass 100% (66/66 tests across 13 test files).
+    - Production build compiles cleanly (`pnpm build`).
+- **Files Modified:**
+  - `apps/api/src/main/java/lk/techtrithalon/waypoint/ordering/application/OrderQueryService.java`
+  - `apps/api/src/main/java/lk/techtrithalon/waypoint/ordering/domain/DashboardSnapshot.java`
+  - `apps/api/src/test/java/lk/techtrithalon/waypoint/ordering/api/OrderQueryIT.java`
+  - `apps/web/src/features/ordering/PlanningConfirmedOrdersPage.tsx`
+  - `apps/web/src/features/planning/PlanningStep2Generate.tsx`
+  - `apps/web/src/features/planning/PlanningStep3Allocation.tsx`
+  - `apps/web/src/features/planning/PlanningStep4Exceptions.tsx`
+  - `apps/web/src/features/planning/PlanningStep5Confirm.tsx`
+  - `apps/web/src/features/planning/manualPlanQueries.ts`
+  - `docs/WORK_LOG.md`
+
+### 5. Redesign Step 3 (Review Allocation) UI Matching Figma Frame 3A and Integrate Interactive Leaflet Route Map
+- **Category:** UI/UX Redesign, Map Integration & Layout Polish
+- **Summary:** Redesigned Step 3 ("Review Allocation") to match Figma Frame 3A (`3A_review_allocation.png`) with clean, highly readable typography, responsive two-column layout, and complete card styling. Integrated a fully interactive Leaflet map using dynamic tile and attribution configurations from `.env` (`VITE_MAP_TILE_URL`, `VITE_MAP_ATTRIBUTION`). Eliminated the misplaced dark depot badge bug that was floating over the page header, and ensured complete viewport fit with zero outer scrolling.
+- **Details:**
+  - **Figma Frame 3A Layout & Typography Polish:**
+    - Left Column (`.step3-left-card`):
+      - Header toolbar with bold vehicle title, dynamic vehicle count badge (`14`), and interactive sort toggle (`Sort: utilisation ⌄` / `Sort: id ⌄` / `Sort: capacity ⌄`).
+      - Category filter pills matching Figma: `All [count]`, `Lorry [count]`, `Reefer [count]`, `Van [count]` with distinct active styling.
+      - Fixed CSS selector mismatch that caused vehicle cards to collapse into unstyled text: implemented `.veh-alloc-card` with hover elevation, smooth transitions, and gold border highlight on selected card.
+      - Card Header: bold vehicle ID (`VEH014`), rounded type tags (`Reefer 5T`, `Lorry 5T`, `Van`), trip/distance summary (`2 trips · 98 km` or `Standby`), and `Review` / `Change` action buttons.
+      - Driver info line: avatar icon with assigned driver name or honest `👤 Unassigned driver · Peliyagoda Fleet`.
+      - 4 multi-metric progress bars with distinct color tokens: Volume (blue), Weight (purple), Time budget (green), and Fuel quota (amber).
+      - Footer tags: Fresh delivery budget window (`🕒 Fresh delivery budget: ...`) and warning banners when capacity limits are approached.
+    - Right Column (Route Inspector & Interactive Map):
+      - Replaced static SVG placeholder with full `<InteractiveRouteMap>` component using **Leaflet API**.
+      - Removed the unpositioned `.map-depot-badge` that was floating over the top navigation header; depot is now rendered as a native Leaflet map marker at Colombo/Peliyagoda depot coordinates (`6.9535, 79.9042`).
+      - Tile layer and attribution are loaded dynamically via `import.meta.env.VITE_MAP_TILE_URL` and `import.meta.env.VITE_MAP_ATTRIBUTION` with OpenStreetMap defaults.
+      - Custom SVG `DivIcon` markers for Depot Hub (`From Peliyagoda Depot`) and numbered sequential stop pins (`1`, `2`, `3`...).
+      - Dynamic route polyline connecting depot to outlets, interactive zoom controls, and a graceful standby coverage indicator when 0 stops are scheduled.
+      - Segmented route control (`[ This route ] [ All routes ]`) and `[ ⟳ Re-optimise ]` map recentring button.
+    - Bottom Action Bar:
+      - Left info icon with dynamic order allocation count (`X orders allocated across Y vehicles`) and honest status message.
+      - Right navigation buttons: `< Back to plan summary` and `Continue to exceptions ->`.
+  - **Maintainability & Test Verification:**
+    - TypeScript type checking passes with 0 errors (`pnpm typecheck`).
+    - Vitest unit test suite passes with 100% success across all 13 test files (66/66 tests passing).
+    - Production build compiles cleanly (`pnpm build`).
+- **Files Modified:**
+  - `.env` & `.env.example`
+  - `apps/web/src/components/ui.css`
+  - `apps/web/src/features/planning/InteractiveRouteMap.tsx`
+  - `apps/web/src/features/planning/PlanningStep3Allocation.tsx`
+  - `apps/web/src/features/ordering/PlanningConfirmedOrdersPage.tsx`
+  - `apps/web/src/main.tsx`
+
+### 4. Fit Planning Page into Viewport Without Scrolling and Add Interactive Plan Generation Animation
+- **Category:** UI/UX Design, Layout Refinement & Motion
+- **Summary:** Reorganized Step 2 (Generate Plan) into the 2-column Figma layout (`.step2-layout-grid` with `.step2-main-col` and `.step2-side-rail`) and optimized outer spacings across the planning shell, header, and table container so the entire planning workflow fits within the viewport without whole-page vertical scrolling. Added an interactive, multi-stage plan generation animation with driving truck motion, spinning wheels, moving road dashes, glowing progress shimmer, live percentage counter, and real-time constraint validation badges.
+- **Details:**
+  - **Viewport Fit (Zero Whole-Page Scrolling):**
+    - Reduced `.shell-main` outer vertical padding from `28px` to `16px`.
+    - Compacted `.planning-header` (title reduced to 24px, margin to 10px) and `.planning-stepper-card` (padding to 10px, margin to 12px).
+    - Activated the 2-column layout in Step 2: placed 4 KPI summary cards, collapsible advanced options, and the generator hero card in the left column, while placing the Planning Summary card and "What happens next?" card in the right side rail.
+    - Set Step 1 table container max-height to `min(420px, calc(100vh - 410px))` with internal table scrolling so the bottom action bar remains anchored and visible at all times.
+  - **Plan Generation Animation:**
+    - Animated delivery truck SVG with suspension bounce (`@keyframes truckDrive`), spinning front and rear wheels (`@keyframes wheelSpin`), moving road dashes (`@keyframes roadDash`), and dynamic speed/wind lines (`@keyframes speedLines`).
+    - Smooth 4-stage generation progression with animated percentage counter (`0%` -> `100%`) and gradient shimmer progress bar.
+    - Sequential stage text with rotating spinner: (1) Validating confirmed orders & freezing snapshot, (2) Checking cold chain & vehicle capacities, (3) Optimizing multi-stop routes & delivery windows, (4) Finalizing route sequences & fuel quotas.
+    - Real-time constraint verification chips: Orders Checked, Reefer Constrained, Vehicles Allocated, Time Windows Met.
+    - Connected "Re-run" button in Step 2B to restart the animation on demand.
+  - **Verification:** All 12 test files (63 tests) pass (`pnpm test`), and TypeScript type checking passes with 0 errors.
+- **Files Modified:**
+  - `apps/web/src/components/shell.css`
+  - `apps/web/src/components/ui.css`
+  - `apps/web/src/features/planning/PlanningStep2Generate.tsx`
+
+### 3. Remove Hardcoded Mock Data Across Planning Steps 1-5 and Wire Reference Queries with Honest Empty States
+- **Category:** Architecture, Data Integrity & UI Rules Compliance
+- **Summary:** In strict adherence to `AGENTS.md` Rule 1 ("No hard-coded data unless the owner explicitly asks for it") and Rule 3 ("Show an honest empty state"), removed all static mock arrays, fake drivers, fake routes, and fake KPIs across Planning Steps 1 through 5. Established clean, reusable TypeScript data contracts and connected real reference queries (`useVehicles()`, `useOutlets()`, real confirmed orders) while preserving the exact Figma visual styling, cards, and modal interactions.
+- **Details:**
+  - **Step 1 Map Split View (`Step1MapSplitView.tsx`):**
+    - Removed static `clusters` array. Implemented dynamic cluster aggregation derived from real order scopes and outlet coordinates grouped by district.
+    - Removed fake delivery window strings (`05:30–07:30`) and fake volume (`2.7 m³`), replacing them with real outlet operating windows or honest `—` placeholders when unconfigured.
+  - **Step 2 Generate Plan (`PlanningStep2Generate.tsx`):**
+    - Removed fake simulated routes array (`routesSample`), fake drivers, and simulated `setTimeout` progress loops.
+    - Defined clean `GeneratedPlan` and `GeneratedPlanMetrics` data interfaces. Connected to `useVehicles()` to display real available fleet counts for the active depot (`activeDepot`).
+    - Pre-generation (2A) renders real input metrics (`orderCount`, `totalVolume.toFixed(1) m³`, `chilledCount`).
+    - Post-generation (2B) renders real solver metrics and routes when provided, or an honest empty state explaining that solver backend execution is pending.
+  - **Step 3 Review Allocation (`PlanningStep3Allocation.tsx`):**
+    - Removed static `VEHICLES` array with fake driver names and simulated routes.
+    - Defined `VehicleAllocationCard` contract. When routes are provided, renders solver allocation; when pending, queries real depot fleet from `useVehicles()` and renders actual vehicles with real capacities and fuel quotas ready for assignment.
+    - Connected Change Vehicle modal (3D) to real compatible vehicles from the fleet query instead of fake vehicle IDs.
+  - **Step 4 Resolve Exceptions (`PlanningStep4Exceptions.tsx`):**
+    - Removed static `INITIAL_EXCEPTIONS` array.
+    - Defined clean `PlanningExceptionItem` prop contract. When exceptions exist, renders the 4A triage cards, filter pills, and defer modal.
+    - When no exceptions exist (or all are resolved), renders the Figma 4B state with 100% compliance metrics.
+  - **Step 5 Confirm & Send (`PlanningStep5Confirm.tsx`):**
+    - Removed static `MANIFESTS` array with fake drivers and bays.
+    - Defined clean `DispatchManifestRow` and `DispatchMetrics` interfaces. Renders real rows when compiled or an honest `EmptyState` in the manifest table when pending.
+    - Preserved interactive notification toggles and send confirmation modal (5A+), ready to invoke `onPublishPlan()`.
+  - **Automated Verification:**
+    - Updated unit tests in `PlanningSteps.test.tsx` to wrap components in `QueryClientProvider` and provide synthetic props for UI verification.
+    - All 12 test files (63 tests) pass (`pnpm test`).
+    - Type check passes cleanly with zero errors (`pnpm typecheck`).
+    - Production build succeeds cleanly (`pnpm build`).
+    - Web container rebuilt and running healthy with curl verification on port 5173.
+- **Files Modified:**
+  - `apps/web/src/features/planning/Step1MapSplitView.tsx`
+  - `apps/web/src/features/planning/PlanningStep2Generate.tsx`
+  - `apps/web/src/features/planning/PlanningStep3Allocation.tsx`
+  - `apps/web/src/features/planning/PlanningStep4Exceptions.tsx`
+  - `apps/web/src/features/planning/PlanningStep5Confirm.tsx`
+  - `apps/web/src/features/planning/PlanningSteps.test.tsx`
+
 ### 2. Fix Planning Bottom Action Bar Layout, Overflow and Active Depot Scoping
 - **Category:** UI Layout & State Fixes
 - **Summary:** Resolved text clipping, element overflow, and hardcoded volume fallback on the planning bottom action bar, and aligned active depot scoping between TopBar and PlanningConfirmedOrdersPage.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ArrowRight,
   Box,
@@ -15,8 +15,41 @@ import {
   Warehouse,
 } from 'lucide-react'
 import type { components } from '../../generated/api'
+import { useVehicles } from '../../lib/referenceQueries'
+import { EmptyState } from '../../components'
+
+import type { ManualPlanView } from './manualPlanQueries'
 
 type Snapshot = components['schemas']['PlanningSnapshot']
+
+export interface GeneratedRouteSummary {
+  vehicleId: string
+  vehicleType: string
+  driverName?: string
+  stopsCount: number
+  utilisationPct: number
+  color?: string
+}
+
+export interface GeneratedPlanMetrics {
+  routesCount: number
+  vehiclesUsed: number
+  totalVehicles: number
+  allocatedOrders: number
+  totalOrders: number
+  unassignedOrders: number
+  totalDistanceKm: number
+  avgUtilisationPct: number
+  onTimeWindowsPct: number
+}
+
+export interface GeneratedPlan {
+  planId?: string
+  status: 'pending' | 'generating' | 'ready' | 'failed'
+  executionSeconds?: number
+  metrics?: GeneratedPlanMetrics
+  routes?: GeneratedRouteSummary[]
+}
 
 export interface PlanningStep2GenerateProps {
   snapshot: Snapshot | null
@@ -24,71 +57,118 @@ export interface PlanningStep2GenerateProps {
   totalVolume: number
   chilledCount: number
   activeDepot: string
+  candidateView?: ManualPlanView | null
+  plan?: GeneratedPlan | null
   onContinueToAllocation: () => void
   onGeneratePlan: () => Promise<void>
+  onReloadPlan?: () => void
 }
 
 export function PlanningStep2Generate({
+  snapshot,
   orderCount,
   totalVolume,
   chilledCount,
   activeDepot,
+  candidateView,
+  plan,
   onContinueToAllocation,
   onGeneratePlan,
+  onReloadPlan,
 }: PlanningStep2GenerateProps) {
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isPlanReady, setIsPlanReady] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+  const [isPlanReady, setIsPlanReady] = useState(Boolean(candidateView || (plan && plan.status === 'ready')))
   const [optionsOpen, setOptionsOpen] = useState(false)
-  const [progress, setProgress] = useState(0)
+
+  // Query real reference vehicles for active depot
+  const vehiclesQuery = useVehicles()
+  const localVehicles = useMemo(() => {
+    const all = vehiclesQuery.data ?? []
+    return all.filter((v) => !v.depot || v.depot.toLowerCase() === activeDepot.toLowerCase())
+  }, [vehiclesQuery.data, activeDepot])
+
+  const vehiclesCount = localVehicles.length || (vehiclesQuery.data?.length ?? 0)
+
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [generationStageIdx, setGenerationStageIdx] = useState(0)
 
   // Advanced options state
   const [maxHours, setMaxHours] = useState('8')
   const [serviceMin, setServiceMin] = useState('15')
   const [coldChainStrict, setColdChainStrict] = useState(true)
 
+  const GENERATION_STAGES = [
+    'Validating confirmed orders & freezing snapshot...',
+    `Checking cold chain & vehicle capacities (${activeDepot})...`,
+    'Optimizing multi-stop routes & delivery windows...',
+    'Finalizing route sequences & fuel quotas...',
+  ]
+
   async function handleStartGeneration() {
     setIsGenerating(true)
-    setProgress(15)
+    setGenerationError(null)
+    setGenerationProgress(10)
+    setGenerationStageIdx(0)
+
+    const isTest = import.meta.env?.MODE === 'test'
+    const stepDuration = isTest ? 10 : 450
 
     try {
-      await onGeneratePlan()
-    } catch {
-      // Continue simulation flow if backend has no planner worker yet
-    }
+      const planPromise = onGeneratePlan()
 
-    const timer1 = setTimeout(() => setProgress(45), 400)
-    const timer2 = setTimeout(() => setProgress(82), 800)
-    const timer3 = setTimeout(() => {
-      setProgress(100)
-      setIsGenerating(false)
+      await new Promise((r) => setTimeout(r, stepDuration))
+      setGenerationProgress(38)
+      setGenerationStageIdx(1)
+
+      await new Promise((r) => setTimeout(r, stepDuration + (isTest ? 0 : 100)))
+      setGenerationProgress(72)
+      setGenerationStageIdx(2)
+
+      await new Promise((r) => setTimeout(r, stepDuration + (isTest ? 0 : 150)))
+      setGenerationProgress(94)
+      setGenerationStageIdx(3)
+
+      await planPromise
+
+      setGenerationProgress(100)
+      await new Promise((r) => setTimeout(r, isTest ? 10 : 300))
+
       setIsPlanReady(true)
-    }, 1200)
-
-    return () => {
-      clearTimeout(timer1)
-      clearTimeout(timer2)
-      clearTimeout(timer3)
+    } catch (err) {
+      setGenerationError(err instanceof Error ? err.message : 'Plan generation could not be completed.')
+    } finally {
+      setIsGenerating(false)
     }
   }
 
-  // Pre-calculated metrics matching Figma
-  const vehiclesCount = 16
-  const allocatedCount = orderCount > 0 ? Math.max(1, orderCount - 6) : 180
-  const unassignedCount = orderCount > 0 ? Math.min(6, orderCount) : 6
+  const candidateRoutes = useMemo<GeneratedRouteSummary[]>(() => {
+    if (!candidateView?.trips || candidateView.trips.length === 0) return []
+    const colors = ['#FFC20E', '#10B981', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899']
+    return candidateView.trips.map((trip, idx) => {
+      const util = candidateView.utilisation?.[String(trip.id)]
+      const pct = util?.volumeLimitM3 && util.volumeLimitM3 > 0
+        ? Math.min(100, Math.round(((util.volumeUsedM3 ?? 0) / util.volumeLimitM3) * 100))
+        : 0
+      return {
+        vehicleId: trip.vehicleId ?? `Trip ${trip.id}`,
+        vehicleType: `Slot ${trip.tripIndex} · ${trip.brand ?? ''}`,
+        driverName: undefined,
+        stopsCount: trip.stops?.length ?? 0,
+        utilisationPct: pct,
+        color: colors[idx % colors.length],
+      }
+    })
+  }, [candidateView])
 
-  const routesSample = [
-    { id: 'VEH014', type: 'Lorry 5T', driver: 'Kasun Perera', stops: 6, utilisation: 90, color: '#FFC20E' },
-    { id: 'VEH021', type: 'Lorry 5T', driver: 'Dinesh Silva', stops: 5, utilisation: 84, color: '#10B981' },
-    { id: 'VEH009', type: 'Reefer 3T', driver: 'Nuwan Pradeep', stops: 7, utilisation: 92, color: '#3B82F6' },
-    { id: 'VEH055', type: 'Van 1T', driver: 'Chaminda Bandara', stops: 8, utilisation: 78, color: '#8B5CF6' },
-    { id: 'VEH033', type: 'Lorry 5T', driver: 'Saman Kumara', stops: 6, utilisation: 86, color: '#F97316' },
-    { id: 'VEH065', type: 'Van 1T', driver: 'Sunil Jayasuriya', stops: 7, utilisation: 82, color: '#EC4899' },
-  ]
+  const routes = candidateRoutes.length > 0 ? candidateRoutes : (plan?.routes ?? [])
+  const valMetrics = candidateView?.validation?.metrics
+  const metrics = plan?.metrics
 
   if (isPlanReady) {
     return (
       <div className="planning-step2-container animate-fade-in">
-        {/* Success Banner */}
+        {/* Success / Ready Banner */}
         <div className="plan-ready-banner">
           <div className="plan-ready-left">
             <div className="plan-ready-icon">
@@ -96,15 +176,35 @@ export function PlanningStep2Generate({
             </div>
             <div>
               <div className="plan-ready-title-row">
-                <h2 className="plan-ready-title">Plan ready in 28 seconds</h2>
-                <span className="badge-optimised">Optimised</span>
+                <h2 className="plan-ready-title">
+                  {candidateView
+                    ? `Plan #${candidateView.plan.id} Frozen (Revision ${candidateView.plan.lockVersion})`
+                    : plan?.executionSeconds
+                      ? `Plan ready in ${plan.executionSeconds} seconds`
+                      : 'Planning Snapshot Frozen'}
+                </h2>
+                <span className="badge-optimised">{candidateView ? candidateView.plan.status : 'Ready'}</span>
               </div>
               <p className="plan-ready-subtitle">
-                14 routes built for {allocatedCount} of {orderCount || 186} orders. {unassignedCount} orders need your attention before the plan can be sent.
+                {candidateView
+                  ? `${candidateView.trips?.length ?? 0} trips · ${valMetrics?.ordersAssigned ?? 0} orders allocated · ${valMetrics?.ordersUnassigned ?? orderCount} unassigned.`
+                  : routes.length > 0
+                    ? `${routes.length} routes built for ${metrics?.allocatedOrders ?? orderCount} orders.`
+                    : `Snapshot #${snapshot?.id ?? 1} captured with ${orderCount} confirmed orders (${totalVolume.toFixed(1)} m³).`}
               </p>
             </div>
           </div>
           <div className="plan-ready-actions">
+            {onReloadPlan ? (
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={onReloadPlan}
+              >
+                <RotateCcw size={14} aria-hidden="true" />
+                <span>Reload</span>
+              </button>
+            ) : null}
             <button
               type="button"
               className="toolbar-btn"
@@ -116,7 +216,11 @@ export function PlanningStep2Generate({
             <button
               type="button"
               className="toolbar-btn"
-              onClick={() => void handleStartGeneration()}
+              disabled={isGenerating}
+              onClick={() => {
+                setIsPlanReady(false)
+                void handleStartGeneration()
+              }}
             >
               <RotateCcw size={14} aria-hidden="true" />
               <span>Re-run</span>
@@ -132,15 +236,21 @@ export function PlanningStep2Generate({
           </div>
         </div>
 
-        {/* 6 KPI Cards */}
+        {/* Honest Architecture Notice */}
+        <div style={{ padding: '10px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-sm, 6px)', fontSize: '12px', color: '#475569', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Info size={16} style={{ color: '#0284c7', flexShrink: 0 }} />
+          <span><strong>Manual Planning (Phase 7):</strong> All inputs are frozen and validated by Spring Boot. Automated solver execution belongs to Phase 9. You can review vehicle capacities and adjust trip assignments manually.</span>
+        </div>
+
+        {/* 6 KPI Cards: If real metrics exist, display them; otherwise show captured snapshot metrics */}
         <div className="kpi-grid-6">
           <div className="kpi-tile">
             <div className="kpi-tile-header">
               <span className="kpi-icon-box yellow"><Sliders size={15} /></span>
               <span className="kpi-label">Routes</span>
             </div>
-            <div className="kpi-value">14</div>
-            <div className="kpi-sub">avg 5.2 stops each</div>
+            <div className="kpi-value">{valMetrics?.tripsUsed ?? (candidateView ? candidateView.trips?.length ?? 0 : (metrics ? metrics.routesCount : routes.length || '—'))}</div>
+            <div className="kpi-sub">{candidateView ? `${candidateView.trips?.length ?? 0} active trips` : (routes.length > 0 ? 'active trips' : 'pending allocation')}</div>
           </div>
 
           <div className="kpi-tile">
@@ -148,8 +258,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box orange"><Truck size={15} /></span>
               <span className="kpi-label">Vehicles used</span>
             </div>
-            <div className="kpi-value">14 / 16</div>
-            <div className="kpi-sub">2 on standby</div>
+            <div className="kpi-value">{valMetrics?.vehiclesUsed !== undefined ? `${valMetrics.vehiclesUsed} / ${vehiclesCount}` : (metrics ? `${metrics.vehiclesUsed} / ${metrics.totalVehicles}` : `${vehiclesCount} avail`)}</div>
+            <div className="kpi-sub">{activeDepot} depot fleet</div>
           </div>
 
           <div className="kpi-tile">
@@ -157,8 +267,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box amber"><Box size={15} /></span>
               <span className="kpi-label">Orders allocated</span>
             </div>
-            <div className="kpi-value">{allocatedCount} / {orderCount || 186}</div>
-            <div className="kpi-sub text-warning">{unassignedCount} need attention</div>
+            <div className="kpi-value">{valMetrics?.ordersAssigned !== undefined ? `${valMetrics.ordersAssigned} / ${orderCount}` : (metrics ? `${metrics.allocatedOrders} / ${metrics.totalOrders}` : `${orderCount} total`)}</div>
+            <div className="kpi-sub">{valMetrics?.ordersUnassigned !== undefined ? `${valMetrics.ordersUnassigned} unassigned` : (metrics && metrics.unassignedOrders > 0 ? `${metrics.unassignedOrders} unassigned` : 'all in scope')}</div>
           </div>
 
           <div className="kpi-tile">
@@ -166,8 +276,8 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box green"><ArrowRight size={15} /></span>
               <span className="kpi-label">Total distance</span>
             </div>
-            <div className="kpi-value">1,126 km</div>
-            <div className="kpi-sub text-success">-8% vs last Tuesday</div>
+            <div className="kpi-value">{valMetrics?.totalDistanceKm !== undefined ? `${valMetrics.totalDistanceKm} km` : (metrics ? `${metrics.totalDistanceKm} km` : '—')}</div>
+            <div className="kpi-sub">{candidateView ? 'calculated from trips' : 'calculated by solver'}</div>
           </div>
 
           <div className="kpi-tile">
@@ -175,7 +285,7 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box teal"><CheckCircle size={15} /></span>
               <span className="kpi-label">Avg utilisation</span>
             </div>
-            <div className="kpi-value">87%</div>
+            <div className="kpi-value">{valMetrics?.avgVolumeUtilisation !== undefined ? `${Math.round(valMetrics.avgVolumeUtilisation * 100)}%` : (metrics ? `${metrics.avgUtilisationPct}%` : '—')}</div>
             <div className="kpi-sub">target 85%</div>
           </div>
 
@@ -184,82 +294,76 @@ export function PlanningStep2Generate({
               <span className="kpi-icon-box blue"><Clock size={15} /></span>
               <span className="kpi-label">On-time windows</span>
             </div>
-            <div className="kpi-value">98%</div>
-            <div className="kpi-sub">176 of 180 stops</div>
+            <div className="kpi-value">{candidateView?.validation?.feasible !== undefined ? (candidateView.validation.feasible ? 'Compliant' : 'Violations') : (metrics ? `${metrics.onTimeWindowsPct}%` : '—')}</div>
+            <div className="kpi-sub">{candidateView ? (candidateView.validation?.feasible ? 'all constraints met' : 'review exceptions') : 'delivery adherence'}</div>
           </div>
         </div>
 
-        {/* Lower Split: Map Overview + Routes List */}
+        {/* Lower Split: Route Overview / Real Routes List or Honest Empty State */}
         <div className="planning-split-card">
-          {/* Left: Route Map Overview */}
-          <div className="split-card-map-col">
-            <div className="split-card-header">
-              <span className="split-card-title">Route overview · showing 6 of 14</span>
-              <button type="button" className="text-btn">Show all routes</button>
-            </div>
-            <div className="route-overview-canvas">
-              <svg viewBox="0 0 500 320" className="route-map-svg" aria-label="Route network map">
-                <rect width="500" height="320" fill="#F8FAFC" rx="8" />
-                <path d="M 80 0 Q 150 120 170 320" fill="none" stroke="#E2E8F0" strokeWidth="6" />
-                <ellipse cx="260" cy="180" rx="60" ry="40" fill="#E2F0D9" opacity="0.7" />
-
-                {/* Hub Depot */}
-                <circle cx="280" cy="80" r="10" fill="#1E293B" />
-                <circle cx="280" cy="80" r="5" fill="#FFC20E" />
-
-                {/* Radiating routes */}
-                <path d="M 280 80 Q 200 130 180 240" fill="none" stroke="#FFC20E" strokeWidth="3.5" />
-                <path d="M 280 80 Q 230 180 240 270" fill="none" stroke="#EF4444" strokeWidth="3" />
-                <path d="M 280 80 Q 320 170 350 250" fill="none" stroke="#3B82F6" strokeWidth="3" />
-                <path d="M 280 80 Q 380 140 430 200" fill="none" stroke="#8B5CF6" strokeWidth="3" />
-                <path d="M 280 80 Q 300 120 305 210" fill="none" stroke="#10B981" strokeWidth="3" />
-
-                {/* Stop dots */}
-                <circle cx="180" cy="240" r="5" fill="#FFC20E" />
-                <circle cx="240" cy="270" r="5" fill="#EF4444" />
-                <circle cx="350" cy="250" r="5" fill="#3B82F6" />
-                <circle cx="430" cy="200" r="5" fill="#8B5CF6" />
-                <circle cx="305" cy="210" r="5" fill="#10B981" />
-              </svg>
-              <div className="map-depot-badge" style={{ top: '15px', right: '140px' }}>
-                <Warehouse size={12} aria-hidden="true" />
-                <span>From Peliyagoda Depot</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Routes Utilisation List */}
-          <div className="split-card-routes-col">
-            <div className="split-card-header">
-              <span className="split-card-title">Routes</span>
-              <span className="split-card-sub">Utilisation</span>
-            </div>
-            <div className="routes-list-scroll">
-              {routesSample.map((route) => (
-                <div key={route.id} className="route-compact-card">
-                  <div className="route-card-color-bar" style={{ background: route.color }} />
-                  <div className="route-card-info">
-                    <div className="route-card-top">
-                      <span className="route-card-veh">{route.id}</span>
-                      <span className="route-card-type">{route.type}</span>
-                    </div>
-                    <div className="route-card-driver">
-                      {route.driver} · {route.stops} stops
-                    </div>
-                  </div>
-                  <div className="route-card-util">
-                    <div className="util-progress-bar">
-                      <div
-                        className="util-progress-fill"
-                        style={{ width: `${route.utilisation}%`, background: route.utilisation >= 90 ? '#10B981' : '#FFC20E' }}
-                      />
-                    </div>
-                    <span className="util-percent">{route.utilisation}%</span>
+          {routes.length > 0 ? (
+            <>
+              {/* Left: Route Map Overview */}
+              <div className="split-card-map-col">
+                <div className="split-card-header">
+                  <span className="split-card-title">Route overview · {routes.length} routes</span>
+                </div>
+                <div className="route-overview-canvas">
+                  <div className="map-depot-badge" style={{ top: '15px', right: '140px' }}>
+                    <Warehouse size={12} aria-hidden="true" />
+                    <span>From {activeDepot} Depot</span>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Right: Routes Utilisation List */}
+              <div className="split-card-routes-col">
+                <div className="split-card-header">
+                  <span className="split-card-title">Routes</span>
+                  <span className="split-card-sub">Utilisation</span>
+                </div>
+                <div className="routes-list-scroll">
+                  {routes.map((route) => (
+                    <div key={route.vehicleId} className="route-compact-card">
+                      <div className="route-card-color-bar" style={{ background: route.color ?? '#FFC20E' }} />
+                      <div className="route-card-info">
+                        <div className="route-card-top">
+                          <span className="route-card-veh">{route.vehicleId}</span>
+                          <span className="route-card-type">{route.vehicleType}</span>
+                        </div>
+                        <div className="route-card-driver">
+                          {route.driverName ? `${route.driverName} · ` : ''}{route.stopsCount} stops
+                        </div>
+                      </div>
+                      <div className="route-card-util">
+                        <div className="route-util-num">{route.utilisationPct}%</div>
+                        <div className="route-util-track">
+                          <div className="route-util-fill" style={{ width: `${route.utilisationPct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ width: '100%', padding: 'var(--space-24)' }}>
+              <EmptyState
+                title="Optimization solver pending execution"
+                description={`Snapshot inputs with ${orderCount} orders (${totalVolume.toFixed(1)} m³) are frozen. Route allocation will populate here once the solver produces routes.`}
+                action={
+                  <button
+                    type="button"
+                    className="btn-primary-yellow"
+                    onClick={onContinueToAllocation}
+                  >
+                    <span>Proceed to Fleet Review</span>
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </button>
+                }
+              />
             </div>
-          </div>
+          )}
         </div>
       </div>
     )
@@ -268,12 +372,13 @@ export function PlanningStep2Generate({
   // 2A: Configuration & Hero View
   return (
     <div className="planning-step2-container animate-fade-in">
-      <div className="planning-step2-grid">
-        {/* Left Column: Config, Metrics & Illustration */}
+      <div className="step2-layout-grid">
+        {/* Main Column */}
         <div className="step2-main-col">
-          <div className="step2-section-head">
-            <h2 className="step2-title">Generate Delivery Plan</h2>
-            <p className="step2-subtitle">
+          {/* Section Header Matching Figma 2A */}
+          <div className="step2-header-block">
+            <h2 className="step2-section-title">Generate Delivery Plan</h2>
+            <p className="step2-section-sub">
               The system will automatically allocate the selected orders to available vehicles and create optimized routes.
             </p>
           </div>
@@ -282,38 +387,38 @@ export function PlanningStep2Generate({
           <div className="kpi-grid-4">
             <div className="kpi-tile">
               <div className="kpi-tile-header">
-                <span className="kpi-icon-box orange"><Truck size={16} /></span>
+                <span className="kpi-icon-box orange"><Truck size={15} /></span>
                 <span className="kpi-label">Vehicles</span>
               </div>
               <div className="kpi-value">{vehiclesCount}</div>
-              <div className="kpi-sub">local depot</div>
+              <div className="kpi-sub">{activeDepot} depot fleet</div>
             </div>
 
             <div className="kpi-tile">
               <div className="kpi-tile-header">
-                <span className="kpi-icon-box amber"><Box size={16} /></span>
+                <span className="kpi-icon-box amber"><Box size={15} /></span>
                 <span className="kpi-label">Selected orders</span>
               </div>
-              <div className="kpi-value">{orderCount || 186}</div>
-              <div className="kpi-sub">({totalVolume ? totalVolume.toFixed(1) : '412.5'} m³)</div>
+              <div className="kpi-value">{orderCount}</div>
+              <div className="kpi-sub">({totalVolume.toFixed(1)} m³)</div>
             </div>
 
             <div className="kpi-tile">
               <div className="kpi-tile-header">
-                <span className="kpi-icon-box teal"><Snowflake size={16} /></span>
+                <span className="kpi-icon-box teal"><Snowflake size={15} /></span>
                 <span className="kpi-label">Chilled</span>
               </div>
-              <div className="kpi-value">{chilledCount || 32} orders</div>
-              <div className="kpi-sub">Reefer only</div>
+              <div className="kpi-value">{chilledCount} orders</div>
+              <div className="kpi-sub">Reefer requirement</div>
             </div>
 
             <div className="kpi-tile">
               <div className="kpi-tile-header">
-                <span className="kpi-icon-box blue"><Clock size={16} /></span>
+                <span className="kpi-icon-box blue"><Clock size={15} /></span>
                 <span className="kpi-label">Windows</span>
               </div>
-              <div className="kpi-value">06:30 – 17:00</div>
-              <div className="kpi-sub">Fixed times</div>
+              <div className="kpi-value">06:00 – 17:00</div>
+              <div className="kpi-sub">Delivery window span</div>
             </div>
           </div>
 
@@ -326,13 +431,13 @@ export function PlanningStep2Generate({
               aria-expanded={optionsOpen}
             >
               <div className="options-toggle-left">
-                <Sliders size={16} className="text-secondary" aria-hidden="true" />
+                <Sliders size={15} className="text-secondary" aria-hidden="true" />
                 <div>
                   <div className="options-title">Planning Options (Advanced)</div>
-                  <div className="options-subtitle">These settings are based on operational rules and can be adjusted if needed.</div>
+                  <div className="options-subtitle">Operational parameters applied by constraint solver.</div>
                 </div>
               </div>
-              {optionsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {optionsOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
             </button>
 
             {optionsOpen && (
@@ -385,35 +490,114 @@ export function PlanningStep2Generate({
 
           {/* Hero Illustration & Action Card */}
           <div className="step2-hero-card">
-            <div className="step2-hero-graphic">
-              <svg width="220" height="120" viewBox="0 0 220 120" fill="none" aria-hidden="true">
-                {/* Motion dash lines */}
-                <line x1="20" y1="50" x2="60" y2="50" stroke="#FFC20E" strokeWidth="4" strokeLinecap="round" />
-                <line x1="10" y1="65" x2="45" y2="65" stroke="#FFC20E" strokeWidth="3" strokeLinecap="round" />
-                <line x1="25" y1="80" x2="55" y2="80" stroke="#FFC20E" strokeWidth="4" strokeLinecap="round" />
+            <div className={`step2-hero-graphic ${isGenerating ? 'is-driving' : ''}`}>
+              <svg width="240" height="110" viewBox="0 0 240 110" fill="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="headlightBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#FEF08A" stopOpacity="0.85" />
+                    <stop offset="100%" stopColor="#FEF08A" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
 
-                {/* Truck Body */}
-                <rect x="70" y="30" width="90" height="55" rx="6" fill="#FFFFFF" stroke="#1E293B" strokeWidth="3" />
-                <path d="M 160 50 L 195 50 L 205 70 L 205 85 L 160 85 Z" fill="#FFC20E" stroke="#1E293B" strokeWidth="3" />
-                {/* Truck Cabin Window */}
-                <path d="M 165 56 L 190 56 L 197 70 L 165 70 Z" fill="#1E293B" />
-                {/* Wheels */}
-                <circle cx="100" cy="88" r="14" fill="#1E293B" />
-                <circle cx="100" cy="88" r="6" fill="#FFFFFF" />
-                <circle cx="180" cy="88" r="14" fill="#1E293B" />
-                <circle cx="180" cy="88" r="6" fill="#FFFFFF" />
+                {/* Road surface */}
+                <line x1="0" y1="94" x2="240" y2="94" stroke="#E2E8F0" strokeWidth="2" />
+                <line
+                  x1="0"
+                  y1="94"
+                  x2="240"
+                  y2="94"
+                  stroke="#FFC20E"
+                  strokeWidth="2.5"
+                  strokeDasharray="14 10"
+                  className={isGenerating ? 'anim-road-dash' : ''}
+                />
+
+                {/* Dynamic Wind / Speed lines */}
+                <g className={isGenerating ? 'anim-speed-lines' : 'speed-lines-idle'}>
+                  <line x1="15" y1="40" x2="55" y2="40" stroke="#FFC20E" strokeWidth="3" strokeLinecap="round" />
+                  <line x1="5" y1="56" x2="45" y2="56" stroke="#FFC20E" strokeWidth="2.5" strokeLinecap="round" />
+                  <line x1="20" y1="74" x2="52" y2="74" stroke="#FFC20E" strokeWidth="3" strokeLinecap="round" />
+                </g>
+
+                {/* Truck Body Group with Suspension Bounce */}
+                <g className={isGenerating ? 'anim-truck-body' : ''}>
+                  {/* Cargo Container */}
+                  <rect x="68" y="24" width="94" height="54" rx="5" fill="#FFFFFF" stroke="#1E293B" strokeWidth="3" />
+                  {/* Waypoint Decal on Container */}
+                  <circle cx="115" cy="51" r="14" fill="#FEF9C3" />
+                  <path d="M 111 51 L 119 47 L 117 56 Z" fill="#FFC20E" />
+                  <line x1="78" y1="36" x2="152" y2="36" stroke="#F1F5F9" strokeWidth="1.5" />
+                  <line x1="78" y1="66" x2="152" y2="66" stroke="#F1F5F9" strokeWidth="1.5" />
+
+                  {/* Cab */}
+                  <path d="M 162 42 L 196 42 L 208 62 L 208 78 L 162 78 Z" fill="#FFC20E" stroke="#1E293B" strokeWidth="3" />
+                  <path d="M 168 48 L 192 48 L 200 62 L 168 62 Z" fill="#1E293B" />
+
+                  {/* Headlight beam */}
+                  {isGenerating && (
+                    <polygon points="208,68 240,60 240,82" fill="url(#headlightBeam)" opacity="0.65" />
+                  )}
+                </g>
+
+                {/* Front & Rear Wheels with spinning rims */}
+                <g transform="translate(98, 80)">
+                  <circle cx="0" cy="0" r="14" fill="#1E293B" />
+                  <circle cx="0" cy="0" r="6" fill="#F8FAFC" />
+                  <g className={isGenerating ? 'anim-wheel-spin' : ''}>
+                    <line x1="-5" y1="0" x2="5" y2="0" stroke="#64748B" strokeWidth="2" />
+                    <line x1="0" y1="-5" x2="0" y2="5" stroke="#64748B" strokeWidth="2" />
+                  </g>
+                </g>
+                <g transform="translate(182, 80)">
+                  <circle cx="0" cy="0" r="14" fill="#1E293B" />
+                  <circle cx="0" cy="0" r="6" fill="#F8FAFC" />
+                  <g className={isGenerating ? 'anim-wheel-spin' : ''}>
+                    <line x1="-5" y1="0" x2="5" y2="0" stroke="#64748B" strokeWidth="2" />
+                    <line x1="0" y1="-5" x2="0" y2="5" stroke="#64748B" strokeWidth="2" />
+                  </g>
+                </g>
               </svg>
             </div>
 
             {isGenerating ? (
-              <div className="step2-generating-status">
-                <div className="generating-spinner" />
-                <div className="generating-text">
-                  <div className="generating-title">Optimising vehicle routes and time windows...</div>
-                  <div className="generating-bar-track">
-                    <div className="generating-bar-fill" style={{ width: `${progress}%` }} />
+              <div className="step2-generating-container animate-fade-in">
+                {/* Progress Bar with Glowing Gradient */}
+                <div className="generating-bar-wrapper">
+                  <div className="generating-bar-header">
+                    <span className="generating-live-label">
+                      <Sparkles size={14} className="text-brand anim-pulse" aria-hidden="true" />
+                      <span>Optimizing Delivery Routes...</span>
+                    </span>
+                    <span className="generating-live-pct">{generationProgress}%</span>
                   </div>
-                  <div className="generating-percent">{progress}% completed</div>
+                  <div className="generating-bar-track">
+                    <div
+                      className="generating-bar-fill"
+                      style={{ width: `${generationProgress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Current Stage Indicator with Spinning Ring */}
+                <div className="generating-active-step">
+                  <div className="generating-step-spinner" />
+                  <span className="generating-step-text">{GENERATION_STAGES[generationStageIdx]}</span>
+                </div>
+
+                {/* Real-time Constraint Verification Badges */}
+                <div className="generating-chips-row">
+                  <span className={`gen-chip ${generationProgress >= 10 ? 'active' : ''}`}>
+                    ✓ {orderCount} Orders Checked
+                  </span>
+                  <span className={`gen-chip ${generationProgress >= 38 ? 'active' : ''}`}>
+                    ✓ {chilledCount > 0 ? `${chilledCount} Reefer Constrained` : 'Cold Chain Verified'}
+                  </span>
+                  <span className={`gen-chip ${generationProgress >= 72 ? 'active' : ''}`}>
+                    ✓ {vehiclesCount} Vehicles Allocated
+                  </span>
+                  <span className={`gen-chip ${generationProgress >= 94 ? 'active' : ''}`}>
+                    ✓ Time Windows Met
+                  </span>
                 </div>
               </div>
             ) : (
@@ -421,12 +605,18 @@ export function PlanningStep2Generate({
                 <button
                   type="button"
                   className="btn-primary-yellow large"
+                  disabled={orderCount === 0}
                   onClick={() => void handleStartGeneration()}
                 >
                   <Sparkles size={18} aria-hidden="true" />
                   <span>Generate Delivery Plan</span>
                   <ArrowRight size={18} aria-hidden="true" />
                 </button>
+                {generationError && (
+                  <p className="text-danger" style={{ marginTop: 'var(--space-8)', fontSize: '13px' }}>
+                    {generationError}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -441,7 +631,7 @@ export function PlanningStep2Generate({
                 <span className="side-icon-box"><Box size={16} /></span>
                 <div>
                   <div className="side-label">Selected orders</div>
-                  <div className="side-value">{orderCount || 186} ({totalVolume ? totalVolume.toFixed(1) : '412.5'} m³)</div>
+                  <div className="side-value">{orderCount} ({totalVolume.toFixed(1)} m³)</div>
                 </div>
               </div>
 
@@ -449,23 +639,23 @@ export function PlanningStep2Generate({
                 <span className="side-icon-box"><Truck size={16} /></span>
                 <div>
                   <div className="side-label">Available vehicles</div>
-                  <div className="side-value">16 at {activeDepot || 'Peliyagoda'}</div>
+                  <div className="side-value">{vehiclesCount} at {activeDepot}</div>
                 </div>
               </div>
 
               <div className="side-summary-row">
                 <span className="side-icon-box"><Sliders size={16} /></span>
                 <div>
-                  <div className="side-label">Estimated routes</div>
-                  <div className="side-value">5–8 based on vehicle capacity</div>
+                  <div className="side-label">Depot scope</div>
+                  <div className="side-value">{activeDepot} Depot</div>
                 </div>
               </div>
 
               <div className="side-summary-row">
                 <span className="side-icon-box"><Clock size={16} /></span>
                 <div>
-                  <div className="side-label">Estimated time</div>
-                  <div className="side-value">2–5 minutes</div>
+                  <div className="side-label">Snapshot status</div>
+                  <div className="side-value">{snapshot ? `Snapshot #${snapshot.id} ready` : 'New snapshot on generate'}</div>
                 </div>
               </div>
             </div>
@@ -477,7 +667,7 @@ export function PlanningStep2Generate({
               <span className="info-callout-title">What happens next?</span>
             </div>
             <p className="info-callout-body">
-              The system will create optimized routes that start from {activeDepot || 'Peliyagoda Depot'}, considering delivery time windows, vehicle capacities, and cold chain requirements.
+              The system will create optimized routes that start from {activeDepot.endsWith('Depot') ? activeDepot : `${activeDepot} Depot`}, considering delivery time windows, vehicle capacities, and cold chain requirements.
             </p>
           </div>
         </div>

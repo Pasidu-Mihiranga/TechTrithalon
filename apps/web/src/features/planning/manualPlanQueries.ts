@@ -48,7 +48,7 @@ export function useManualPlans(date: string, depot?: string) {
   })
 }
 
-type Edit =
+export type Edit =
   | { operation: 'replace'; body: Schema['ManualPlanReplaceRequest'] }
   | { operation: 'addTrip'; body: Schema['ManualPlanAddTripRequest'] }
   | { operation: 'move'; body: Schema['ManualPlanMoveRequest'] }

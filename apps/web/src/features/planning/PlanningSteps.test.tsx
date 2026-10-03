@@ -1,11 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it, vi } from 'vitest'
 import { Step1BulkActionBar } from './Step1BulkActionBar'
 import { PlanningStep2Generate } from './PlanningStep2Generate'
 import { PlanningStep3Allocation } from './PlanningStep3Allocation'
 import { PlanningStep4Exceptions } from './PlanningStep4Exceptions'
 import { PlanningStep5Confirm } from './PlanningStep5Confirm'
+
+function renderWithClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
 
 describe('Planning Steps UI Components', () => {
   describe('Step 1B Bulk Action Bar', () => {
@@ -60,20 +68,27 @@ describe('Planning Steps UI Components', () => {
       const onContinue = vi.fn()
       const onGeneratePlan = vi.fn().mockResolvedValue(undefined)
 
-      render(
+      renderWithClient(
         <PlanningStep2Generate
-          snapshot={null}
-          orderCount={186}
-          totalVolume={412.5}
-          chilledCount={32}
-          activeDepot="Peliyagoda Depot"
+          snapshot={{
+            id: 101,
+            planDate: '2026-06-26',
+            depot: 'Peliyagoda',
+            selectionMode: 'all',
+            orderCount: 85,
+            contentHash: 'abc123hash',
+          }}
+          orderCount={85}
+          totalVolume={42.5}
+          chilledCount={24}
+          activeDepot="Peliyagoda"
           onContinueToAllocation={onContinue}
           onGeneratePlan={onGeneratePlan}
         />
       )
 
-      expect(screen.getByRole('heading', { name: 'Generate Delivery Plan' })).toBeInTheDocument()
-      expect(screen.getByText('186')).toBeInTheDocument()
+      expect(screen.getAllByText('Selected orders')[0]).toBeInTheDocument()
+      expect(screen.getByText('85')).toBeInTheDocument()
       expect(screen.getByText('Planning Summary')).toBeInTheDocument()
 
       const generateBtn = screen.getByRole('button', { name: /generate delivery plan/i })
@@ -81,12 +96,9 @@ describe('Planning Steps UI Components', () => {
 
       expect(onGeneratePlan).toHaveBeenCalled()
 
-      // Wait for 2B ready state
-      const readyBanner = await screen.findByText('Plan ready in 28 seconds', {}, { timeout: 3000 })
-      expect(readyBanner).toBeInTheDocument()
-      expect(screen.getByText('Optimised')).toBeInTheDocument()
-      expect(screen.getByText('1,126 km')).toBeInTheDocument()
-      expect(screen.getByText('87%')).toBeInTheDocument()
+      // Ready banner appears
+      expect(await screen.findByText('Planning Snapshot Frozen')).toBeInTheDocument()
+      expect(screen.getByText('Review allocation')).toBeInTheDocument()
 
       const reviewBtn = screen.getByRole('button', { name: /review allocation/i })
       await userEvent.click(reviewBtn)
@@ -99,37 +111,62 @@ describe('Planning Steps UI Components', () => {
       const onBack = vi.fn()
       const onContinue = vi.fn()
 
-      render(
+      const syntheticRoutes = [
+        {
+          id: 'VEH001',
+          type: 'Reefer 5T',
+          badge: 'Reefer' as const,
+          region: 'Colombo North',
+          tripsSummary: '2 trips · 84 km',
+          volume: { used: 22.5, total: 26.4, unit: 'm³' },
+          weight: { used: 3400, total: 5500, unit: 'kg' },
+          accentColor: '#FFC20E',
+          stops: [
+            {
+              seq: 1,
+              ref: 'ORD-101',
+              outletName: 'Waypoint Fresh Peliyagoda',
+              window: '06:00–07:30',
+              volume: '3.2 m³',
+              brand: 'Fresh',
+            },
+          ],
+        },
+      ]
+
+      renderWithClient(
         <PlanningStep3Allocation
+          routes={syntheticRoutes}
+          activeDepot="Peliyagoda"
           onBackToSummary={onBack}
           onContinueToExceptions={onContinue}
         />
       )
 
-      expect(screen.getByText('VEH014')).toBeInTheDocument()
-      expect(screen.getByText('VEH021')).toBeInTheDocument()
-      expect(screen.getByText('Sort: utilisation')).toBeInTheDocument()
+      expect(screen.getByText('VEH001')).toBeInTheDocument()
+      expect(screen.getByText('Reefer 5T')).toBeInTheDocument()
 
       // Open drawer
-      const viewStopsBtn = screen.getAllByRole('button', { name: /view stops sequence/i })[0]
-      await userEvent.click(viewStopsBtn)
+      const reviewBtn = screen.getByRole('button', { name: /review/i })
+      await userEvent.click(reviewBtn)
 
-      expect(screen.getByText('STOPS ON THIS ROUTE')).toBeInTheDocument()
-      expect(screen.getByText('Fort Bazaar Wholesale')).toBeInTheDocument()
+      expect(screen.getByText('VEH001 Delivery Sequence')).toBeInTheDocument()
+      expect(screen.getByText('Waypoint Fresh Peliyagoda')).toBeInTheDocument()
 
-      // Open swap modal from drawer
-      const changeVehBtn = screen.getAllByRole('button', { name: /change vehicle/i })[0]
+      // Close drawer
+      await userEvent.click(screen.getByRole('button', { name: /close sequence review/i }))
+
+      // Open swap modal
+      const changeVehBtn = screen.getByRole('button', { name: /change/i })
       await userEvent.click(changeVehBtn)
 
-      expect(screen.getByText('COMPATIBLE VEHICLES NEARBY')).toBeInTheDocument()
-      expect(screen.getByText('Compatible · Recommended')).toBeInTheDocument()
+      expect(screen.getByText('Change Vehicle for Route')).toBeInTheDocument()
 
-      // Confirm change
-      const confirmSwapBtn = screen.getByRole('button', { name: /confirm change/i })
-      await userEvent.click(confirmSwapBtn)
+      // Close modal
+      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
       // Continue to step 4
-      const continueBtn = screen.getByRole('button', { name: /continue to exceptions/i })
+      const continueBtn = screen.getByRole('button', { name: /proceed to exceptions/i })
       await userEvent.click(continueBtn)
       expect(onContinue).toHaveBeenCalled()
     })
@@ -139,18 +176,40 @@ describe('Planning Steps UI Components', () => {
     it('renders exceptions triage and transitions to 4B celebration when all resolved', async () => {
       const onContinue = vi.fn()
 
-      render(<PlanningStep4Exceptions onContinueToConfirm={onContinue} />)
+      const syntheticExceptions = [
+        {
+          id: 'ex-1',
+          ref: 'ORD-501',
+          outletName: 'Waypoint Fresh Rajagiriya',
+          flag: 'Van only',
+          window: '08:00–10:00',
+          volume: '3.5 m³',
+          violationTitle: 'Van-only parking access',
+          violationDescription: 'Outlet road forbids 5T lorries.',
+          suggestedFix: 'Re-assign to Van VEH055',
+          fixActionLabel: 'Reassign to Van',
+          category: 'van' as const,
+          status: 'open' as const,
+        },
+      ]
 
-      expect(screen.getByText(/orders still need a decision/i)).toBeInTheDocument()
-      expect(screen.getAllByText('Van-only access').length).toBeGreaterThan(0)
+      renderWithClient(
+        <PlanningStep4Exceptions
+          exceptions={syntheticExceptions}
+          onContinueToConfirm={onContinue}
+        />
+      )
 
-      // Accept all suggestions
-      const acceptAllBtn = screen.getByRole('button', { name: /accept all suggestions/i })
-      await userEvent.click(acceptAllBtn)
+      expect(screen.getByRole('heading', { level: 2, name: /dispatcher decision/i })).toBeInTheDocument()
+      expect(screen.getByText('Van-only parking access:')).toBeInTheDocument()
+
+      // Apply fix
+      const applyFixBtn = screen.getByRole('button', { name: /reassign to van/i })
+      await userEvent.click(applyFixBtn)
 
       // Check 4B celebration state
-      expect(screen.getByText('All exceptions resolved')).toBeInTheDocument()
-      expect(screen.getByText('Resolution log')).toBeInTheDocument()
+      expect(screen.getByText('All Exceptions Resolved')).toBeInTheDocument()
+      expect(screen.getByText('Resolution Audit Trail')).toBeInTheDocument()
 
       const nextBtn = screen.getByRole('button', { name: /continue to confirm & send/i })
       await userEvent.click(nextBtn)
@@ -160,33 +219,44 @@ describe('Planning Steps UI Components', () => {
 
   describe('Step 5 Confirm & Send', () => {
     it('renders manifest table and notification toggles, opens send modal, and displays 5B sent timeline', async () => {
-      render(
+      const syntheticManifest = [
+        {
+          vehicle: 'VEH001',
+          driver: 'Sunil Silva',
+          stops: 8,
+          volume: '22.5 m³',
+          departs: '04:30',
+          bay: 'Bay 1',
+          accentColor: '#FFC20E',
+        },
+      ]
+
+      renderWithClient(
         <PlanningStep5Confirm
-          activeDepot="Peliyagoda Depot"
-          planDate="29 Sep 2026 (Tue)"
+          activeDepot="Peliyagoda"
+          planDate="26 Jun 2026 (Fri)"
+          manifestRows={syntheticManifest}
         />
       )
 
-      expect(screen.getByText("Ready to send tomorrow's plan")).toBeInTheDocument()
-      expect(screen.getByText('Vehicle manifests')).toBeInTheDocument()
-      expect(screen.getByText('Kasun Perera')).toBeInTheDocument()
+      expect(screen.getByText('Delivery plan is ready to send')).toBeInTheDocument()
+      expect(screen.getByText('Vehicle Manifest')).toBeInTheDocument()
+      expect(screen.getByText('Sunil Silva')).toBeInTheDocument()
 
       // Open confirmation modal
-      const sendBtn = screen.getByRole('button', { name: /send plan to loaders/i })
+      const sendBtn = screen.getByRole('button', { name: /confirm & send plan/i })
       await userEvent.click(sendBtn)
 
-      expect(screen.getByText('Send plan to loader?')).toBeInTheDocument()
-      expect(screen.getByText(/185 orders · 410.5 m³ across 15 vehicles/i)).toBeInTheDocument()
+      expect(screen.getByText('Confirm and Send Plan')).toBeInTheDocument()
 
       // Confirm send
-      const modalConfirmBtn = screen.getByRole('button', { name: /send to loader/i })
+      const modalConfirmBtn = screen.getByRole('button', { name: /yes, send delivery plan/i })
       await userEvent.click(modalConfirmBtn)
 
       // Check 5B sent state
-      expect(screen.getByText('Plan sent to loader')).toBeInTheDocument()
-      expect(screen.getByText('Plan locked and sent')).toBeInTheDocument()
-      expect(screen.getByText('Tomorrow at a glance')).toBeInTheDocument()
-      expect(screen.getByText('Locked')).toBeInTheDocument()
+      expect(screen.getByText('Delivery plan is locked and active')).toBeInTheDocument()
+      expect(screen.getByText('Plan published by Dispatcher')).toBeInTheDocument()
+      expect(screen.getByText('Locked Routes Overview · Peliyagoda Depot')).toBeInTheDocument()
     })
   })
 })

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Box, Snowflake, Warehouse, Plus, Minus, Clock } from 'lucide-react'
 import type { components } from '../../generated/api'
 
@@ -40,14 +40,49 @@ export function Step1MapSplitView({
   const activeOrder = orders.find((o) => o.id === activeOrderId) || orders[0]
   const activeOutlet = activeOrder ? outletsMap.get(activeOrder.outletId) : null
 
-  const clusters: ClusterMarker[] = [
-    { id: 'c3', label: 'Colombo 03', count: 22, x: 26, y: 44, color: '#FFC20E' },
-    { id: 'c7', label: 'Colombo 07', count: 46, x: 44, y: 55, color: '#FFC20E', orderId: activeOrder?.id },
-    { id: 'raj', label: 'Rajagiriya', count: 16, x: 62, y: 35, color: '#FFC20E' },
-    { id: 'nug', label: 'Nugegoda', count: 24, x: 68, y: 62, color: '#FFC20E' },
-    { id: 'deh', label: 'Dehiwala', count: 14, x: 50, y: 80, color: '#FFC20E' },
-    { id: 'mtl', label: 'Mt Lavinia', count: 38, x: 78, y: 84, color: '#FFC20E' },
-  ]
+  const DISTRICT_COORDS: Record<string, { x: number; y: number }> = {
+    'Colombo 03': { x: 26, y: 44 },
+    'Colombo 07': { x: 44, y: 55 },
+    'Rajagiriya': { x: 62, y: 35 },
+    'Nugegoda': { x: 68, y: 62 },
+    'Dehiwala': { x: 50, y: 80 },
+    'Mount Lavinia': { x: 78, y: 84 },
+    'Mt Lavinia': { x: 78, y: 84 },
+    'Kandy': { x: 55, y: 30 },
+    'Colombo': { x: 40, y: 50 },
+    'Gampaha': { x: 35, y: 25 },
+  }
+
+  const clusters = useMemo<ClusterMarker[]>(() => {
+    const districtMap = new Map<string, { count: number; firstOrderId?: number }>()
+    for (const order of orders) {
+      const outlet = outletsMap.get(order.outletId)
+      const district = order.district || outlet?.district || 'Colombo'
+      const cur = districtMap.get(district) || { count: 0, firstOrderId: order.id }
+      cur.count++
+      districtMap.set(district, cur)
+    }
+
+    const markers: ClusterMarker[] = []
+    let idx = 0
+    for (const [district, info] of districtMap.entries()) {
+      const coords = DISTRICT_COORDS[district] ?? {
+        x: 30 + (idx % 4) * 15,
+        y: 35 + Math.floor(idx / 4) * 20,
+      }
+      markers.push({
+        id: `dist-${district.toLowerCase().replace(/\s+/g, '-')}`,
+        label: district,
+        count: info.count,
+        x: coords.x,
+        y: coords.y,
+        orderId: info.firstOrderId,
+        color: '#FFC20E',
+      })
+      idx++
+    }
+    return markers
+  }, [orders, outletsMap])
 
   return (
     <div className="planning-map-split">
@@ -77,7 +112,7 @@ export function Step1MapSplitView({
 
             const windowText = outlet?.effectiveWindowOpen && outlet?.effectiveWindowClose
               ? `${outlet.effectiveWindowOpen.slice(0, 5)}–${outlet.effectiveWindowClose.slice(0, 5)}`
-              : '05:30–07:30'
+              : '—'
 
             return (
               <div
@@ -250,17 +285,21 @@ export function Step1MapSplitView({
               <span className="popup-ref">{activeOrder.ref}</span>
             </div>
             <div className="popup-outlet-name">
-              {activeOutlet ? `Waypoint ${activeOutlet.brand} ${activeOutlet.district}` : `Waypoint ${activeOrder.brand || ''} Colombo 07`}
+              {activeOutlet
+                ? `Waypoint ${activeOutlet.brand} ${activeOutlet.district}`
+                : (activeOrder.brand ? `Waypoint ${activeOrder.brand}` : activeOrder.outletId)}
             </div>
             <div className="popup-sub">
-              <span>📍 {activeOrder.outletId} · {activeOrder.district ?? 'Colombo'}</span>
+              <span>📍 {activeOrder.outletId} {activeOrder.district ? `· ${activeOrder.district}` : ''}</span>
             </div>
             <div className="popup-footer">
               <span className="popup-window">
-                🕒 {activeOutlet?.effectiveWindowOpen ? `${activeOutlet.effectiveWindowOpen.slice(0, 5)}–${activeOutlet.effectiveWindowClose?.slice(0, 5)}` : '05:30–07:30'}
+                🕒 {activeOutlet?.effectiveWindowOpen && activeOutlet?.effectiveWindowClose
+                  ? `${activeOutlet.effectiveWindowOpen.slice(0, 5)}–${activeOutlet.effectiveWindowClose.slice(0, 5)}`
+                  : 'Window unconfigured'}
               </span>
               <span className="popup-dot">·</span>
-              <span className="popup-vol">{activeOrder.volumeM3?.toFixed(1) ?? '2.7'} m³</span>
+              <span className="popup-vol">{activeOrder.volumeM3 != null ? `${activeOrder.volumeM3.toFixed(1)} m³` : '—'}</span>
             </div>
           </div>
         )}

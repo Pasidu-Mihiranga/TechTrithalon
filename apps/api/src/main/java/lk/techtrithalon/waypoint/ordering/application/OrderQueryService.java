@@ -41,18 +41,20 @@ public class OrderQueryService {
         String depot = requestedDepot == null || requestedDepot.isBlank() ? user.depot() : requestedDepot;
         if (depot != null && (!user.canAccessDepot(depot) || !reference.depots(user).contains(depot))) throw missing();
         long confirmed = orders.countByDateDepotStatus(day, depot, "confirmed");
+        long planned = orders.countByDateDepotStatus(day, depot, "planned");
+        int total = (int) (confirmed + planned);
         String depotLabel = depot == null ? "All depots" : depot;
         return new DashboardSnapshot(
             day,
             depotLabel,
             DashboardSnapshot.Metric.of((int) confirmed),
-            DashboardSnapshot.Metric.later("Phase 7"),
+            DashboardSnapshot.Metric.of((int) planned),
             DashboardSnapshot.Metric.later("Phase 11"),
             DashboardSnapshot.Metric.later("Phase 16"),
             DashboardSnapshot.Metric.later("Phase 10"),
             List.of(),
             List.of(),
-            DashboardSnapshot.PlanningProgress.later("Phase 7")
+            DashboardSnapshot.PlanningProgress.of((int) planned, total)
         );
     }
 
