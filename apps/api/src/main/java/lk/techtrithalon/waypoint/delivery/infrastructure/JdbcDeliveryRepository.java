@@ -83,6 +83,14 @@ class JdbcDeliveryRepository implements DeliveryRepository {
         return db.query("SELECT * FROM delivery_record WHERE order_id=?", this::mapRecord, orderId).stream().findFirst();
     }
 
+    public List<DeliveryRecord> recordsForOrders(Collection<Long> orderIds) {
+        return db.query("SELECT * FROM delivery_record WHERE order_id = ANY(?)", this::mapRecord, (Object) orderIds.toArray(Long[]::new));
+    }
+
+    public List<PodAsset> assetsForOrders(Collection<Long> orderIds) {
+        return db.query("SELECT * FROM pod_asset WHERE order_id = ANY(?)", this::mapAsset, (Object) orderIds.toArray(Long[]::new));
+    }
+
     public long insertRecord(long tripId, long orderId, String outletId, String outcome, int ordered, int loaded, int delivered,
                              String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt,
                              String review) {

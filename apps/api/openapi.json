@@ -2807,6 +2807,330 @@
         },
         "type" : "object"
       },
+      "ReceiptDecisionRequest" : {
+        "properties" : {
+          "decision" : {
+            "minLength" : 1,
+            "pattern" : "CREDIT|REPLACEMENT|NO_ACTION",
+            "type" : "string"
+          },
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "decision", "expectedVersion", "note" ],
+        "type" : "object"
+      },
+      "ReceiptDeliveryDetail" : {
+        "properties" : {
+          "blocker" : {
+            "description" : "Why the receipt cannot be recorded yet",
+            "type" : [ "string", "null" ]
+          },
+          "brand" : {
+            "type" : "string"
+          },
+          "canConfirm" : {
+            "type" : "boolean"
+          },
+          "discrepancy" : {
+            "$ref" : "#/components/schemas/ReceiptDiscrepancy",
+            "type" : "null"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "dockType" : {
+            "type" : "string"
+          },
+          "issueKind" : {
+            "description" : "The driver's reason when the order was not delivered in full",
+            "type" : [ "string", "null" ]
+          },
+          "loadedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "parkingConstraint" : {
+            "type" : [ "string", "null" ]
+          },
+          "photos" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "receiptRecord" : {
+            "$ref" : "#/components/schemas/ReceiptRecord",
+            "type" : "null"
+          },
+          "recipientName" : {
+            "type" : [ "string", "null" ]
+          },
+          "row" : {
+            "$ref" : "#/components/schemas/ReceiptDeliveryRow"
+          },
+          "signatures" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "description" : "Order status",
+            "type" : "string"
+          },
+          "timeline" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReceiptEvent"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ReceiptDeliveryList" : {
+        "properties" : {
+          "outletId" : {
+            "type" : "string"
+          },
+          "rows" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ReceiptDeliveryRow"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ReceiptDeliveryRow" : {
+        "properties" : {
+          "deliveredAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "deliveredUnits" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "description" : "DELIVERED, PARTIAL or FAILED, once recorded",
+            "type" : [ "string", "null" ]
+          },
+          "phase" : {
+            "description" : "PENDING (planned or loading), IN_DELIVERY or DELIVERED (the driver recorded an outcome)",
+            "type" : "string"
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "plannedArrival" : {
+            "type" : [ "string", "null" ]
+          },
+          "receipt" : {
+            "description" : "NONE, CONFIRMED, DISPUTED (open) or RESOLVED",
+            "type" : "string"
+          },
+          "tempRequirement" : {
+            "type" : "string"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "units" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "vehicleId" : {
+            "type" : [ "string", "null" ]
+          },
+          "windowClose" : {
+            "type" : [ "string", "null" ]
+          },
+          "windowOpen" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "type" : "object"
+      },
+      "ReceiptDiscrepancy" : {
+        "properties" : {
+          "affectedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "decision" : {
+            "description" : "CREDIT, REPLACEMENT or NO_ACTION",
+            "type" : [ "string", "null" ]
+          },
+          "decisionNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "deliveredAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "deliveredUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orderRef" : {
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "receiptId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "reportedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "reportedByName" : {
+            "type" : "string"
+          },
+          "resolvedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "resolvedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "description" : "OPEN or RESOLVED",
+            "type" : "string"
+          },
+          "vehicleId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ReceiptDisputeRequest" : {
+        "properties" : {
+          "affectedUnits" : {
+            "description" : "Units that did not arrive right, 1 to the units delivered",
+            "format" : "int32",
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "kind" : {
+            "minLength" : 1,
+            "pattern" : "SHORT|DAMAGED|WRONG_ITEM|OTHER",
+            "type" : "string"
+          },
+          "note" : {
+            "description" : "Required for OTHER",
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "affectedUnits", "kind" ],
+        "type" : "object"
+      },
+      "ReceiptEvent" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReceiptRecord" : {
+        "properties" : {
+          "affectedUnits" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "confirmedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "confirmedByName" : {
+            "type" : "string"
+          },
+          "deliveredUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "deliveryRecordId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "description" : "SHORT, DAMAGED, WRONG_ITEM or OTHER",
+            "type" : [ "string", "null" ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ]
+          },
+          "orderId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "outcome" : {
+            "description" : "CONFIRMED or DISPUTED",
+            "type" : "string"
+          },
+          "outletId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ReferenceSummary" : {
         "properties" : {
           "calendarDays" : {
@@ -3567,7 +3891,7 @@
     },
     "/api/v1/dispatcher/loading-issues" : {
       "get" : {
-        "operationId" : "list_1",
+        "operationId" : "list_2",
         "parameters" : [ {
           "in" : "query",
           "name" : "date",
@@ -3614,7 +3938,7 @@
     },
     "/api/v1/dispatcher/loading-issues/{id}/resolve" : {
       "post" : {
-        "operationId" : "resolve",
+        "operationId" : "resolve_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -4478,6 +4802,85 @@
         "tags" : [ "manual-plan-controller" ]
       }
     },
+    "/api/v1/dispatcher/receipt-discrepancies" : {
+      "get" : {
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ReceiptDiscrepancy"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-receipt-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/receipt-discrepancies/{id}/resolve" : {
+      "post" : {
+        "operationId" : "resolve",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReceiptDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDiscrepancy"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "dispatcher-receipt-controller" ]
+      }
+    },
     "/api/v1/dispatcher/vehicles/{id}/availability" : {
       "get" : {
         "operationId" : "availability",
@@ -4612,7 +5015,7 @@
     },
     "/api/v1/driver/deliveries" : {
       "get" : {
-        "operationId" : "deliveries",
+        "operationId" : "deliveries_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "date",
@@ -5181,7 +5584,7 @@
     },
     "/api/v1/loader/issues" : {
       "get" : {
-        "operationId" : "issues",
+        "operationId" : "issues_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "date",
@@ -5753,6 +6156,167 @@
           "session" : [ ]
         } ],
         "tags" : [ "deferral-controller" ]
+      }
+    },
+    "/api/v1/store/deliveries" : {
+      "get" : {
+        "operationId" : "deliveries",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "phase",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDeliveryList"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-receipt-controller" ]
+      }
+    },
+    "/api/v1/store/deliveries/{orderId}" : {
+      "get" : {
+        "operationId" : "delivery",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDeliveryDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-receipt-controller" ]
+      }
+    },
+    "/api/v1/store/deliveries/{orderId}/issue" : {
+      "post" : {
+        "operationId" : "dispute",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReceiptDisputeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDeliveryDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-receipt-controller" ]
+      }
+    },
+    "/api/v1/store/deliveries/{orderId}/receipt" : {
+      "post" : {
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "orderId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReceiptDeliveryDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-receipt-controller" ]
+      }
+    },
+    "/api/v1/store/issues" : {
+      "get" : {
+        "operationId" : "issues",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ReceiptDiscrepancy"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "store-receipt-controller" ]
       }
     },
     "/api/v1/store/orders" : {

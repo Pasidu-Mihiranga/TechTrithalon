@@ -132,6 +132,19 @@ public class OrderCommandService {
         }
     }
 
+    /**
+     * Published receipt boundary: the store confirmed what arrived, or the dispatcher resolved its
+     * dispute. Only a delivered or partially delivered order can reach receipt_confirmed.
+     */
+    @Transactional
+    @PreAuthorize("hasAnyRole('STORE_MANAGER','DISPATCHER')")
+    public void markReceiptConfirmed(CurrentUser actor,long id,String reason) {
+        var before=orders.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,"NOT_FOUND","Resource not found"));
+        if (!orders.markRoadStatus(id,before.version(),java.util.List.of("delivered","partial"),"receipt_confirmed",clock.instant()))
+            throw new ApiException(HttpStatus.CONFLICT,"ORDER_CHANGED","This order's status changed; reload it");
+        audit.record("order.receipt_confirmed",actor,"order",String.valueOf(id),before,orders.findById(id).orElseThrow(),reason);
+    }
+
     /** Published delivery boundary: the order's recorded outcome (delivered, partial or failed). */
     @Transactional
     @PreAuthorize("hasRole('DRIVER')")

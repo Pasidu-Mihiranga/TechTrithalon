@@ -29,6 +29,8 @@ public interface DeliveryRepository {
 
     List<DeliveryRecord> records(long tripId);
     Optional<DeliveryRecord> recordForOrder(long orderId);
+    List<DeliveryRecord> recordsForOrders(Collection<Long> orderIds);
+    List<PodAsset> assetsForOrders(Collection<Long> orderIds);
     long insertRecord(long tripId, long orderId, String outletId, String outcome, int ordered, int loaded, int delivered,
                       String issueKind, String recipient, String notes, long actor, Instant occurredAt, Instant recordedAt, String review);
 
