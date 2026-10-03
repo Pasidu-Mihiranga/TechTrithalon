@@ -162,8 +162,8 @@ describe('Planning Steps UI Components', () => {
         />
       )
 
-      expect(screen.getByText('VEH001')).toBeInTheDocument()
-      expect(screen.getByText('Reefer 5T')).toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Vehicle VEH001' })).toBeInTheDocument()
+      expect(screen.getAllByText('Reefer 5T').length).toBeGreaterThan(0)
 
       // Open drawer
       const reviewBtn = screen.getByRole('button', { name: /review/i })
@@ -175,14 +175,9 @@ describe('Planning Steps UI Components', () => {
       // Close drawer
       await userEvent.click(screen.getByRole('button', { name: /close sequence review/i }))
 
-      // Open swap modal
-      const changeVehBtn = screen.getByRole('button', { name: /change/i })
-      await userEvent.click(changeVehBtn)
-
-      expect(screen.getByText('Change Vehicle for Route')).toBeInTheDocument()
-
-      // Close modal
-      await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+      // A vehicle without a trip has nothing to change, so the action is unavailable rather than a dead end.
+      expect(screen.queryByRole('button', { name: /^change$/i })).not.toBeInTheDocument()
+      expect(screen.getByText('Open a candidate plan to edit trips')).toBeInTheDocument()
 
       // Continue to step 4
       const continueBtn = screen.getByRole('button', { name: /proceed to exceptions/i })
