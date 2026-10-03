@@ -189,6 +189,12 @@ public class OrderQueryService {
             .toList();
     }
 
+    /** Published for the delivery module, which has already checked the orders are on the driver's trips. */
+    @PreAuthorize("hasRole('DRIVER')")
+    public List<CustomerOrder> driverOrders(CurrentUser driver, List<Long> ids) {
+        return ids.isEmpty() ? List.of() : orders.findByIds(ids);
+    }
+
     @PreAuthorize("hasRole('STORE_MANAGER')")
     public OrderPage storeOrders(
         CurrentUser user, LocalDate date, String status, String query, String sort,

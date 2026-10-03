@@ -74,6 +74,33 @@ class JdbcLoadTaskRepository implements LoadTaskRepository {
             this::task, Date.valueOf(date), depot);
     }
 
+    public List<LoadTask> activeForDriver(LocalDate date, long driverUserId) {
+        return db.query("SELECT * FROM load_task WHERE plan_date=? AND driver_user_id=? AND status<>'superseded' ORDER BY planned_depart,trip_index",
+            this::task, Date.valueOf(date), driverUserId);
+    }
+
+    public List<LoadTask> activeForOrders(java.util.Collection<Long> orderIds) {
+        if (orderIds.isEmpty()) return List.of();
+        return db.query("""
+            SELECT * FROM load_task WHERE status<>'superseded'
+              AND id IN (SELECT load_task_id FROM load_line WHERE order_id = ANY(?))
+            ORDER BY plan_date,trip_index
+            """, this::task, (Object) orderIds.toArray(Long[]::new));
+    }
+
+    public List<LoadTask> allForDriver(LocalDate date, long driverUserId) {
+        return db.query("SELECT * FROM load_task WHERE plan_date=? AND driver_user_id=? ORDER BY plan_version DESC,trip_index",
+            this::task, Date.valueOf(date), driverUserId);
+    }
+
+    public void inheritLoaded(long taskId, long replacedTaskId) {
+        db.update("""
+            UPDATE load_task n SET status='loaded', loaded_by=o.loaded_by, loaded_at=o.loaded_at,
+                   started_by=o.started_by, started_at=o.started_at
+            FROM load_task o WHERE n.id=? AND o.id=? AND o.loaded_at IS NOT NULL
+            """, taskId, replacedTaskId);
+    }
+
     public Optional<LoadTask> forSlot(long planId, String vehicleId, int tripIndex) {
         return db.query("SELECT * FROM load_task WHERE plan_id=? AND vehicle_id=? AND trip_index=?", this::task, planId, vehicleId, tripIndex)
             .stream().findFirst();

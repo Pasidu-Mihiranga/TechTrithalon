@@ -209,4 +209,27 @@ public class ArrivalCalculator {
             return params.otherBudgetStart() != null ? params.otherBudgetStart() : LocalTime.of(8, 0);
         }
     }
+
+    /** One remaining stop for {@link #project}: its window open and service allowance. */
+    public record RemainingStop(LocalTime windowOpen, int serviceMinutes) {}
+
+    /**
+     * Projected arrivals for the stops still to serve, from what actually happened on the road, using
+     * the same recurrence as the plan: the first remaining stop is reached {@code legMinutes} after the
+     * vehicle was free ({@code readyAt}), each later stop {@code interStopMinutes} after the previous
+     * service ends, and an early arrival waits for the window to open.
+     */
+    public List<LocalTime> project(List<RemainingStop> remaining, LocalTime readyAt, int legMinutes, int interStopMinutes) {
+        List<LocalTime> result = new ArrayList<>(remaining.size());
+        LocalTime ready = readyAt;
+        int leg = legMinutes;
+        for (RemainingStop stop : remaining) {
+            LocalTime arrival = ready.plusMinutes(leg);
+            LocalTime serviceStart = stop.windowOpen() != null && arrival.isBefore(stop.windowOpen()) ? stop.windowOpen() : arrival;
+            result.add(arrival);
+            ready = serviceStart.plusMinutes(stop.serviceMinutes());
+            leg = interStopMinutes;
+        }
+        return result;
+    }
 }

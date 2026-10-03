@@ -20,6 +20,11 @@ public record DashboardSnapshot(
     List<AttentionItem> tripAttention,
     PlanningProgress planningProgress
 ) {
+    /** The same snapshot with the figures the delivery and exceptions modules own filled in. */
+    public DashboardSnapshot withOperations(Metric tripsReady, Metric activeTrips, Metric exceptions) {
+        return new DashboardSnapshot(date, depot, ordersToPlan, ordersPlanned, tripsReady, activeTrips, exceptions, orderAttention, tripAttention, planningProgress);
+    }
+
     public record Metric(
         @Schema(nullable = true) Integer value,
         boolean available,

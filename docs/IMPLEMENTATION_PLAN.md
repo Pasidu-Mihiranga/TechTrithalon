@@ -20,10 +20,10 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
-- [ ] Phase 13 — Driver Workflow
-- [ ] Phase 14 — Offline & Sync
+- [x] Phase 13 — Driver Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; real Cloudinary upload, Docker smoke and real-dataset run pending)**
+- [x] Phase 14 — Offline & Sync **(tests, curl/SQL, Playwright offline journey and service-worker check on synthetic data; real Cloudinary upload and real-dataset run pending)**
 - [ ] Phase 14A — Driver Android App (React Native)
-- [ ] Phase 15 — Receipt Confirmation
+- [x] Phase 15 — Receipt Confirmation **(tests, curl/SQL, Playwright four-role lifecycle on synthetic data; Docker smoke and real-dataset run pending)**
 - [ ] Phase 16 — Live Operations
 - [ ] Phase 17 — Forecasting Foundation
 - [ ] Phase 18 — Service-Time & Late-Risk ML
@@ -855,7 +855,8 @@ A dispatcher must understand and change the candidate before publication.
 #### Backend
 
 - [ ] Assemble why-assigned/why-deferred evidence, binding resources, feasible alternatives, and ranked fixes.
-- [ ] Add read-only dry-run simulation, impact preview, exception triage, and scoped re-optimization where useful.
+- [x] Exception triage queue: one list of loading shortfalls, store disputes, driver problems and offline review flags, taken and closed by the dispatcher (Step 8).
+- [ ] Add read-only dry-run simulation, impact preview and scoped re-optimization where useful.
 
 #### Frontend
 
@@ -1029,16 +1030,16 @@ The published and loaded route must be executable on a phone.
 
 #### Backend
 
-- [ ] Expose driver-owned trips/stops; record arrival, outcome, departure, and trip completion.
-- [ ] Implement POD upload references, issue events, and deterministic ETA fallback.
+- [x] Expose driver-owned trips/stops; record arrival, outcome, departure, and trip completion. — evidence: `DeliveryWorkflowIT`, curl table in [DELIVERY_VERIFICATION.md](./DELIVERY_VERIFICATION.md)
+- [x] Implement POD upload references, issue events, and deterministic ETA fallback. (Cloudinary per ADR 0001; validated with an in-memory store, real upload not yet exercised)
 
 #### Frontend
 
-- [ ] Build phone-first trip overview, stop details, large outcome actions, POD capture, and completion states.
+- [x] Build phone-first trip overview, stop details, large outcome actions, POD capture, and completion states. — evidence: `driver.test.tsx`, `driver.spec.ts`, Chromium journey at 402/834 px
 
 #### Database
 
-- [ ] Add delivery records, POD metadata, and object-store configuration.
+- [x] Add delivery records, POD metadata, and object-store configuration. (`V20261003_2300`, `CLOUDINARY_URL`)
 
 #### Python / Intelligence
 
@@ -1046,11 +1047,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test assignment ownership, state transitions, upload type/size, stop outcomes, and full online trip E2E on phone width.
+- [x] Test assignment ownership, state transitions, upload type/size, stop outcomes, and full online trip E2E on phone width.
 
 #### Documentation
 
-- [ ] Describe field action sequence and POD retention.
+- [x] Describe field action sequence and POD retention. ([DELIVERY_VERIFICATION.md](./DELIVERY_VERIFICATION.md), [ADR 0001](./adr/0001-proof-of-delivery-storage.md))
 
 ### Parallel Work
 
@@ -1058,9 +1059,9 @@ Delivery API/state machine, POD storage, and phone UI can advance in parallel af
 
 ### Exit Gate
 
-- [ ] Driver completes an assigned trip online.
-- [ ] Proof and outcome are persisted with actor/time.
-- [ ] Another driver cannot access the trip.
+- [x] Driver completes an assigned trip online.
+- [x] Proof and outcome are persisted with actor/time.
+- [x] Another driver cannot access the trip.
 
 ### Result
 
@@ -1084,18 +1085,18 @@ Field work must survive lost connectivity and replay without duplicate events.
 
 #### Backend
 
-- [ ] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
-- [ ] Preserve occurred-at and recorded-at timestamps.
+- [x] Implement idempotent `/sync`, per-action transactions, duplicate/conflict results, and stale-plan reconciliation.
+- [x] Preserve occurred-at and recorded-at timestamps.
 
 #### Frontend
 
-- [ ] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
-- [ ] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
-- [ ] Show pending count, retry, reconciling, conflict, and route-updated states.
+- [x] Precache PWA shell and trip; persist commands/photos in Dexie before acknowledging success.
+- [x] Put the outbox, sync engine and conflict policy in `packages/field-core` behind a storage port, so Phase 14A reuses them.
+- [x] Show pending count, retry, reconciling, conflict, and route-updated states.
 
 #### Database
 
-- [ ] Add sync command idempotency table and retention policy.
+- [x] Add sync command idempotency table and retention policy.
 
 #### Python / Intelligence
 
@@ -1103,11 +1104,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
+- [x] Test offline reload, two stops recorded offline, reconnect, lost response/retry, duplicate replay, expired session, and stale version.
 
 #### Documentation
 
-- [ ] Document conflict policy and queue recovery.
+- [x] Document conflict policy and queue recovery. ([OFFLINE_SYNC_VERIFICATION.md](./OFFLINE_SYNC_VERIFICATION.md))
 
 ### Parallel Work
 
@@ -1115,9 +1116,9 @@ Sync endpoint, IndexedDB outbox, and conflict UI can advance together on one com
 
 ### Exit Gate
 
-- [ ] Offline actions survive reload and sync exactly once.
-- [ ] Conflicts are visible without losing the field record.
-- [ ] Completed stops stand across plan versions.
+- [x] Offline actions survive reload and sync exactly once.
+- [x] Conflicts are visible without losing the field record.
+- [x] Completed stops stand across plan versions.
 
 ### Result
 
@@ -1189,15 +1190,15 @@ The store must verify what actually arrived and report discrepancies.
 
 #### Backend
 
-- [ ] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
+- [x] Expose delivered lines and receipt confirmation; route discrepancy to exceptions and update final order status.
 
 #### Frontend
 
-- [ ] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
+- [x] Build receipt view, received/short/damaged actions, issue thread, and status timeline.
 
 #### Database
 
-- [ ] Add receipt and discrepancy records with actor/time.
+- [x] Add receipt and discrepancy records with actor/time.
 
 #### Python / Intelligence
 
@@ -1205,11 +1206,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E.
+- [x] Test line ownership, double confirmation, discrepancy event, and order→plan→load→deliver→receipt E2E. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 #### Documentation
 
-- [ ] Document receipt resolution and final status semantics.
+- [x] Document receipt resolution and final status semantics. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Parallel Work
 
@@ -1217,9 +1218,9 @@ Receipt backend and store UI can proceed on a delivered-stop read contract; full
 
 ### Exit Gate
 
-- [ ] Store manager confirms or disputes delivered items.
-- [ ] Dispatcher sees discrepancies.
-- [ ] Four-role lifecycle passes end to end.
+- [x] Store manager confirms or disputes delivered items.
+- [x] Dispatcher sees discrepancies.
+- [x] Four-role lifecycle passes end to end. — evidence: [RECEIPT_VERIFICATION.md](./RECEIPT_VERIFICATION.md)
 
 ### Result
 
@@ -1243,11 +1244,12 @@ Dispatchers need current route progress and exceptions after departure.
 
 #### Backend
 
-- [ ] Build live read model, after-commit event publication, depot-scoped SSE, and polling fallback.
+- [x] Live read model over trips, visits and records, with a 15 s polling refresh (Step 8; evidence in `docs/EXCEPTIONS_LIVE_OPS_VERIFICATION.md`).
+- [ ] After-commit event publication and depot-scoped SSE (deferred: polling covers Round 2).
 
 #### Frontend
 
-- [ ] Build active-trip board with current stop, remaining stops, status, last update, and alerts.
+- [x] Active-trip board with state, current stop, stops done and total, orders done, last update, delayed flag and an exceptions badge. A district-spoke schematic replaces the map (the data has no coordinates).
 
 #### Database
 
@@ -1259,7 +1261,8 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test SSE scope, event-after-commit, reconnect/refetch, polling fallback, and driver update visibility.
+- [x] Test polling refresh and driver update visibility (`LiveOperationsIT`, `liveOps.test.tsx`, Playwright `live-operations.spec.ts`).
+- [ ] Test SSE scope, event-after-commit and reconnect (not built).
 
 #### Documentation
 

@@ -17,3 +17,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+// The installed app opens offline (driver PWA). Development builds skip it so hot reload is not cached.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js') })
+}

@@ -187,3 +187,25 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - The loader works on phone and tablet from the Figma Loader page. They count orders in reverse stop order, report shortfalls (missing, damaged or wrong item, optionally holding the vehicle), acknowledge a republished manifest and hand the trip over. Counts carry over across versions.
 - Shortfalls reach the dispatcher before departure. A hold blocks handover until the dispatcher sends the order short or replans.
 - Evidence: [Loading verification](./LOADING_VERIFICATION.md). Still open: the driver consumes the handed-over trip (Step 5), the full Exceptions page (Step 8), Docker smoke and a real-dataset run.
+
+## Step 5 follow-up: driver workflow, 2026-10-03
+
+- Done (online): the driver runs a handed-over trip on a phone through to trip completion, with outcomes, reasons and proof stored with actor and time. Another driver cannot see the trip. A revision cannot pull orders off a departed trip. Evidence: `docs/DELIVERY_VERIFICATION.md`.
+- Device-aware layouts for all four roles (phone, tablet, desktop).
+- Still open: a real Cloudinary upload (needs `CLOUDINARY_URL`), offline outbox and sync (Step 6), store receipt (Step 7), Live Operations (Step 8), and the Docker smoke and real-dataset runs.
+
+## Step 6 follow-up: driver offline mode, 2026-10-03
+
+- Done: offline outbox with idempotent sync, in device order, with duplicate, conflict and rejection results; driver's record wins (flagged) when the plan changed offline; Sync Status screen and offline states; installable PWA that opens without signal. Evidence: `docs/OFFLINE_SYNC_VERIFICATION.md`.
+- Still open: store receipt (Step 7), dispatcher exceptions and Live Operations, including showing review flags and clock skew (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
+
+## Step 7 follow-up: store receipt, 2026-10-04
+
+- Done: the store manager confirms or disputes each delivered order against the driver's record; disputes reach the dispatcher, who decides them; the order ends as `receipt_confirmed`. The four-role lifecycle passes in the browser. Evidence: `docs/RECEIPT_VERIFICATION.md`.
+- Still open: dispatcher exceptions queue and Live Operations (Step 8), a real Cloudinary upload, and the Docker smoke and real-dataset runs.
+
+## Step 8 follow-up: dispatcher exceptions and Live Operations, 2026-10-04
+
+- Done: one Exceptions queue over loading shortfalls, store disputes, driver problems and offline review flags (each closed through its owner, or acknowledged with a note); a Live Operations board for every published trip, refreshed every 15 s; real dashboard tiles and a menu badge. Evidence: `docs/EXCEPTIONS_LIVE_OPS_VERIFICATION.md`.
+- Departures: a district-spoke schematic instead of a map (no coordinates exist); polling instead of server-sent events; "Suggested fix / Apply Fix" and planning-engine exceptions wait for Steps 10–11; device-clock skew shows on the affected item rather than as its own item (the demo clock is fixed, so it would flag every action).
+- Still open: a real Cloudinary upload, README walkthrough, architecture, AI disclosure and deploy (Step 9), and the Docker smoke and real-dataset runs.

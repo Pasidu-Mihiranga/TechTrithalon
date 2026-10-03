@@ -22,11 +22,34 @@ export class AuthError extends Error {
   constructor(message: string, readonly traceId?: string, readonly retryAfter?: string | null) { super(message) }
 }
 
+/**
+ * Drivers work offline, so the phone keeps the last identity the server confirmed and uses it only
+ * when the server cannot be reached. It grants nothing: every sync is still authenticated by the
+ * session cookie, and a 401 or sign-out clears it. Other roles always need a connection.
+ */
+const OFFLINE_DRIVER = 'waypoint:offline-driver'
+function rememberDriver(user: SessionUser | null) {
+  try {
+    if (user?.role === 'DRIVER') localStorage.setItem(OFFLINE_DRIVER, JSON.stringify(user))
+    else localStorage.removeItem(OFFLINE_DRIVER)
+  } catch { /* storage unavailable: the app simply needs a connection to open */ }
+}
+function offlineDriver(): SessionUser | null {
+  try { const saved = localStorage.getItem(OFFLINE_DRIVER); return saved ? JSON.parse(saved) as SessionUser : null } catch { return null }
+}
+
 async function restoreSession(): Promise<SessionUser | null> {
-  const { data, response } = await api.GET('/api/v1/auth/me')
-  if (response.status === 401) return null
+  let result
+  try { result = await api.GET('/api/v1/auth/me') } catch {
+    const saved = offlineDriver()
+    if (saved) return saved
+    throw new AuthError('No connection. Connect to the network to sign in.')
+  }
+  const { data, response } = result
+  if (response.status === 401) { rememberDriver(null); return null }
   if (!response.ok || !data) throw new AuthError('Could not restore your session. Try again.', response.headers.get('X-Request-Id') ?? undefined)
   roleKey(data.role)
+  rememberDriver(data)
   return data
 }
 
@@ -45,12 +68,15 @@ function useSession() {
     },
     retry: false,
     staleTime: 0,
+    // Offline, restoreSession falls back to the remembered driver instead of the query pausing.
+    networkMode: 'always',
   })
   useEffect(() => {
     const expire = () => {
       void client.cancelQueries().then(() => {
         client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'session' })
         client.setQueryData(sessionKey, null)
+        rememberDriver(null)
       })
     }
     window.addEventListener('waypoint:session-expired', expire)
@@ -70,6 +96,7 @@ function useSession() {
         throw new AuthError(message, response.headers.get('X-Request-Id') ?? undefined, response.headers.get('Retry-After'))
       }
       roleKey(data.role)
+      rememberDriver(data)
       await client.cancelQueries()
       client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'session' })
       client.setQueryData(sessionKey, data)
@@ -78,6 +105,7 @@ function useSession() {
     async logout() {
       const { response } = await api.POST('/api/v1/auth/logout')
       if (!response.ok && response.status !== 401) throw new AuthError('Sign-out failed. Try again.', response.headers.get('X-Request-Id') ?? undefined)
+      rememberDriver(null)
       await client.cancelQueries()
       client.removeQueries({ predicate: (query) => query.queryKey[0] !== 'session' })
       client.setQueryData(sessionKey, null)

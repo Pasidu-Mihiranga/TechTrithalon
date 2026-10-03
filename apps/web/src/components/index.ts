@@ -1,6 +1,7 @@
 export { AppShell } from './AppShell'
 export { Badge, TypeBadge } from './Badge'
 export type { BadgeTone, VehicleKind } from './Badge'
+export { BottomNav } from './BottomNav'
 export { Button } from './Button'
 export { Card, MetricCard } from './Card'
 export { DataTable } from './DataTable'

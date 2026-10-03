@@ -13,6 +13,8 @@ export interface NavEntry {
   /** Match only the exact path (use for a section's home). */
   end?: boolean
   badge?: number | string
+  /** Also highlight the entry on these paths (for example a tab that opens the current item). */
+  activePattern?: RegExp
 }
 
 interface SidebarProps {
@@ -21,6 +23,8 @@ interface SidebarProps {
   /** Items pinned to the bottom (settings, collapse). */
   footerItems?: NavEntry[]
   status?: ReactNode
+  /** Keep the compact icon rail (tablets), whatever the saved preference. */
+  forceCollapsed?: boolean
 }
 
 function NavItem({ item, collapsed }: { item: NavEntry; collapsed: boolean }) {
@@ -48,14 +52,15 @@ function NavItem({ item, collapsed }: { item: NavEntry; collapsed: boolean }) {
 }
 
 /** Dark navigation rail on desktop with animated curved yellow active shelf; collapses to compact icon rail or bottom tab bar. */
-export function Sidebar({ roleLabel, items, footerItems, status }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(() => {
+export function Sidebar({ roleLabel, items, footerItems, status, forceCollapsed = false }: SidebarProps) {
+  const [savedCollapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem('waypoint:sidebar-collapsed') === 'true'
     } catch {
       return false
     }
   })
+  const collapsed = forceCollapsed || savedCollapsed
   const navRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const [indicator, setIndicator] = useState<{ top: number; height: number; ready: boolean }>({
@@ -175,7 +180,7 @@ export function Sidebar({ roleLabel, items, footerItems, status }: SidebarProps)
         {footerItems?.map((item) => (
           <NavItem key={item.to} item={item} collapsed={collapsed} />
         ))}
-        <button
+        {!forceCollapsed && <button
           type="button"
           className="sidebar-collapse-btn"
           onClick={toggleCollapse}
@@ -190,7 +195,7 @@ export function Sidebar({ roleLabel, items, footerItems, status }: SidebarProps)
               <span className="nav-label">Collapse</span>
             </>
           )}
-        </button>
+        </button>}
         {!collapsed && status}
       </div>
     </aside>

@@ -127,6 +127,18 @@ curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans?date=$demo_date&depot=$dep
 changes=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/plans/$plan_id/changes")
 [[ "$(echo "$changes" | json_field "['planId']")" == "$plan_id" ]] || fail "plan changes did not describe the candidate: $changes"
 assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/plans/999999999/changes"
+curl -fsS -b "$cookies" "$API/api/v1/dispatcher/receipt-discrepancies?depot=$depot" > /dev/null || fail "receipt discrepancies failed"
+assert_failure 400 INVALID_STATUS -b "$cookies" "$API/api/v1/dispatcher/receipt-discrepancies?status=PENDING"
+queue=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/exceptions?date=$demo_date&depot=$depot")
+[[ "$(echo "$queue" | json_field "['counts']['all']")" == "$(echo "$queue" | json_field "['items'].__len__()")" ]] || fail "exceptions counts disagree with items: $queue"
+board=$(curl -fsS -b "$cookies" "$API/api/v1/dispatcher/live-operations?date=$demo_date&depot=$depot")
+[[ "$(echo "$board" | json_field "['counts']['total']")" == "$(echo "$board" | json_field "['vehicles'].__len__()")" ]] || fail "live board counts disagree with vehicles: $board"
+assert_failure 400 DEPOT_REQUIRED -b "$cookies" "$API/api/v1/dispatcher/exceptions?date=$demo_date"
+assert_failure 400 DEPOT_REQUIRED -b "$cookies" "$API/api/v1/dispatcher/live-operations?date=$demo_date"
+assert_failure 400 INVALID_TYPE -b "$cookies" -X POST -H 'X-Requested-With: Waypoint' "$API/api/v1/dispatcher/exceptions/BOGUS/1/claim?date=$demo_date&depot=$depot"
+assert_failure 404 NOT_FOUND -b "$cookies" -X POST -H 'X-Requested-With: Waypoint' "$API/api/v1/dispatcher/exceptions/LOADING_ISSUE/999999999/claim?date=$demo_date&depot=$depot"
+assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/exceptions?date=$demo_date&depot=$depot"
+assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/live-operations?date=$demo_date&depot=$depot"
 assert_failure 401 UNAUTHENTICATED "$API/api/v1/dispatcher/plans/$plan_id"
 assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/dispatcher/plans/999999999"
 assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
@@ -217,11 +229,33 @@ for role in STORE_MANAGER LOADER DRIVER; do
       -d '{"tempRequirement":"ambient","units":0,"weightKg":10,"volumeM3":0.05}' \
       "$API/api/v1/store/orders")" == "401" ]] || fail "unauthenticated place did not return 401"
   fi
+  if [[ "$role" == "STORE_MANAGER" ]]; then
+    curl -fsS -b "$cookies" "$API/api/v1/store/deliveries" > /dev/null || fail "store deliveries failed"
+    curl -fsS -b "$cookies" "$API/api/v1/store/issues" > /dev/null || fail "store issues failed"
+    assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/store/deliveries/999999999"
+    assert_failure 400 INVALID_STATUS -b "$cookies" "$API/api/v1/store/issues?status=PENDING"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/receipt-discrepancies"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/exceptions?date=$demo_date&depot=$depot"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/live-operations?date=$demo_date&depot=$depot"
+  fi
   if [[ "$role" == "LOADER" ]]; then
     curl -fsS -b "$cookies" "$API/api/v1/loader/board" > /dev/null || fail "loader board failed"
     curl -fsS -b "$cookies" "$API/api/v1/loader/issues" > /dev/null || fail "loader issues failed"
     assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/loader/load-tasks/999999999"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/loading-issues?date=$demo_date&depot=$depot"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/exceptions?date=$demo_date&depot=$depot"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/live-operations?date=$demo_date&depot=$depot"
+  fi
+  if [[ "$role" == "DRIVER" ]]; then
+    curl -fsS -b "$cookies" "$API/api/v1/driver/home" > /dev/null || fail "driver home failed"
+    curl -fsS -b "$cookies" "$API/api/v1/driver/deliveries" > /dev/null || fail "driver deliveries failed"
+    curl -fsS -b "$cookies" "$API/api/v1/driver/capabilities" > /dev/null || fail "driver capabilities failed"
+    assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/driver/trips/9"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/loader/board"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/exceptions?date=$demo_date&depot=$depot"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/live-operations?date=$demo_date&depot=$depot"
+    assert_failure 400 VALIDATION_FAILED -b "$cookies" -H 'Content-Type: application/json' -H 'X-Requested-With: Waypoint' \
+      -d '{"actions":[]}' "$API/api/v1/driver/sync"
   fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done

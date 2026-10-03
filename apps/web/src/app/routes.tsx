@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { Button, ErrorState, ForbiddenState, LoadingState } from '../components'
 import { DispatcherHome } from './DispatcherHome'
-import { DeferredOrdersPage, ExceptionsPage } from '../features/planning/PlanningPendingPages'
+import { DeferredOrdersPage } from '../features/planning/PlanningPendingPages'
+import { ExceptionsPage } from '../features/planning/ExceptionsPage'
 import { LiveOperationsPage } from '../features/live-ops/LiveOperationsPage'
 import { CapacityForecastPage, CapacityDecisionPage } from '../features/forecast/CapacityPages'
 import { DispatcherProfilePage } from '../features/auth/DispatcherProfilePage'
@@ -25,6 +26,21 @@ import { LoaderOrderPage } from '../features/loading/LoaderOrderPage'
 import { LoaderProfilePage } from '../features/loading/LoaderProfilePage'
 import { LoaderShortfallPage } from '../features/loading/LoaderShortfallPage'
 import { LoaderTripPage } from '../features/loading/LoaderTripPage'
+import { DriverHomePage } from '../features/delivery/DriverHomePage'
+import { DriverCurrentTripPage, DriverTripPage } from '../features/delivery/DriverTripPage'
+import { DriverRoutePage } from '../features/delivery/DriverRoutePage'
+import { DriverStopPage } from '../features/delivery/DriverStopPage'
+import { DriverOrderPage } from '../features/delivery/DriverOrderPage'
+import { DriverRecordPage } from '../features/delivery/DriverRecordPage'
+import { DriverTripDonePage } from '../features/delivery/DriverTripDonePage'
+import { DriverDeliveriesPage } from '../features/delivery/DriverDeliveriesPage'
+import { DriverDeliveryDetailPage } from '../features/delivery/DriverDeliveryDetailPage'
+import { DriverProfilePage } from '../features/delivery/DriverProfilePage'
+import { SyncStatusPage } from '../features/offline/SyncStatusPage'
+import { StoreDeliveriesPage } from '../features/receipt/StoreDeliveriesPage'
+import { ConfirmReceiptPage } from '../features/receipt/ConfirmReceiptPage'
+import { ReportIssuePage } from '../features/receipt/ReportIssuePage'
+import { StoreIssuesPage } from '../features/receipt/StoreIssuesPage'
 import type { ReactNode } from 'react'
 import type { RoleConfig, RolePage } from './roles'
 
@@ -36,9 +52,17 @@ function pageElement(role: RoleConfig, page: RolePage) {
   if (role.key === 'store' && page.end && page.to === '/store') return <StoreHomePage />
   if (role.key === 'store' && page.to === '/store/orders') return <StoreOrdersPage />
   if (role.key === 'store' && page.to === '/store/orders/new') return <PlaceOrderPage />
+  if (role.key === 'store' && page.to === '/store/deliveries') return <StoreDeliveriesPage />
+  if (role.key === 'store' && page.to === '/store/issues') return <StoreIssuesPage />
   if (role.key === 'loader' && page.end) return <LoaderHomePage />
   if (role.key === 'loader' && page.to === '/loader/issues') return <LoaderIssuesPage />
   if (role.key === 'loader' && page.to === '/loader/profile') return <LoaderProfilePage />
+  if (role.key === 'driver') {
+    if (page.end) return <DriverHomePage />
+    if (page.to === '/driver/trip') return <DriverCurrentTripPage />
+    if (page.to === '/driver/deliveries') return <DriverDeliveriesPage />
+    if (page.to === '/driver/profile') return <DriverProfilePage />
+  }
   if (role.key === 'dispatcher') {
     if (page.to === '/dispatcher/deferred-orders') return <DeferredOrdersPage />
     if (page.to === '/dispatcher/exceptions') return <ExceptionsPage />
@@ -68,12 +92,31 @@ function roleRoutes(role: RoleConfig) {
           <Route path="fleet/:vehicleId" element={<FleetDetailPage />} />
         </>
       ) : null}
-      {role.key === 'store' ? <Route path="orders/:id" element={<StoreOrderDetailPage />} /> : null}
+      {role.key === 'store' ? (
+        <>
+          <Route path="orders/:id" element={<StoreOrderDetailPage />} />
+          <Route path="deliveries/:orderId" element={<ConfirmReceiptPage />} />
+          <Route path="deliveries/:orderId/issue" element={<ReportIssuePage />} />
+        </>
+      ) : null}
       {role.key === 'loader' ? (
         <>
           <Route path="trips/:taskId" element={<LoaderTripPage />} />
           <Route path="trips/:taskId/orders/:lineId" element={<LoaderOrderPage />} />
           <Route path="trips/:taskId/orders/:lineId/shortfall" element={<LoaderShortfallPage />} />
+        </>
+      ) : null}
+      {role.key === 'driver' ? (
+        <>
+          <Route path="trips/:tripIndex" element={<DriverTripPage />} />
+          <Route path="trips/:tripIndex/route" element={<DriverRoutePage />} />
+          <Route path="trips/:tripIndex/complete" element={<DriverTripDonePage />} />
+          <Route path="trips/:tripIndex/stops/:seq" element={<DriverStopPage />} />
+          <Route path="trips/:tripIndex/orders/:orderId" element={<DriverOrderPage />} />
+          <Route path="trips/:tripIndex/orders/:orderId/confirm" element={<DriverRecordPage mode="confirm" />} />
+          <Route path="trips/:tripIndex/orders/:orderId/issue" element={<DriverRecordPage mode="issue" />} />
+          <Route path="deliveries/:orderId" element={<DriverDeliveryDetailPage />} />
+          <Route path="sync" element={<SyncStatusPage />} />
         </>
       ) : null}
     </Route>

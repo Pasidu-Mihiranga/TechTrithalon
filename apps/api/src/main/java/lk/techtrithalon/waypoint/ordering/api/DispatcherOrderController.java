@@ -3,6 +3,8 @@ package lk.techtrithalon.waypoint.ordering.api;
 import java.time.LocalDate;
 import java.util.List;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import lk.techtrithalon.waypoint.delivery.application.LiveBoardService;
+import lk.techtrithalon.waypoint.exceptions.application.ExceptionService;
 import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.ordering.application.OrderQueryService;
 import lk.techtrithalon.waypoint.ordering.domain.CustomerOrder;
@@ -22,8 +24,12 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "session")
 class DispatcherOrderController {
     private final OrderQueryService service;
+    private final LiveBoardService liveBoard;
+    private final ExceptionService exceptions;
 
-    DispatcherOrderController(OrderQueryService service) { this.service = service; }
+    DispatcherOrderController(OrderQueryService service, LiveBoardService liveBoard, ExceptionService exceptions) {
+        this.service = service; this.liveBoard = liveBoard; this.exceptions = exceptions;
+    }
 
     @GetMapping("/dashboard")
     DashboardSnapshot dashboard(
@@ -31,7 +37,12 @@ class DispatcherOrderController {
         @RequestParam(required = false) LocalDate date,
         @RequestParam(required = false) String depot
     ) {
-        return service.dashboard(user, date, depot);
+        var snapshot = service.dashboard(user, date, depot);
+        // Trip and exception figures belong to the modules that own them; the order service validated the scope above.
+        var trips = liveBoard.counts(user, snapshot.date(), depot);
+        var open = exceptions.counts(user, snapshot.date(), depot);
+        return snapshot.withOperations(DashboardSnapshot.Metric.of(trips.loading() + trips.ready()),
+            DashboardSnapshot.Metric.of(trips.active()), DashboardSnapshot.Metric.of(open.unresolved()));
     }
 
     @GetMapping("/orders")

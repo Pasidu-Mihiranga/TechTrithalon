@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, History, House, PackagePlus, Route, Settings, TrendingUp, TriangleAlert, Truck, User } from 'lucide-react'
+import { Activity, ClipboardList, History, House, Package, PackagePlus, Route, Settings, TrendingUp, TriangleAlert, Truck, User } from 'lucide-react'
 import type { NavEntry } from '../components'
 
 export type RoleKey = 'dispatcher' | 'store' | 'loader' | 'driver'
@@ -28,7 +28,7 @@ export const roles: Record<RoleKey, RoleConfig> = {
       { to: '/dispatcher/live-operations', label: 'Live Operations', icon: Activity, title: 'Live Operations', description: 'Trips in progress and problems on the road.', phase: 'Phase 16' },
       { to: '/dispatcher/forecast', label: 'Forecast', icon: TrendingUp, title: 'Capacity forecast', description: 'Expected demand against fleet capacity.', phase: 'Phase 17' },
       { to: '/dispatcher/fleet', label: 'Fleet', icon: Truck, title: 'Fleet', description: 'Vehicles, availability and workshop status.', phase: 'Phase 3A' },
-      { to: '/dispatcher/exceptions', label: 'Exceptions', icon: TriangleAlert, title: 'Exceptions', description: 'Orders the plan could not place automatically.', phase: 'Phase 10' },
+      { to: '/dispatcher/exceptions', label: 'Exceptions', icon: TriangleAlert, title: 'Exceptions', description: 'Loading, delivery, offline and receipt problems waiting for you.', phase: 'Phase 10 / 16' },
       { to: '/dispatcher/deferred-orders', label: 'Deferred Orders', icon: History, title: 'Deferred orders', description: 'Orders moved to a later run, with the reason.', phase: 'Phase 8' },
     ],
     footerPages: [
@@ -41,6 +41,8 @@ export const roles: Record<RoleKey, RoleConfig> = {
       { to: '/store', label: 'Home', icon: House, end: true, title: 'Home', description: 'Order cutoff and your recent orders.', phase: 'Phase 3A' },
       { to: '/store/orders', label: 'My orders', icon: ClipboardList, end: true, title: 'My orders', description: 'Orders from your outlet and their status.', phase: 'Phase 3A' },
       { to: '/store/orders/new', label: 'Place order', icon: PackagePlus, title: 'Place an order', description: 'Place and confirm an order before the 16:00 cutoff.', phase: 'Phase 4' },
+      { to: '/store/deliveries', label: 'Deliveries', icon: Truck, activePattern: /^\/store\/deliveries\//, title: 'Deliveries', description: 'Orders on their way and what the driver delivered.', phase: 'Phase 15' },
+      { to: '/store/issues', label: 'Issues', icon: TriangleAlert, title: 'Issues', description: 'Delivery issues you reported.', phase: 'Phase 15' },
     ],
   },
   loader: {
@@ -54,7 +56,9 @@ export const roles: Record<RoleKey, RoleConfig> = {
   driver: {
     key: 'driver', label: 'Driver', basePath: '/driver',
     pages: [
-      { to: '/driver', label: 'Trips', icon: Truck, end: true, title: 'My trips', description: 'Your trips and stops for today.', phase: 'Phase 13' },
+      { to: '/driver', label: 'Home', icon: House, end: true, title: 'Home', description: 'Your trips for today.', phase: 'Phase 13' },
+      { to: '/driver/trip', label: 'Trip', icon: Route, activePattern: /^\/driver\/trips\//, title: 'Trip', description: 'Stops of the trip you are running.', phase: 'Phase 13' },
+      { to: '/driver/deliveries', label: 'Deliveries', icon: Package, title: 'Deliveries', description: 'Today’s stops and past trips.', phase: 'Phase 13' },
       { to: '/driver/profile', label: 'Profile', icon: User, title: 'Profile', description: 'Your account.', phase: 'Phase 13' },
     ],
   },

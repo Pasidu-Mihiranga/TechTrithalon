@@ -9,7 +9,7 @@ place order  →  close + plan  →     load    →  deliver  →  confirm recei
 
 The fleet usually can't serve every order, so the core of the system is **constraint-checked planning**: assign orders to vehicles and trips, decide which orders to defer, and explain why.
 
-> **Status:** Ordering, complete immutable snapshots, the constraint engine, validated manual planning, durable deferrals with store notices, and operational publication (plan versions, fuel counted once, frozen schedule, driver assignment and load tasks) and the loader workflow (phone/tablet counting, shortfalls with vehicle holds, manifest acknowledgement, handover) are implemented. Latest checks: 140 API and 93 web tests, clean lint and typecheck. Hosted CI remains open. The driver screens, offline sync and store receipt are not implemented yet. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
+> **Status:** Ordering, complete immutable snapshots, the constraint engine, validated manual planning, durable deferrals with store notices, and operational publication (plan versions, fuel counted once, frozen schedule, driver assignment and load tasks) the loader workflow (phone/tablet counting, shortfalls with vehicle holds, manifest acknowledgement, handover) and the online driver workflow (phone PWA: start after handover, arrive, deliver with photo/signature proof or report an issue, finish; ETA fallback) are implemented, with layouts chosen per device (phone, tablet, desktop). The driver also works offline: actions are saved on the phone and sync exactly once when the signal returns, and the installed app opens without a connection. The store manager confirms or disputes each delivery (the dispatcher decides disputes), so the plan → load → deliver → receipt lifecycle works end to end across all four roles. The dispatcher has one Exceptions queue (loading shortfalls, store disputes, driver problems and offline review flags) and a Live Operations board that follows every published trip by polling. Latest checks: 153 API and 138 web tests, clean lint, typecheck and build. Hosted CI remains open. See the [Round 2 audit and remaining execution steps](docs/ROUND2_REQUIREMENTS_AUDIT.md).
 
 ---
 
@@ -19,7 +19,7 @@ The fleet usually can't serve every order, so the core of the system is **constr
 |---|---|---|
 | Web client | React 19 · TypeScript · Vite · TanStack Query · React Router | One responsive app for all four roles; dispatcher on desktop, driver/loader on phone |
 | API client | `openapi-typescript` + `openapi-fetch`, generated from `apps/api/openapi.json` | Frontend and backend types can't drift apart |
-| Driver clients (planned) | PWA (IndexedDB/Dexie) **and** React Native Expo Android APK (SQLite), sharing `packages/field-core` | Drivers keep working without coverage; installable app on personal phones |
+| Driver clients | PWA (IndexedDB/Dexie, built) **and** React Native Expo Android APK (SQLite, planned), sharing `packages/field-core` | Drivers keep working without coverage; installable app on personal phones |
 | Operational API | Java 21 · Spring Boot 3.5 · Spring Web MVC · JDBC/JPA · Bean Validation | A modular monolith: transactional, validation-heavy domain |
 | API docs | springdoc-openapi (OpenAPI 3.1) | Single source for the generated client |
 | Database | PostgreSQL 16 · Flyway migrations | The single operational source of truth |
@@ -85,6 +85,7 @@ TechTrithalon/
 │   │           └── resources/reference-fixture*/   small synthetic CSVs for CI
 │   │
 │   ├── web/                              React client
+│   │   ├── public/                       PWA files served as-is: service worker, manifest, icons
 │   │   └── src/
 │   │       ├── app/                      router, providers, role shells
 │   │       ├── features/                 auth · shell · ordering · planning · loading ·

@@ -7,7 +7,6 @@ import { useDispatcherScope } from '../shell/useDispatcherScope'
 import { useReferenceSummary } from '../shell/useReferenceSummary'
 import { useDeferralRun, type DeferralRecord } from './deferralQueries'
 import { deferReasonLabel } from './deferralReasons'
-import { UnavailablePanel } from '../../components/UnavailablePanel'
 
 type DeferralTab = 'all' | 'repeat' | 'protected'
 
@@ -127,14 +126,4 @@ function ordinal(value: number) {
 
 function formatInstant(value: string) {
   return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Colombo' }).format(new Date(value))
-}
-
-export function ExceptionsPage() {
-  return <>
-    <PageHeader title="Exceptions" subtitle="Issues requiring dispatcher attention." />
-    <div className="split-view">
-      <UnavailablePanel title="Open, in-progress and resolved issues" description="Phase 10 supplies planning exceptions and their resolution history." />
-      <UnavailablePanel title="Issue detail and suggested fix" description="Validated fixes become available with the constraint and explanation services." />
-    </div>
-  </>
 }
