@@ -423,3 +423,12 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - Backend: loader board and task endpoints; count, shortfall (with hold), acknowledge and handover with optimistic versions; dispatcher loading-issue list and decision. A republish carries counts and open issues to the new task and requires acknowledgement. Migration `V20261003_2200` is additive; publication copies the driver name and vehicle capacity onto load tasks.
 - Step 5 (published) shows a Loading issues panel with the two decisions and marks held trips.
 - Tests: `LoaderWorkflowIT` (5), `loader.test.tsx` (9), Playwright `loader.spec.ts`; the smoke script covers loader reads. Totals: API 140, web 93; lint, typecheck and build clean. Curl, SQL and a full Chromium journey on the synthetic stack (see `docs/LOADING_VERIFICATION.md`).
+
+## 2026-10-03 — Step 5: driver workflow (phone PWA) and device-aware layouts
+
+- Read the Figma Driver page (`52:330`) and built Home, Trip overview, Route, Stop details, Order delivery, Delivery confirmation (photo and signature), Report issue, Issue recorded, Stop completed, Trip completed and submitted, Deliveries (today and past), Delivery details and Profile. Departures (no map coordinates, per-order units, no notifications) are listed in `docs/DELIVERY_VERIFICATION.md`.
+- Backend `delivery` module: start (only after handover, plan version checked), arrive, outcome (delivered, partial or failed with reason chips and proof), depart, finish; deliveries, past trips and order detail; deterministic ETA using planning's formula. Migration `V20261003_2300` is additive. Order status moves through `in_transit` to the recorded outcome.
+- Proof files go to Cloudinary (owner decision, ADR 0001) through the API, which validates and re-encodes them. Without `CLOUDINARY_URL` uploads return 503 and deliveries record the recipient only.
+- Publication refuses a revision that moves orders off a trip the driver has started; an unchanged handed-over trip keeps its handover. Planning-run orders now include those on the road.
+- Device detection (`lib/device.ts`, `data-device` on `<html>`): driver phone design with a tab bar (centred on tablets), loader tablet/phone navigation, dispatcher icon rail on tablets and tab bar on phones.
+- Tests: `DeliveryWorkflowIT` (3), `driver.test.tsx` (13), `device.test.ts` (3), Playwright `driver.spec.ts`; totals API 143, web 110; lint, typecheck and build clean. Curl, SQL and Chromium journeys at 402 and 834 px on the synthetic stack.

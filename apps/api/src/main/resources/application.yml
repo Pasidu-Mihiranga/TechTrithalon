@@ -11,6 +11,11 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  servlet:
+    multipart:
+      # Proof photos are compressed on the phone (~150 KB); the API accepts up to 5 MB per file.
+      max-file-size: 6MB
+      max-request-size: 7MB
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -34,6 +39,9 @@ logging:
     level: "%5p [%X{requestId:-}]"
 
 app:
+  pod:
+    # Proof-of-delivery storage: cloudinary://<api_key>:<api_secret>@<cloud_name>. Empty = uploads refused (503).
+    cloudinary-url: ${CLOUDINARY_URL:}
   intelligence-base-url: ${INTELLIGENCE_BASE_URL:http://localhost:8000}
   security:
     session-ttl: ${SESSION_TTL:PT16H}

@@ -1022,7 +1022,7 @@ The brief asks not to answer "because enterprise". Here is the actual argument, 
 | **GitHub Actions** | Adopt | Path-filtered CI (§35) |
 | Kubernetes | Reject at v1 | Three containers, one environment. Compose on a VM, or a managed container platform, is correct. §40 documents the path |
 | Redis | Reject at v1 | §28 |
-| S3-compatible object storage | **Adopt** when POD photos land (F14) | Photos must not go in PostgreSQL. MinIO locally, any S3 in production |
+| Object storage for POD | **Adopt: Cloudinary** (owner decision 2026-10-03, [ADR 0001](./adr/0001-proof-of-delivery-storage.md)) | Photos must not go in PostgreSQL. Free plan; files uploaded as `authenticated` and shown through signed links. Replaces the earlier MinIO/S3 plan |
 
 ---
 
@@ -1779,7 +1779,7 @@ CREATE TABLE prediction (                    -- operational predictions only
 |---|---|---|
 | `deliveries_train.csv`, `route_legs_train.csv` (184k rows) | `data/` as CSV → parquet | Training-only. No operational reader. Would bloat backups and migrations for zero benefit |
 | Model binaries | Object store / `models/`, referenced by `model_version.artifact_uri` | Large binaries in a transactional DB are an anti-pattern |
-| POD photos | S3-compatible object storage, key in `pod_asset.object_key` | Same reason; also enables direct signed-URL upload from the device |
+| POD photos | Cloudinary, key in `pod_asset.object_key` | Same reason. The phone uploads to the API, which checks type and size and re-encodes (dropping EXIF) before storing |
 | Intermediate feature frames | Python process memory / parquet cache | Ephemeral |
 
 ### Concurrency and locking

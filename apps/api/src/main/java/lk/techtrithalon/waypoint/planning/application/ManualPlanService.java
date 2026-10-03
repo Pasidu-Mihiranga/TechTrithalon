@@ -40,14 +40,16 @@ public class ManualPlanService {
     private final OrderQueryService orderQueries;
     private final DriverDirectory drivers;
     private final LoadTaskService loadTasks;
+    private final TripExecutionGuard execution;
     private final PlanValidator validator=new PlanValidator();
     public ManualPlanService(ManualPlanRepository plans,PlanningSnapshotService snapshots,SnapshotPlanContextFactory contexts,
                              AuditService audit,FleetService fleet,ReferenceService reference,Clock clock,OrderCommandService ordering,
-                             DeferralService deferrals,OrderQueryService orderQueries,DriverDirectory drivers,LoadTaskService loadTasks) {
+                             DeferralService deferrals,OrderQueryService orderQueries,DriverDirectory drivers,LoadTaskService loadTasks,
+                             TripExecutionGuard execution) {
         this.plans=plans; this.snapshots=snapshots; this.contexts=contexts; this.audit=audit;
         this.fleet=fleet; this.reference=reference; this.clock=clock;
         this.ordering=ordering; this.deferrals=deferrals;
-        this.orderQueries=orderQueries; this.drivers=drivers; this.loadTasks=loadTasks;
+        this.orderQueries=orderQueries; this.drivers=drivers; this.loadTasks=loadTasks; this.execution=execution;
     }
     /**
      * Creates a candidate. When the run already has a published version, the candidate is a revision
@@ -191,6 +193,7 @@ public class ManualPlanService {
         var comparison=snapshots.compare(user,plan.snapshotId());
         if (!((List<?>)comparison.get("newEligibleOrderIds")).isEmpty())
             throw failure(HttpStatus.UNPROCESSABLE_ENTITY,"ORDER_ACCOUNTING","Every closed order must be included or explicitly deferred before publication");
+        requireDepartedTripsKept(user,plan);
         var snapshot=snapshots.get(user,plan.snapshotId());
         var context=contexts.create(snapshot,plan.trips());
         var assigned=context.trips().stream().flatMap(t -> t.stops().stream()).map(PlanStop::orderId).collect(java.util.stream.Collectors.toSet());
@@ -239,6 +242,16 @@ public class ManualPlanService {
             Map.of("status","superseded","supersededByPlanId",id),request.reason());
         audit.record("plan.published",user,"plan",String.valueOf(id),plan,record,request.reason());
         return published;
+    }
+
+    /** Orders on a trip the driver has started are on the road: they stay on that vehicle and trip. */
+    private void requireDepartedTripsKept(CurrentUser user,ManualPlan plan) {
+        for (var departed : execution.departedTrips(user,plan.planDate(),plan.depot())) {
+            var trip=plan.trips().stream().filter(t -> t.vehicleId().equals(departed.vehicleId()) && t.tripIndex()==departed.tripIndex()).findFirst();
+            if (trip.isEmpty() || !Set.copyOf(trip.get().orderIds()).equals(departed.orderIds()))
+                throw failure(HttpStatus.CONFLICT,"TRIP_ALREADY_DEPARTED",departed.vehicleId()+" trip "+departed.tripIndex()
+                    +" has left the depot. Keep its orders on it; the stops still to serve may be resequenced.");
+        }
     }
 
     /** Persists the validated schedule, the vehicle's driver and one load task per trip. */

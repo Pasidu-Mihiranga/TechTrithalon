@@ -203,7 +203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["order_1"];
+        get: operations["order_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -462,6 +462,198 @@ export interface paths {
         get: operations["fuel"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["capabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["deliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["home"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/orders/{orderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["order_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/past-trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pastTrips"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["trip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/orders/{orderId}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["outcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/orders/{orderId}/proofs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/stops/{outletId}/arrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["arrive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/driver/trips/{tripIndex}/stops/{outletId}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["depart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1006,6 +1198,286 @@ export interface components {
             /** Format: int32 */
             interStopMinutes?: number;
             roadClass?: string;
+        };
+        DriverCapabilities: {
+            /**
+             * Format: int32
+             * @description Largest accepted upload in bytes
+             */
+            maxUploadBytes?: number;
+            /** @description Proof photos and signatures can be stored */
+            proofUploads?: boolean;
+        };
+        DriverDeliveries: {
+            /** Format: date */
+            planDate?: string;
+            rows?: components["schemas"]["DriverDeliveryRow"][];
+        };
+        DriverDeliveryRow: {
+            /** Format: date-time */
+            completedAt?: string | null;
+            district?: string;
+            eta?: string | null;
+            orderRefs?: string[];
+            /** Format: int32 */
+            orders?: number;
+            outletId?: string;
+            /** Format: int32 */
+            seq?: number;
+            /** @description PENDING, IN_PROGRESS, DELIVERED or ISSUE */
+            status?: string;
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            units?: number;
+            weightKg?: number;
+        };
+        DriverEvent: {
+            /** Format: date-time */
+            at?: string;
+            label?: string;
+        };
+        DriverHome: {
+            /** @description The trip to work on now: the first one not completed */
+            current?: components["schemas"]["DriverTripCard"];
+            /** Format: date */
+            planDate?: string;
+            progress?: components["schemas"]["DriverProgress"];
+            trips?: components["schemas"]["DriverTripCard"][];
+            /** @description Vehicle of the driver's trips today; null without trips */
+            vehicleId?: string | null;
+        };
+        DriverOrder: {
+            /**
+             * Format: int32
+             * @description Units that left the depot (fewer when the loader sent the order short)
+             */
+            loadedUnits?: number;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outcome?: components["schemas"]["DriverOutcome"];
+            temp?: string;
+            /** Format: int32 */
+            units?: number;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        DriverOrderDetail: {
+            brand?: string;
+            district?: string;
+            /** Format: int32 */
+            loadedUnits?: number;
+            /** Format: int64 */
+            orderId?: number;
+            orderRef?: string;
+            outcome?: components["schemas"]["DriverOutcome"];
+            outletId?: string;
+            /** Format: date */
+            planDate?: string;
+            proofs?: components["schemas"]["DriverProof"][];
+            /** @description Order status */
+            status?: string;
+            temp?: string;
+            timeline?: components["schemas"]["DriverEvent"][];
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            units?: number;
+            vehicleId?: string;
+        };
+        DriverOutcome: {
+            /** Format: int32 */
+            deliveredUnits?: number;
+            issueKind?: string | null;
+            notes?: string | null;
+            /** @description DELIVERED, PARTIAL or FAILED */
+            outcome?: string;
+            /** Format: int32 */
+            photos?: number;
+            recipientName?: string | null;
+            /** Format: date-time */
+            recordedAt?: string;
+            /** Format: int32 */
+            signatures?: number;
+        };
+        DriverOutcomeRequest: {
+            /**
+             * Format: int32
+             * @description Required for PARTIAL: units handed over
+             */
+            deliveredUnits?: number;
+            /** Format: int32 */
+            expectedVersion: number;
+            /** @description Required for PARTIAL and FAILED */
+            issueKind?: string;
+            notes?: string;
+            outcome: string;
+            /** @description Uploaded proof files for this order */
+            proofIds?: number[];
+            /** @description Required unless FAILED */
+            recipientName?: string;
+        };
+        DriverPastTrip: {
+            brand?: string;
+            /** Format: date-time */
+            completedAt?: string | null;
+            /** Format: int32 */
+            delivered?: number;
+            district?: string;
+            /** Format: int32 */
+            failed?: number;
+            /** Format: int32 */
+            orders?: number;
+            /** Format: int32 */
+            partial?: number;
+            /** Format: date */
+            planDate?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: int32 */
+            stops?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            vehicleId?: string;
+        };
+        DriverPodUpload: {
+            /** Format: int32 */
+            bytes?: number;
+            /** Format: int32 */
+            height?: number;
+            /** Format: int64 */
+            id?: number;
+            kind?: string;
+            /** Format: int32 */
+            width?: number;
+        };
+        DriverProgress: {
+            /** Format: int32 */
+            orders?: number;
+            /** Format: int32 */
+            ordersDone?: number;
+            /** Format: int32 */
+            stops?: number;
+            /** Format: int32 */
+            stopsDone?: number;
+        };
+        DriverProof: {
+            /** Format: int32 */
+            height?: number;
+            /** Format: int64 */
+            id?: number;
+            /** @description PHOTO or SIGNATURE */
+            kind?: string;
+            /** Format: date-time */
+            uploadedAt?: string;
+            /** @description Short-lived link; null when proof storage is not configured */
+            url?: string | null;
+            /** Format: int32 */
+            width?: number;
+        };
+        DriverStartTripRequest: {
+            /**
+             * Format: int32
+             * @description Plan version shown on the trip; a newer one must be reviewed first
+             */
+            planVersion: number;
+        };
+        DriverStop: {
+            /** Format: date-time */
+            arrivedAt?: string | null;
+            chilled?: boolean;
+            /** Format: date-time */
+            departedAt?: string | null;
+            district?: string;
+            dockType?: string;
+            /** @description Projected arrival, recomputed after each stop; null once arrived */
+            eta?: string | null;
+            /** @description The projected arrival is after the window closes */
+            late?: boolean;
+            orders?: components["schemas"]["DriverOrder"][];
+            outletId?: string;
+            parkingConstraint?: string | null;
+            plannedArrival?: string;
+            /** Format: int32 */
+            recorded?: number;
+            /** Format: int32 */
+            seq?: number;
+            /** @description PENDING, ARRIVED or COMPLETED */
+            status?: string;
+            /** Format: int32 */
+            units?: number;
+            weightKg?: number;
+            windowClose?: string | null;
+            windowOpen?: string | null;
+        };
+        DriverTripCard: {
+            brand?: string;
+            chilled?: boolean;
+            /** Format: date-time */
+            completedAt?: string | null;
+            depot?: string;
+            distanceKm?: number;
+            district?: string;
+            /**
+             * Format: int32
+             * @description Orders recorded as partial or failed
+             */
+            issues?: number;
+            /** @description Load task status: pending, loading or loaded */
+            loadStatus?: string;
+            /** @description Projected arrival at the next stop (planned before the trip starts) */
+            nextEta?: string | null;
+            /** @description Next stop to serve */
+            nextOutletId?: string | null;
+            /** Format: int32 */
+            orders?: number;
+            /** Format: int32 */
+            ordersDone?: number;
+            /** Format: int32 */
+            planVersion?: number;
+            plannedDepart?: string;
+            /** Format: date-time */
+            startedAt?: string | null;
+            /** @description LOADING (not handed over yet), READY, IN_PROGRESS or COMPLETED */
+            state?: string;
+            /** Format: int32 */
+            stops?: number;
+            /** Format: int32 */
+            stopsDone?: number;
+            /** Format: int32 */
+            tripIndex?: number;
+            /** Format: int32 */
+            tripMinutes?: number;
+            /** Format: int32 */
+            units?: number;
+            vehicleId?: string;
+            volumeM3?: number;
+            weightKg?: number;
+        };
+        DriverTripCommandRequest: {
+            /** Format: int32 */
+            expectedVersion: number;
+        };
+        DriverTripDetail: {
+            card?: components["schemas"]["DriverTripCard"];
+            /**
+             * Format: int32
+             * @description Sequence of the stop to serve now
+             */
+            currentStopSeq?: number | null;
+            /** @description The dispatcher published a newer version since the trip started */
+            routeChanged?: boolean;
+            /** @description Why the trip cannot start yet */
+            startBlocker?: string | null;
+            /** Format: int32 */
+            startedPlanVersion?: number | null;
+            stops?: components["schemas"]["DriverStop"][];
+            /**
+             * Format: int32
+             * @description Send with every trip action; null before the trip starts
+             */
+            version?: number | null;
         };
         FleetVehicle: {
             availabilityNote?: string | null;
@@ -2126,7 +2598,7 @@ export interface operations {
             };
         };
     };
-    order_1: {
+    order_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -2641,6 +3113,316 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FuelBalance"];
+                };
+            };
+        };
+    };
+    capabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverCapabilities"];
+                };
+            };
+        };
+    };
+    deliveries: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverDeliveries"];
+                };
+            };
+        };
+    };
+    home: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverHome"];
+                };
+            };
+        };
+    };
+    order_1: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverOrderDetail"];
+                };
+            };
+        };
+    };
+    pastTrips: {
+        parameters: {
+            query?: {
+                before?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverPastTrip"][];
+                };
+            };
+        };
+    };
+    trip: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
+                };
+            };
+        };
+    };
+    complete: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverTripCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
+                };
+            };
+        };
+    };
+    outcome: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverOutcomeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
+                };
+            };
+        };
+    };
+    upload: {
+        parameters: {
+            query: {
+                date?: string;
+                kind: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+                orderId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverPodUpload"];
+                };
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverStartTripRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
+                };
+            };
+        };
+    };
+    arrive: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+                outletId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverTripCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
+                };
+            };
+        };
+    };
+    depart: {
+        parameters: {
+            query?: {
+                date?: string;
+            };
+            header?: never;
+            path: {
+                tripIndex: number;
+                outletId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriverTripCommandRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DriverTripDetail"];
                 };
             };
         };

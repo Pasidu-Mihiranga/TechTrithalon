@@ -344,19 +344,17 @@
   .dashboard-split { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 1023px) {
-  .shell { flex-direction: column; }
-  .shell-body { border-inline-start: 0; border-top: var(--space-4) solid var(--color-brand-primary); padding-bottom: 64px; }
-  .sidebar { position: fixed; inset: auto 0 0 0; z-index: 40; width: 100% !important; height: auto; flex-direction: row; padding: 0; gap: 0; border-inline-end: 0; border-top: 1px solid var(--color-border-sidebar); }
-  .sidebar-strip, .nav-active-pill, .sidebar-collapse-btn { display: none !important; }
-  .brand, .nav-section, .sidebar-footer .system-status { display: none; }
-  .nav { flex-direction: row; justify-content: space-around; gap: 0; overflow-x: auto; padding: 0; }
-  .nav-item { flex-direction: column; justify-content: center; gap: var(--space-2); min-width: 64px; min-height: 56px; padding: var(--space-4); margin: 0; font-size: var(--font-caption-size); border-radius: 0; }
-  .nav-item-active { background: var(--color-brand-primary); }
-  .sidebar-footer { flex-direction: row; border-top: 0; padding: 0; }
-  .topbar { padding: 0 var(--space-16); }
-  .shell-main { padding: var(--space-20) var(--space-16); }
-}
+:root[data-device="phone"] .shell { flex-direction: column; }
+:root[data-device="phone"] .shell-body { border-inline-start: 0; border-top: var(--space-4) solid var(--color-brand-primary); padding-bottom: 64px; }
+:root[data-device="phone"] .sidebar { position: fixed; inset: auto 0 0 0; z-index: 40; width: 100% !important; height: auto; flex-direction: row; padding: 0; gap: 0; border-inline-end: 0; border-top: 1px solid var(--color-border-sidebar); }
+:root[data-device="phone"] .sidebar-strip, :root[data-device="phone"] .nav-active-pill, :root[data-device="phone"] .sidebar-collapse-btn { display: none !important; }
+:root[data-device="phone"] .brand, :root[data-device="phone"] .nav-section, :root[data-device="phone"] .sidebar-footer .system-status { display: none; }
+:root[data-device="phone"] .nav { flex-direction: row; justify-content: space-around; gap: 0; overflow-x: auto; padding: 0; }
+:root[data-device="phone"] .nav-item { flex-direction: column; justify-content: center; gap: var(--space-2); min-width: 64px; min-height: 56px; padding: var(--space-4); margin: 0; font-size: var(--font-caption-size); border-radius: 0; }
+:root[data-device="phone"] .nav-item-active { background: var(--color-brand-primary); }
+:root[data-device="phone"] .sidebar-footer { flex-direction: row; border-top: 0; padding: 0; }
+:root[data-device="phone"] .topbar { padding: 0 var(--space-16); }
+:root[data-device="phone"] .shell-main { padding: var(--space-20) var(--space-16); }
 
 .brand-logo { width: var(--layout-brand-logo-width); height: var(--layout-brand-logo-height); object-fit: contain; align-self: center; }
 .topbar { flex-wrap: wrap; padding-block: var(--space-8); }
@@ -378,12 +376,22 @@
 .topnav-spacer { flex: 1; }
 .topnav-depot { display: inline-flex; align-items: center; gap: var(--space-8); padding: var(--space-8) var(--space-12); border-radius: 10px; background: var(--color-bg-sidebar-raised); font-size: 13px; font-weight: 500; white-space: nowrap; }
 .topnav-avatar { width: 32px; height: 32px; border-radius: var(--radius-full); background: var(--color-brand-primary); color: var(--color-text-on-brand); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; text-decoration: none; flex-shrink: 0; }
-@media (max-width: 720px) {
-  .topnav { flex-wrap: wrap; row-gap: var(--space-8); }
-  .topnav-logo { height: 32px; }
-  .topnav-role { display: inline; }
-  .topnav-depot span { display: none; }
-  .topnav-links { order: 10; width: 100%; justify-content: space-between; }
-  .topnav-link { flex: 1; justify-content: center; padding: var(--space-8); min-height: 44px; }
-  .shell-topnav .shell-main { padding: var(--space-16); }
-}
+:root[data-device="phone"] .topnav { flex-wrap: wrap; row-gap: var(--space-8); }
+:root[data-device="phone"] .topnav-logo { height: 32px; }
+:root[data-device="phone"] .topnav-role { display: inline; }
+:root[data-device="phone"] .topnav-depot span { display: none; }
+:root[data-device="phone"] .topnav-links { order: 10; width: 100%; justify-content: space-between; }
+:root[data-device="phone"] .topnav-link { flex: 1; justify-content: center; padding: var(--space-8); min-height: 44px; }
+:root[data-device="phone"] .shell-topnav .shell-main { padding: var(--space-16); }
+
+/* Phone-first roles (Figma Driver): one phone-width column; on tablets and desktops it is centred. */
+.shell-phone { min-height: 100vh; min-height: 100dvh; background: var(--color-bg-subtle); }
+:root .shell-phone .shell-main, :root[data-device] .shell-phone .shell-main { padding: 0; width: 100%; max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; background: var(--color-bg-subtle); position: relative; }
+:root .shell-phone-nav .shell-main, :root[data-device] .shell-phone-nav .shell-main { padding-bottom: 104px; }
+:root[data-device="tablet"] .shell-phone, :root[data-device="desktop"] .shell-phone { background: var(--color-bg-muted); }
+:root[data-device="tablet"] .shell-phone .shell-main, :root[data-device="desktop"] .shell-phone .shell-main { box-shadow: var(--shadow-elevation-2); }
+.bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center; padding: var(--space-10) var(--space-16) calc(var(--space-20) + env(safe-area-inset-bottom)); pointer-events: none; }
+.bottomnav-bar { pointer-events: auto; width: 100%; max-width: 448px; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 6px; border-radius: var(--radius-full); background: var(--color-bg-surface); box-shadow: 0 8px 24px -4px color-mix(in srgb, var(--color-bg-sidebar) 18%, transparent); }
+.bottomnav-item { flex: 1; max-width: 88px; height: 52px; border-radius: var(--radius-full); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: var(--color-text-secondary); text-decoration: none; }
+.bottomnav-item-active { background: var(--color-brand-primary); color: var(--color-text-on-brand); font-weight: 700; }
+.bottomnav-item:focus-visible { outline: none; box-shadow: var(--shadow-focus-ring); }

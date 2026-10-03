@@ -216,6 +216,13 @@ for role in STORE_MANAGER LOADER DRIVER; do
     assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/loader/load-tasks/999999999"
     assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/dispatcher/loading-issues?date=$demo_date&depot=$depot"
   fi
+  if [[ "$role" == "DRIVER" ]]; then
+    curl -fsS -b "$cookies" "$API/api/v1/driver/home" > /dev/null || fail "driver home failed"
+    curl -fsS -b "$cookies" "$API/api/v1/driver/deliveries" > /dev/null || fail "driver deliveries failed"
+    curl -fsS -b "$cookies" "$API/api/v1/driver/capabilities" > /dev/null || fail "driver capabilities failed"
+    assert_failure 404 NOT_FOUND -b "$cookies" "$API/api/v1/driver/trips/9"
+    assert_failure 403 FORBIDDEN -b "$cookies" "$API/api/v1/loader/board"
+  fi
   curl -fsS -b "$cookies" -H 'X-Requested-With: Waypoint' -X POST "$API/api/v1/auth/logout" > /dev/null
  done
 unset SMOKE_ROLE
