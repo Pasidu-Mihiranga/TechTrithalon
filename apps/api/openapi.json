@@ -1085,6 +1085,165 @@
         },
         "type" : "object"
       },
+      "ExceptionCounts" : {
+        "properties" : {
+          "all" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inProgress" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "open" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "resolved" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ExceptionItem" : {
+        "properties" : {
+          "claimedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "decision" : {
+            "type" : [ "string", "null" ]
+          },
+          "decisions" : {
+            "description" : "Decisions the dispatcher may choose; empty means the item is closed by acknowledging it with a note",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "description" : "TYPE:sourceId, unique in the queue",
+            "type" : "string"
+          },
+          "kind" : {
+            "description" : "LOADING_SHORTFALL, RECEIPT_DISPUTE, DELIVERY_PARTIAL, DELIVERY_FAILED, DELIVERY_REVIEW, SYNC_CONFLICT, SYNC_REJECTED, ROUTE_CHANGED_OFFLINE or STOP_NOT_ON_TRIP",
+            "type" : "string"
+          },
+          "orderRef" : {
+            "type" : [ "string", "null" ]
+          },
+          "outletId" : {
+            "type" : [ "string", "null" ]
+          },
+          "ownerName" : {
+            "description" : "Dispatcher who took it",
+            "type" : [ "string", "null" ]
+          },
+          "planDate" : {
+            "format" : "date",
+            "type" : [ "string", "null" ]
+          },
+          "reportedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "reportedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "resolutionNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "resolvedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "resolvedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceId" : {
+            "type" : "string"
+          },
+          "sourceType" : {
+            "description" : "LOADING_ISSUE, RECEIPT_DISCREPANCY, DELIVERY_PROBLEM or SYNC_REVIEW",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "OPEN, IN_PROGRESS or RESOLVED",
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "vehicleId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "description" : "Send this as expectedVersion when resolving",
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ExceptionQueue" : {
+        "properties" : {
+          "asOf" : {
+            "description" : "Server time of this snapshot",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/ExceptionCounts"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExceptionItem"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "ExceptionResolveRequest" : {
+        "properties" : {
+          "decision" : {
+            "description" : "Required for loading shortfalls and store disputes",
+            "maxLength" : 40,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "expectedVersion" : {
+            "format" : "int32",
+            "minimum" : 0,
+            "type" : "integer"
+          },
+          "note" : {
+            "description" : "What was decided and why",
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "FleetVehicle" : {
         "properties" : {
           "availabilityNote" : {
@@ -1159,6 +1318,174 @@
           },
           "remainingLitres" : {
             "type" : [ "number", "null" ]
+          },
+          "vehicleId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "LiveBoard" : {
+        "properties" : {
+          "asOf" : {
+            "description" : "Server time of this snapshot; ages are measured against it",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "counts" : {
+            "$ref" : "#/components/schemas/LiveCounts"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "depot" : {
+            "type" : "string"
+          },
+          "vehicles" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LiveVehicle"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "LiveCounts" : {
+        "properties" : {
+          "completed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "delayed" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "inTransit" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "loading" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ready" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "total" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "LiveStopMark" : {
+        "properties" : {
+          "late" : {
+            "description" : "Projected arrival is after the window closes",
+            "type" : "boolean"
+          },
+          "outletId" : {
+            "type" : "string"
+          },
+          "seq" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "description" : "PENDING, ARRIVED or COMPLETED",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "LiveVehicle" : {
+        "properties" : {
+          "brand" : {
+            "type" : "string"
+          },
+          "completedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "currentEta" : {
+            "description" : "Projected arrival at the current stop (same projection as the driver's screen)",
+            "type" : [ "string", "null" ]
+          },
+          "currentOutletId" : {
+            "type" : [ "string", "null" ]
+          },
+          "currentStopSeq" : {
+            "description" : "1-based position of the stop being served or next",
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          },
+          "currentStopState" : {
+            "description" : "ARRIVED when the driver is at the stop, EN_ROUTE when heading there",
+            "type" : [ "string", "null" ]
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "driverName" : {
+            "type" : [ "string", "null" ]
+          },
+          "issues" : {
+            "description" : "Orders recorded as partial or failed",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "lastUpdateAt" : {
+            "description" : "Latest recorded activity on the trip",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "minutesAgo" : {
+            "description" : "Whole minutes between the last activity and the snapshot, never negative",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "orders" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "ordersDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "planVersion" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "plannedDepart" : {
+            "type" : [ "string", "null" ]
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "state" : {
+            "description" : "LOADING, READY, IN_TRANSIT, DELAYED or COMPLETED",
+            "type" : "string"
+          },
+          "stopMarks" : {
+            "items" : {
+              "$ref" : "#/components/schemas/LiveStopMark"
+            },
+            "type" : "array"
+          },
+          "stops" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "stopsDone" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "tripIndex" : {
+            "format" : "int32",
+            "type" : "integer"
           },
           "vehicleId" : {
             "type" : "string"
@@ -3812,6 +4139,155 @@
         "tags" : [ "deferral-controller" ]
       }
     },
+    "/api/v1/dispatcher/exceptions" : {
+      "get" : {
+        "operationId" : "queue",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExceptionQueue"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "exception-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/exceptions/{type}/{id}/claim" : {
+      "post" : {
+        "operationId" : "claim",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExceptionItem"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "exception-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/exceptions/{type}/{id}/resolve" : {
+      "post" : {
+        "operationId" : "resolve_2",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ExceptionResolveRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ExceptionItem"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "exception-controller" ]
+      }
+    },
     "/api/v1/dispatcher/fleet" : {
       "get" : {
         "operationId" : "fleet",
@@ -3887,6 +4363,43 @@
           "session" : [ ]
         } ],
         "tags" : [ "fleet-read-controller" ]
+      }
+    },
+    "/api/v1/dispatcher/live-operations" : {
+      "get" : {
+        "operationId" : "board_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : false,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "depot",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LiveBoard"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "live-operations-controller" ]
       }
     },
     "/api/v1/dispatcher/loading-issues" : {
