@@ -15,7 +15,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 5 — Dispatcher Confirmed Orders **(snapshot backend verified; latest queue/filter/exclusion integration needs correction)**
 - [ ] Phase 6 — Trip-Time & Constraint Engine **(implemented; waiting and timing boundaries verified; input integrity/full acceptance keep gate open)**
 - [x] Phase 7 — Manual Planning First (functional path verified; visual integration tracked separately)
-- [ ] Phase 8 — Deferral & Fairness **(functional gate verified by tests, curl and SQL; browser journey and Figma review pending)**
+- [x] Phase 8 — Deferral & Fairness **(tests, curl, SQL and browser journey verified; Figma comparison done for Deferred Orders only, defer dialog and store notice frames pending)**
 - [ ] Phase 9 — Automatic Planning
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
@@ -740,7 +740,7 @@ Capacity shortfalls need durable reasons and repeat-skip protection.
 
 #### Frontend
 
-- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests pass; browser journey and Figma visual review pending.)*
+- [x] Build defer dialog, repeat-skip warning, consequence text, deferred-order view, and store notice. *(Component tests and the browser journey pass; Figma comparison of the defer dialog and store notice pending.)*
 
 #### Database
 
@@ -770,7 +770,7 @@ Deferral history service, notification display, and UI dialog can proceed in par
 
 ### Evidence (local, verified — 2026-10-03)
 
-Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). Browser and Figma checks are still pending.
+Full API suite 119 passed (including `DeferralIT`); web 76 passed, with clean typecheck and lint. On an isolated stack with real demo data, curl and SQL agreed: 85 published deferrals, 10 repeat skips from imported facts, carry-forward to 2026-06-27, store notice and a single acknowledgement, plus 400/401/403/404/422 paths. Smoke passes on the main stack. Details and limits are in [Deferral verification](./DEFERRAL_VERIFICATION.md). The browser journey passed (see the browser section of that record); the Figma comparison of the defer dialog and store notice is still pending.
 
 ### Result
 
@@ -1622,7 +1622,7 @@ Record evidence here as phases finish. Do not mark a phase complete from a local
 | 0–5 | [Earlier completion evidence](./PHASE0_5_COMPLETION_VERIFICATION.md); [current reconciliation and open UI/CI gates](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-02 / 2026-10-03 |
 | 6 | 56 domain tests pass; timing fixtures verified; boundary/input/cross-trip gate open — [audit](./ROUND2_REQUIREMENTS_AUDIT.md) | 2026-10-03 |
 | 7 | [Manual planning curl/PostgreSQL/browser evidence](./MANUAL_PLANNING_VERIFICATION.md); integration tests pass in fresh full suite | 2026-10-03 |
-| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl and SQL; browser/Figma pending | 2026-10-03 |
+| 8 | [Deferral verification](./DEFERRAL_VERIFICATION.md): tests, curl, SQL and browser journey; Figma comparison of two frames pending | 2026-10-03 |
 | 11 | [Publication verification](./PUBLICATION_VERIFICATION.md): tests, curl/SQL, Step 5 browser on synthetic data | 2026-10-03 |
 | 9–10, 12–22 | Pending; optional/conditional phases retain their scope labels | — |
 
