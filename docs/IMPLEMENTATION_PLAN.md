@@ -20,7 +20,7 @@ Check a phase only after its exit gate passes in the running system; documentati
 - [ ] Phase 10 — Explainability & Exception Resolution
 - [x] Phase 11 — Plan Publication & Versioning **(backend, tests, curl/SQL and Step 5 browser verified on synthetic data; Docker smoke and real-dataset run pending)**
 - [x] Phase 12 — Loader Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; Docker smoke and real-dataset run pending)**
-- [ ] Phase 13 — Driver Workflow
+- [x] Phase 13 — Driver Workflow **(tests, curl/SQL, Playwright and browser on synthetic data; real Cloudinary upload, Docker smoke and real-dataset run pending)**
 - [ ] Phase 14 — Offline & Sync
 - [ ] Phase 14A — Driver Android App (React Native)
 - [ ] Phase 15 — Receipt Confirmation
@@ -1029,16 +1029,16 @@ The published and loaded route must be executable on a phone.
 
 #### Backend
 
-- [ ] Expose driver-owned trips/stops; record arrival, outcome, departure, and trip completion.
-- [ ] Implement POD upload references, issue events, and deterministic ETA fallback.
+- [x] Expose driver-owned trips/stops; record arrival, outcome, departure, and trip completion. — evidence: `DeliveryWorkflowIT`, curl table in [DELIVERY_VERIFICATION.md](./DELIVERY_VERIFICATION.md)
+- [x] Implement POD upload references, issue events, and deterministic ETA fallback. (Cloudinary per ADR 0001; validated with an in-memory store, real upload not yet exercised)
 
 #### Frontend
 
-- [ ] Build phone-first trip overview, stop details, large outcome actions, POD capture, and completion states.
+- [x] Build phone-first trip overview, stop details, large outcome actions, POD capture, and completion states. — evidence: `driver.test.tsx`, `driver.spec.ts`, Chromium journey at 402/834 px
 
 #### Database
 
-- [ ] Add delivery records, POD metadata, and object-store configuration.
+- [x] Add delivery records, POD metadata, and object-store configuration. (`V20261003_2300`, `CLOUDINARY_URL`)
 
 #### Python / Intelligence
 
@@ -1046,11 +1046,11 @@ Not required in this phase.
 
 #### Testing
 
-- [ ] Test assignment ownership, state transitions, upload type/size, stop outcomes, and full online trip E2E on phone width.
+- [x] Test assignment ownership, state transitions, upload type/size, stop outcomes, and full online trip E2E on phone width.
 
 #### Documentation
 
-- [ ] Describe field action sequence and POD retention.
+- [x] Describe field action sequence and POD retention. ([DELIVERY_VERIFICATION.md](./DELIVERY_VERIFICATION.md), [ADR 0001](./adr/0001-proof-of-delivery-storage.md))
 
 ### Parallel Work
 
@@ -1058,9 +1058,9 @@ Delivery API/state machine, POD storage, and phone UI can advance in parallel af
 
 ### Exit Gate
 
-- [ ] Driver completes an assigned trip online.
-- [ ] Proof and outcome are persisted with actor/time.
-- [ ] Another driver cannot access the trip.
+- [x] Driver completes an assigned trip online.
+- [x] Proof and outcome are persisted with actor/time.
+- [x] Another driver cannot access the trip.
 
 ### Result
 

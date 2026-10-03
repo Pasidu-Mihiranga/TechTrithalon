@@ -187,3 +187,9 @@ Still open for this gate: Figma visual comparison, date-switch/error/forbidden b
 - The loader works on phone and tablet from the Figma Loader page. They count orders in reverse stop order, report shortfalls (missing, damaged or wrong item, optionally holding the vehicle), acknowledge a republished manifest and hand the trip over. Counts carry over across versions.
 - Shortfalls reach the dispatcher before departure. A hold blocks handover until the dispatcher sends the order short or replans.
 - Evidence: [Loading verification](./LOADING_VERIFICATION.md). Still open: the driver consumes the handed-over trip (Step 5), the full Exceptions page (Step 8), Docker smoke and a real-dataset run.
+
+## Step 5 follow-up: driver workflow, 2026-10-03
+
+- Done (online): the driver runs a handed-over trip on a phone through to trip completion, with outcomes, reasons and proof stored with actor and time. Another driver cannot see the trip. A revision cannot pull orders off a departed trip. Evidence: `docs/DELIVERY_VERIFICATION.md`.
+- Device-aware layouts for all four roles (phone, tablet, desktop).
+- Still open: a real Cloudinary upload (needs `CLOUDINARY_URL`), offline outbox and sync (Step 6), store receipt (Step 7), Live Operations (Step 8), and the Docker smoke and real-dataset runs.
