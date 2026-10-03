@@ -148,6 +148,17 @@ class DeferralIT extends ReferenceApiTestSupport {
 
     @Test void historyIsAppendOnlyAndSourceFactsFlagRepeatSkips() throws Exception {
         db.update("UPDATE customer_order SET source_deferred_yesterday=true WHERE id=?", styleOrder);
+        // The same evidence is readable before any candidate exists (queue defer dialog).
+        var early = get("/api/v1/dispatcher/deferrals/fairness?date=2026-06-26&orderIds=" + styleOrder + "," + freshOrder, dispatcher);
+        assertThat(early.size()).isEqualTo(2);
+        for (JsonNode item : early) if (item.path("orderId").asLong() == styleOrder) {
+            assertThat(item.path("deferredPreviousOperatingDay").asBoolean()).isTrue();
+            assertThat(item.path("evidenceSource").asText()).isEqualTo("source");
+        }
+        failure(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/dispatcher/deferrals/fairness?date=2026-06-26&orderIds=" + styleOrder)
+            .cookie(login("STM-001", "synthetic-store-password"))).andReturn(), 403, "FORBIDDEN");
+        failure(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/dispatcher/deferrals/fairness?date=2099-01-01&orderIds=" + styleOrder)
+            .cookie(dispatcher)).andReturn(), 404, "NOT_FOUND");
         long plan = candidate("2026-06-26");
         var fairness = get("/api/v1/dispatcher/plans/" + plan, dispatcher).path("fairness").path(String.valueOf(styleOrder));
         assertThat(fairness.path("deferredPreviousOperatingDay").asBoolean()).isTrue();

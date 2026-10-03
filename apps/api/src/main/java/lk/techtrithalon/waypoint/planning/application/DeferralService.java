@@ -84,6 +84,15 @@ public class DeferralService {
         return result;
     }
 
+    /** Fairness evidence for specific orders, before any candidate plan exists (e.g. the queue defer dialog). */
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public List<OrderFairness> fairnessForOrders(CurrentUser user, LocalDate planDate, List<Long> orderIds) {
+        reference.day(planDate);
+        if (orderIds.size() > 200) throw new ApiException(HttpStatus.BAD_REQUEST, "TOO_MANY_ORDERS", "Ask for at most 200 orders");
+        return List.copyOf(fairness(user, planDate, orderIds.stream().distinct().toList()).values());
+    }
+
     /** Next planning run when the dispatcher did not choose one: the first operating day after the plan date. */
     public LocalDate nextRun(LocalDate planDate, LocalDate requested) {
         return requested != null ? requested : deliveryDates.firstOperatingAfter(planDate);

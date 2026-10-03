@@ -82,7 +82,7 @@ export function DeferDecisionFields({ value, onChange, fairness = [], idPrefix, 
               <li key={`protected-${item.orderId}`}>{orderLabel(item.orderId)} was carried into this run as protected from {item.carriedFromDate}.</li>
             ))}
             {fairness.filter(item => item.daysSinceLastServed != null).map(item => (
-              <li key={`served-${item.orderId}`}>{orderLabel(item.orderId)}: {item.daysSinceLastServed} days since last served (imported scenario data).</li>
+              <li key={`served-${item.orderId}`}>{orderLabel(item.orderId)}: {item.daysSinceLastServed} {item.daysSinceLastServed === 1 ? 'day' : 'days'} since last served (imported scenario data).</li>
             ))}
             {!repeat.length && !protectedNow.length && <li>No earlier skip is recorded for {fairness.length === 1 ? 'this outlet' : 'these outlets'}.</li>}
             <li>The order{fairness.length === 1 ? '' : 's'} move{fairness.length === 1 ? 's' : ''} to {value.nextDeliveryDate || 'the next operating day'} when the plan is published.</li>

@@ -6,6 +6,7 @@ import { PlanningStep3Allocation, formatDeliveryWindow } from './PlanningStep3Al
 import type { ManualPlanView } from './manualPlanQueries'
 
 const sources = import.meta.glob('./*.tsx', { query: '?raw', import: 'default', eager: true })
+const navSources = import.meta.glob('../../app/roles.ts', { query: '?raw', import: 'default', eager: true })
 
 const order = (id: number, open?: string, close?: string) => ({
   id, orderRef: `SYN-${id}`, outletId: `OUT${id}`, brand: 'Fresh', temp: 'ambient', volumeM3: 1, weightKg: 10,
@@ -42,6 +43,13 @@ describe('Step 3 stop windows', () => {
     expect(screen.getByText('Arrives 03:50')).toBeInTheDocument()
     expect(screen.getByText('🕒 Window unavailable')).toBeInTheDocument()
     expect(screen.queryByText(/06:00–08:00/)).not.toBeInTheDocument()
+  })
+
+  it('does not invent capacities, time budgets, fuel quotas, outlet names or nav badges', () => {
+    const step3 = String(sources['./PlanningStep3Allocation.tsx'])
+    expect(step3.match(/\?\? (20|3000|300)\b|total: (540|360)\b|Waypoint \$\{/g) ?? []).toEqual([])
+    const roles = String(navSources['../../app/roles.ts'])
+    expect(roles.match(/badge:\s*\d/g) ?? []).toEqual([])
   })
 
   it('keeps invented delivery windows out of the planning screens', () => {

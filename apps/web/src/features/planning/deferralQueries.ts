@@ -18,6 +18,20 @@ export function useDeferralRun(date: string | undefined, depot?: string) {
   })
 }
 
+/** Repeat-skip evidence for specific orders; works before any candidate plan exists. */
+export function useOrderFairness(date: string | undefined, orderIds: number[]) {
+  return useQuery({
+    queryKey: ['dispatcher', 'deferrals', 'fairness', date, [...orderIds].sort((a, b) => a - b)],
+    enabled: Boolean(date) && orderIds.length > 0,
+    queryFn: async () => {
+      const { data, error, response } = await api.GET('/api/v1/dispatcher/deferrals/fairness', { params: { query: { date: date!, orderIds } } })
+      if (error || !data) throw apiReadError(response, 'Repeat-skip history could not be loaded')
+      return data
+    },
+    retry: false,
+  })
+}
+
 /** Deferral notices for the signed-in store manager's outlet. */
 export function useStoreDeferrals() {
   return useQuery({

@@ -39,6 +39,7 @@ import {
   useManualPlans,
 } from '../planning/manualPlanQueries'
 import type { DispositionChange, Edit } from '../planning/manualPlanQueries'
+import { useOrderFairness } from '../planning/deferralQueries'
 import { DeferDecisionFields, EMPTY_DEFER_DECISION, deferDecisionBody, deferDecisionReady, type DeferDecision } from '../planning/DeferDecisionFields'
 import type { components } from '../../generated/api'
 
@@ -150,6 +151,7 @@ export function PlanningConfirmedOrdersPage() {
     asc: true,
   })
 
+  const deferFairness = useOrderFairness(planDate, deferIds)
   const queueSummary = usePlanningQueueSummary(planDate, activeDepot)
   const normalCount = queueSummary.data?.ambientOrders ?? 0
   const chilledCount = queueSummary.data?.chilledOrders ?? 0
@@ -366,7 +368,7 @@ export function PlanningConfirmedOrdersPage() {
           onClick={() => void confirmQueueDeferral()}>Save deferral</Button>}>
         <p>Every order remains in the snapshot. The server records a reason for each deferred order before it is excluded from allocation.</p>
         <DeferDecisionFields idPrefix="queue-defer" value={deferDecision} onChange={setDeferDecision}
-          fairness={deferIds.map(id => candidateView?.fairness?.[String(id)]).filter(item => item != null)}
+          fairness={deferFairness.data ?? []}
           orderLabel={id => (ordersQuery.data?.items ?? []).find(order => order.id === id)?.ref ?? `Order ${id}`} />
         {failure && <ErrorState message={failure.message} />}
         {error && <ErrorState message={error} />}

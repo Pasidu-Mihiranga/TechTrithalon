@@ -7,6 +7,7 @@ import lk.techtrithalon.waypoint.identity.domain.CurrentUser;
 import lk.techtrithalon.waypoint.planning.application.DeferralService;
 import lk.techtrithalon.waypoint.planning.domain.DeferralRecord;
 import lk.techtrithalon.waypoint.planning.domain.DeferralRun;
+import lk.techtrithalon.waypoint.planning.domain.OrderFairness;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,13 @@ class DeferralController {
     DeferralRun forRun(@AuthenticationPrincipal CurrentUser user,@RequestParam LocalDate date,
                                 @RequestParam(required=false) String depot) {
         return service.forRun(user,date,depot);
+    }
+
+    /** Repeat-skip evidence for specific orders in a run, derived from deferral history and imported facts. */
+    @GetMapping("/api/v1/dispatcher/deferrals/fairness")
+    List<OrderFairness> fairness(@AuthenticationPrincipal CurrentUser user,@RequestParam LocalDate date,
+                                 @RequestParam List<Long> orderIds) {
+        return service.fairnessForOrders(user,date,orderIds);
     }
 
     /** Deferral notices for the store manager's own outlet, newest first. */

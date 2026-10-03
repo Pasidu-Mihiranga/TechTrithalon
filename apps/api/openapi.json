@@ -1858,6 +1858,50 @@
         "tags" : [ "deferral-controller" ]
       }
     },
+    "/api/v1/dispatcher/deferrals/fairness" : {
+      "get" : {
+        "operationId" : "fairness",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "date",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "orderIds",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/OrderFairness"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "session" : [ ]
+        } ],
+        "tags" : [ "deferral-controller" ]
+      }
+    },
     "/api/v1/dispatcher/fleet" : {
       "get" : {
         "operationId" : "fleet",

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -50,9 +50,23 @@ describe('deferral decisions and history', () => {
         storesNotified: 1, storesAcknowledged: 0, items: [record] })
     }))
     const view = setup(<DeferredOrdersPage />)
-    expect(await screen.findByText('SYN-901')).toBeVisible()
+    expect(await screen.findByRole('button', { name: 'SYN-901' })).toBeVisible()
     expect(screen.getByText('2nd skip')).toBeVisible()
     expect(screen.getByText('0 / 1')).toBeVisible()
+    // Nothing is selected until the dispatcher chooses an order.
+    expect(screen.getByText(/Select an order to see who deferred it/)).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'SYN-901' }))
+    const panel = within(document.querySelector('dl[aria-label="Deferral record"]') as HTMLElement)
+    expect(panel.getByText('TEMPERATURE_COMPATIBILITY')).toBeVisible()
+    expect(panel.getByText(/Synthetic dispatcher/)).toBeVisible()
+    expect(panel.getByText('2 operating days')).toBeVisible()
+    expect(panel.getByText('Not recorded')).toBeVisible()
+    expect(panel.getByText(/2026-06-27, protected: first priority/)).toBeVisible()
+    // Filters use the server's own counts and rows.
+    await userEvent.click(screen.getByRole('button', { name: /Protected \(1\)/ }))
+    expect(screen.getByRole('button', { name: 'SYN-901' })).toBeVisible()
+    await userEvent.type(screen.getByLabelText('Search order or outlet'), 'nothing-matches')
+    expect(screen.getByText('No matching deferrals')).toBeVisible()
     view.unmount()
     vi.stubGlobal('fetch', vi.fn(async (request: Request) => {
       const url = new URL(request.url)

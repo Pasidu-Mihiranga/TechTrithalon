@@ -88,7 +88,28 @@ The day-two *publication* is proven by `DeferralIT` on the synthetic calendar. T
 
 `/v3/api-docs` lists the three new paths. `scripts/smoke.sh` gained read-only deferral checks and passes on the main stack. The main database migrated cleanly: 87 orders, `planning_date = order_date`, and source facts back-filled.
 
+## Browser and design verification (2026-10-03)
+
+Playwright (Chromium) on an isolated stack with real demo data, removed afterwards.
+
+| Check | Result |
+|---|---|
+| Queue defer dialog: Save disabled until reason code and explanation, protect/notify defaults, "What this means" panel, saved record has reason code, flags and decider | Pass (`deferral.spec.ts`) |
+| Published deferrals: Deferred Orders totals, filters, paging (Page 1 of 5), Deferral record panel; store manager sees the notices, acknowledges each once; state survives reload | Pass |
+| Store notice at 375 px: no horizontal overflow | Pass |
+| Existing specs: four role logins, invalid login, depot switcher, snapshot freeze, store order | Pass (after updating three stale selectors) |
+
+Found and fixed during this pass:
+- The queue defer dialog showed no "What this means" panel before a candidate plan existed. Added `GET /api/v1/dispatcher/deferrals/fairness` (curl: 200 with history and imported-source evidence; 400 missing ids; 404 unknown date; 401; 403; matching `traceId`/`X-Request-Id`; in `/v3/api-docs`).
+- Deferred Orders rendered every row (7,900 px tall). Added paging, filter tabs, search and the Figma "Deferral record" panel.
+- Hard-coded `badge: 3` on the Exceptions navigation item removed (no exceptions queue exists yet).
+- Step 3 invented capacities (3000 kg, 20 m³), time totals (540/360 min), fuel (300 L) and outlet names; they now come from the server data or show "unavailable".
+
+Figma comparison (Deferred Orders `48:4944`): the list plus detail layout, search/filter and the deferral record now match in structure. Intentionally not built: the **Assign / Keep** actions and the "No feasible vehicle" / "Can be assigned" cards, which need validated alternative options (explainability phase). Defer dialog frame was not compared (frame id not found in the documentation).
+
+Still failing and **not caused by this work**: `auth.spec.ts` login Tab order, and `/dispatcher/planning` overflowing by 14 px at 375 px (Step 1 filter-pill row and bottom action bar, from the earlier desktop design).
+
 ## Not yet verified
 
-- A browser journey of the defer dialog, Deferred Orders page and store notice, and a Figma visual comparison. Figma MCP was not connected in this session.
+- A Figma comparison of the defer dialog and the store notice frames.
 - The Step 4 exceptions screen still contains an earlier local "mock" fallback path for when no candidate exists. It was not changed here and needs review under the no-mock rule.

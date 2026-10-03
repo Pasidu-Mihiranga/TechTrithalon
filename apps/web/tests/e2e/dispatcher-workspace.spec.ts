@@ -14,7 +14,7 @@ test('dispatcher depot switcher scopes dashboard, orders, fleet and planning', a
   expect(names.length).toBeGreaterThan(0)
   const depot = names[0]
   const dashboard = page.waitForResponse(r => r.url().includes('/api/v1/dispatcher/dashboard?') && new URL(r.url()).searchParams.get('depot') === depot)
-  await page.getByLabel('Workspace depot').selectOption(depot)
+  await page.getByLabel('Depot', { exact: true }).first().selectOption(depot)
   expect((await dashboard).status()).toBe(200)
   for (const [route, endpoint] of [['/dispatcher/orders', '/orders'], ['/dispatcher/fleet', '/fleet']]) {
     const response = page.waitForResponse(r => r.url().includes(`/api/v1/dispatcher${endpoint}?`) && new URL(r.url()).searchParams.get('depot') === depot)
@@ -48,7 +48,7 @@ test('dispatcher screens render at desktop and phone widths without document ove
       await page.goto('/dispatcher' + route)
       await expect(page.locator('main h1')).toBeVisible()
       await expect(page.getByRole('status', { name: /^Loading/ })).toHaveCount(0)
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `document overflow at ${width}px on /dispatcher${route}`).toBe(true)
       await page.screenshot({ path: testInfo.outputPath(`${width}-${route.replaceAll('/', '-') || 'dashboard'}.png`), fullPage: true })
     }
   }

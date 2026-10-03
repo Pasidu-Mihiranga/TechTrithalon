@@ -400,3 +400,11 @@ This log tracks all development work, implementation milestones, ad-hoc tasks, a
 - One schedule source: `ArrivalCalculator.scheduleVehicleDay` is used by both `SnapshotPlanContextFactory` and `DeliveryWindowRule`. Removed the duplicate lateness check in `ManualPlanService`, which had reported a late stop twice.
 - Labelled competition rules vs Waypoint assumptions (fuel return leg, 03:30/08:00 departures, trip-2 departure, waiting vs budget) in Javadocs and TECHNICAL_REFERENCE §17. Open timing questions are recorded; no formula changed. The publish audit event now stores the computed schedule; freezing it on trip/stop rows is added to Phase 11.
 - Tests: `StopSequencerTest` (5), `ManualSequencingIT` (4), a publish-audit assertion, and `stopWindow.test.tsx` (3). Totals: API 128, web 79; typecheck, lint and build clean; isolated-stack curl/SQL and main smoke passed (see MANUAL_PLANNING_VERIFICATION).
+
+## 2026-10-03 — Browser verification and UI integration of the deferral work
+
+- Added `deferral.spec.ts` (Playwright, isolated stack only) and ran it with the existing specs on real demo data. The browser found a missing consequence panel in the queue defer dialog before a plan exists, so the fairness-by-order read endpoint was added (curl and `DeferralIT` cover it).
+- Deferred Orders is now a list plus "Deferral record" panel with filters, search and paging, matching Figma frame `48:4944` where the data exists. Assign/Keep and the feasibility cards are left for the explainability phase.
+- Removed the hard-coded Exceptions badge and the invented capacity, time, fuel and outlet-name defaults in Step 3, and added a guard test.
+- Updated stale e2e selectors (depot label, planning heading, snapshot persistence check). Still failing and unrelated: login Tab order, and `/dispatcher/planning` at 375 px (14 px overflow).
+- API 128 tests, web 80 tests, typecheck, lint, build and main-stack smoke pass.
